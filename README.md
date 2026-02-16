@@ -1,15 +1,16 @@
-## 📂 Dataset Organization
+# 📂 Dataset Organization
 
-This project is designed to work with the **[Semantic KITTI ](http://www.semantic-kitti.org)** format. Download the dataset and extract the files.
+This project uses the **[SemanticKITTI](http://www.semantic-kitti.org)** dataset format. Download the dataset and extract it before running the code.
 
-**Your file tree should look like this:**
+## Expected Directory Structure
 
 ```text
 Project_Root/
 │
-├── main.py                # The main execution script
-├── tracker.py             # The CentroidTracker class file
-├── README.md              # Project documentation
+├── main.py                # Main entry point
+├── tracker.py             # CentroidTracker implementation
+├── index.ipynb            # Step-by-step notebook
+├── README.md              # Documentation
 │
 └── dataset/
     └── sequences/
@@ -19,4 +20,13 @@ Project_Root/
                 ├── 000001.bin
                 ├── 000002.bin
                 └── ...
+```
+
+## ▶️ How to Run
+
+1. Open `index.ipynb` for a step-by-step walkthrough of the implementation.
+2. Run the full pipeline from the project root:
+
+```bash
+python main.py
 ```
