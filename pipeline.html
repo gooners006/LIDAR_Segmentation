@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LiDAR Pipeline — Full</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        font-family: sans-serif;
+        background: #fff;
+        color: #1a1a1a;
+      }
+      svg text.th {
+        font-size: 14px;
+        font-weight: 500;
+        fill: #1a1a1a;
+      }
+      svg text.ts {
+        font-size: 12px;
+        font-weight: 400;
+        fill: #5f5e5a;
+      }
+      svg text.t {
+        font-size: 14px;
+        font-weight: 400;
+        fill: #1a1a1a;
+      }
+      /* c-gray */
+      svg g.c-gray > rect,
+      svg g.c-gray > circle,
+      svg g.c-gray > ellipse {
+        fill: #f1efe8;
+        stroke: #5f5e5a;
+      }
+      svg g.c-gray text {
+        fill: #444441;
+      }
+      svg g.c-gray text.ts {
+        fill: #5f5e5a;
+      }
+      /* c-blue */
+      svg g.c-blue > rect {
+        fill: #e6f1fb;
+        stroke: #185fa5;
+      }
+      svg g.c-blue text.th {
+        fill: #0c447c;
+      }
+      svg g.c-blue text.ts {
+        fill: #185fa5;
+      }
+      /* c-teal */
+      svg g.c-teal > rect {
+        fill: #e1f5ee;
+        stroke: #0f6e56;
+      }
+      svg g.c-teal text.th {
+        fill: #085041;
+      }
+      svg g.c-teal text.ts {
+        fill: #0f6e56;
+      }
+      /* c-purple */
+      svg g.c-purple > rect {
+        fill: #eeedfe;
+        stroke: #534ab7;
+      }
+      svg g.c-purple text.th {
+        fill: #3c3489;
+      }
+      svg g.c-purple text.ts {
+        fill: #534ab7;
+      }
+      /* c-amber */
+      svg g.c-amber > rect {
+        fill: #faeeda;
+        stroke: #854f0b;
+      }
+      svg g.c-amber text.th {
+        fill: #633806;
+      }
+      svg g.c-amber text.ts {
+        fill: #854f0b;
+      }
+      /* c-coral */
+      svg g.c-coral > rect {
+        fill: #faece7;
+        stroke: #993c1d;
+      }
+      svg g.c-coral text.th {
+        fill: #712b13;
+      }
+      svg g.c-coral text.ts {
+        fill: #993c1d;
+      }
+      /* arr line style */
+      svg line.arr {
+        stroke: #888780;
+        stroke-width: 1.5;
+        fill: none;
+      }
+      svg line.leader {
+        stroke: #888780;
+        stroke-width: 0.5;
+        stroke-dasharray: 4 3;
+      }
+      /* legend fills */
+      svg rect.leg-blue {
+        fill: #e6f1fb;
+        stroke: #185fa5;
+        stroke-width: 0.5;
+      }
+      svg rect.leg-teal {
+        fill: #e1f5ee;
+        stroke: #0f6e56;
+        stroke-width: 0.5;
+      }
+      svg rect.leg-purple {
+        fill: #eeedfe;
+        stroke: #534ab7;
+        stroke-width: 0.5;
+      }
+      svg rect.leg-amber {
+        fill: #faeeda;
+        stroke: #854f0b;
+        stroke-width: 0.5;
+      }
+      svg rect.leg-coral {
+        fill: #faece7;
+        stroke: #993c1d;
+        stroke-width: 0.5;
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="100%" viewBox="0 0 780 910" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker
+          id="arrow"
+          viewBox="0 0 10 10"
+          refX="8"
+          refY="5"
+          markerWidth="6"
+          markerHeight="6"
+          orient="auto-start-reverse"
+        >
+          <path
+            d="M2 1L8 5L2 9"
+            fill="none"
+            stroke="#888780"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </marker>
+      </defs>
+
+      <!-- RAW INPUT -->
+      <g class="c-gray">
+        <rect
+          x="200"
+          y="20"
+          width="280"
+          height="52"
+          rx="8"
+          stroke-width="0.5"
+        />
+        <text
+          class="th"
+          x="340"
+          y="40"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          Raw LiDAR frame (.bin)
+        </text>
+        <text
+          class="ts"
+          x="340"
+          y="58"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          numpy float32 · shape (N, 4) · x y z intensity
+        </text>
+      </g>
+
+      <line
+        x1="340"
+        y1="72"
+        x2="340"
+        y2="102"
+        class="arr"
+        marker-end="url(#arrow)"
+      />
+
+      <!-- STEP 1 -->
+      <g class="c-blue">
+        <rect
+          x="160"
+          y="102"
+          width="360"
+          height="56"
+          rx="8"
+          stroke-width="0.5"
+        />
+        <text
+          class="th"
+          x="340"
+          y="122"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          1 · Noise removal
+        </text>
+        <text
+          class="ts"
+          x="340"
+          y="140"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          Low-Z mask (z &gt; −2.0 m) → statistical outlier removal (k=20, σ=2)
+        </text>
+      </g>
+      <text class="ts" x="528" y="132" text-anchor="start">
+        124k → ~113k pts
+      </text>
+
+      <line
+        x1="340"
+        y1="158"
+        x2="340"
+        y2="188"
+        class="arr"
+        marker-end="url(#arrow)"
+      />
+
+      <!-- STEP 2 -->
+      <g class="c-blue">
+        <rect
+          x="160"
+          y="188"
+          width="360"
+          height="56"
+          rx="8"
+          stroke-width="0.5"
+        />
+        <text
+          class="th"
+          x="340"
+          y="208"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          2 · Voxel downsampling
+        </text>
+        <text
+          class="ts"
+          x="340"
+          y="226"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          voxel_size = 0.05 m · uniform spatial density
+        </text>
+      </g>
+      <text class="ts" x="528" y="218" text-anchor="start">
+        ~113k → ~81k pts
+      </text>
+
+      <line
+        x1="340"
+        y1="244"
+        x2="340"
+        y2="274"
+        class="arr"
+        marker-end="url(#arrow)"
+      />
+
+      <!-- STEP 3 -->
+      <g class="c-teal">
+        <rect
+          x="160"
+          y="274"
+          width="360"
+          height="68"
+          rx="8"
+          stroke-width="0.5"
+        />
+        <text
+          class="th"
+          x="340"
+          y="296"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          3 · RANSAC ground removal
+        </text>
+        <text
+          class="ts"
+          x="340"
+          y="314"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          dist_thresh = 0.2 m · ransac_n = 3 · iters = 1000
+        </text>
+        <text
+          class="ts"
+          x="340"
+          y="330"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          normal check: |c| &gt; 0.5 to reject walls
+        </text>
+      </g>
+
+      <line
+        x1="280"
+        y1="342"
+        x2="200"
+        y2="372"
+        class="arr"
+        marker-end="url(#arrow)"
+      />
+      <line
+        x1="400"
+        y1="342"
+        x2="480"
+        y2="372"
+        class="arr"
+        marker-end="url(#arrow)"
+      />
+
+      <!-- Ground -->
+      <g class="c-gray">
+        <rect
+          x="120"
+          y="372"
+          width="160"
+          height="44"
+          rx="8"
+          stroke-width="0.5"
+        />
+        <text
+          class="th"
+          x="200"
+          y="387"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          Ground plane
+        </text>
+        <text
+          class="ts"
+          x="200"
+          y="405"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          discarded · gray in viz
+        </text>
+      </g>
+
+      <!-- Objects -->
+      <g class="c-teal">
+        <rect
+          x="400"
+          y="372"
+          width="160"
+          height="44"
+          rx="8"
+          stroke-width="0.5"
+        />
+        <text
+          class="th"
+          x="480"
+          y="387"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          Object points
+        </text>
+        <text
+          class="ts"
+          x="480"
+          y="405"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          non-ground only
+        </text>
+      </g>
+
+      <line
+        x1="480"
+        y1="416"
+        x2="480"
+        y2="446"
+        class="arr"
+      />
+      <line
+        x1="340"
+        y1="446"
+        x2="480"
+        y2="446"
+        class="arr"
+      />
+      <line
+        x1="340"
+        y1="446"
+        x2="340"
+        y2="466"
+        class="arr"
+        marker-end="url(#arrow)"
+      />
+
+      <!-- STEP 4 -->
+      <g class="c-purple">
+        <rect
+          x="160"
+          y="466"
+          width="360"
+          height="56"
+          rx="8"
+          stroke-width="0.5"
+        />
+        <text
+          class="th"
+          x="340"
+          y="486"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          4 · DBSCAN clustering
+        </text>
+        <text
+          class="ts"
+          x="340"
+          y="504"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          eps = 0.5 m · min_points = 10 · label −1 = noise
+        </text>
+      </g>
+
+      <line
+        x1="340"
+        y1="522"
+        x2="340"
+        y2="552"
+        class="arr"
+        marker-end="url(#arrow)"
+      />
+
+      <!-- STEP 5 -->
+      <g class="c-purple">
+        <rect
+          x="130"
+          y="552"
+          width="420"
+          height="82"
+          rx="8"
+          stroke-width="0.5"
+        />
+        <text
+          class="th"
+          x="340"
+          y="572"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          5 · Oriented bounding box + geometric filter
+        </text>
+        <text
+          class="ts"
+          x="340"
+          y="590"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          volume ∈ [0.5, 100] m³ · max_dim ≤ 8 m · med_dim ≥ 0.2 m
+        </text>
+        <text
+          class="ts"
+          x="340"
+          y="608"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          center_z ≤ 0.5 m · min 15 pts per cluster
+        </text>
+      </g>
+
+      <line
+        x1="340"
+        y1="634"
+        x2="340"
+        y2="664"
+        class="arr"
+        marker-end="url(#arrow)"
+      />
+
+      <!-- Tracking sidebar (between steps 5 and 6) -->
+      <line
+        x1="340"
+        y1="649"
+        x2="580"
+        y2="649"
+        class="leader"
+      />
+      <g class="c-gray">
+        <rect
+          x="580"
+          y="625"
+          width="180"
+          height="48"
+          rx="8"
+          stroke-width="0.5"
+        />
+        <text
+          class="th"
+          x="670"
+          y="642"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          CentroidTracker
+        </text>
+        <text
+          class="ts"
+          x="670"
+          y="660"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          Hungarian · per-frame IDs
+        </text>
+      </g>
+
+      <!-- STEP 6 -->
+      <g class="c-amber">
+        <rect
+          x="130"
+          y="664"
+          width="420"
+          height="68"
+          rx="8"
+          stroke-width="0.5"
+        />
+        <text
+          class="th"
+          x="340"
+          y="684"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          6 · Physics-based classification ★ thesis
+        </text>
+        <text
+          class="ts"
+          x="340"
+          y="702"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          bbox dims → heuristic rules → class label
+        </text>
+        <text
+          class="ts"
+          x="340"
+          y="718"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          pedestrian · car · truck · traffic sign · vegetation
+        </text>
+      </g>
+
+      <line
+        x1="340"
+        y1="732"
+        x2="340"
+        y2="762"
+        class="arr"
+        marker-end="url(#arrow)"
+      />
+
+      <!-- STEP 7 -->
+      <g class="c-coral">
+        <rect
+          x="130"
+          y="762"
+          width="420"
+          height="68"
+          rx="8"
+          stroke-width="0.5"
+        />
+        <text
+          class="th"
+          x="340"
+          y="782"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          7 · DL point cloud completion ★ thesis
+        </text>
+        <text
+          class="ts"
+          x="340"
+          y="800"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          pretrained completion network (ShapeNet trained)
+        </text>
+        <text
+          class="ts"
+          x="340"
+          y="818"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          dense output · eval: Chamfer Distance, F-Score
+        </text>
+      </g>
+
+      <line
+        x1="340"
+        y1="830"
+        x2="340"
+        y2="854"
+        class="arr"
+        marker-end="url(#arrow)"
+      />
+
+      <!-- OUTPUT -->
+      <g class="c-gray">
+        <rect
+          x="200"
+          y="854"
+          width="280"
+          height="44"
+          rx="8"
+          stroke-width="0.5"
+        />
+        <text
+          class="th"
+          x="340"
+          y="869"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          Per-object dense point cloud + class label
+        </text>
+        <text
+          class="ts"
+          x="340"
+          y="887"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          tracks.json · per-object .ply · metrics
+        </text>
+      </g>
+
+      <!-- Legend -->
+      <rect
+        x="40"
+        y="460"
+        width="110"
+        height="112"
+        rx="6"
+        fill="none"
+        stroke="#D3D1C7"
+        stroke-width="0.5"
+      />
+      <text class="ts" x="95" y="476" text-anchor="middle" fill="#888780">
+        legend
+      </text>
+      <rect class="leg-blue" x="50" y="484" width="12" height="12" rx="2" />
+      <text class="ts" x="70" y="494" fill="#444441">Preprocessing</text>
+      <rect class="leg-teal" x="50" y="504" width="12" height="12" rx="2" />
+      <text class="ts" x="70" y="514" fill="#444441">Segmentation</text>
+      <rect class="leg-purple" x="50" y="524" width="12" height="12" rx="2" />
+      <text class="ts" x="70" y="534" fill="#444441">Clustering</text>
+      <rect class="leg-amber" x="50" y="544" width="12" height="12" rx="2" />
+      <text class="ts" x="70" y="554" fill="#444441">Classification</text>
+      <rect class="leg-coral" x="50" y="564" width="12" height="12" rx="2" />
+      <text class="ts" x="70" y="574" fill="#444441">Completion</text>
+    </svg>
+  </body>
+</html>

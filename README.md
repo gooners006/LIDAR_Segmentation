@@ -1,42 +1,51 @@
-# Dataset Organization
+# LiDAR Object Segmentation & Tracking
 
-This project uses the **[SemanticKITTI](http://www.semantic-kitti.org)** dataset format. Download the dataset and extract it before running the code.
+Point cloud processing pipeline for [SemanticKITTI](http://www.semantic-kitti.org). Processes consecutive LiDAR frames through six stages:
 
-## Expected Directory Structure
+1. **Noise removal** — Z-filter + statistical outlier removal
+2. **Voxel downsampling** — uniform spatial density (0.05 m)
+3. **RANSAC ground removal** — plane fitting with normal validation
+4. **HDBSCAN clustering** — density-adaptive object segmentation
+5. **Geometric filtering** — oriented bounding box volume/dimension checks
+6. **Heuristic classification** — physics-based rules from bbox dimensions
 
-The full dataset contains 22 sequences (00–21). Each sequence follows this layout:
+Objects are tracked across frames using centroid-based Hungarian assignment. See `pipeline.html` for the full architecture diagram.
 
-```text
+## Dataset
+
+This project uses the **SemanticKITTI** dataset. Each sequence contains:
+
+```
 dataset/sequences/<seq>/
-├── velodyne/          # Point cloud frames (.bin) — required to run the pipeline
-│   ├── 000000.bin
-│   ├── 000001.bin
-│   └── ...
-├── labels/            # Semantic + instance labels (.label) — sequences 00–10 only
-│   ├── 000000.label
-│   └── ...
-├── poses.txt          # Ego-motion poses (one 3×4 matrix per line)
-├── calib.txt          # Sensor calibration
-└── times.txt          # Per-frame timestamps
+├── velodyne/    # Point cloud frames (.bin)
+├── labels/      # Semantic + instance labels (.label) — seqs 00–10
+├── poses.txt    # Ego-motion poses (camera frame)
+├── calib.txt    # Sensor calibration (velo-to-cam transform)
+└── times.txt    # Per-frame timestamps
 ```
 
-### Local vs. full dataset
-
-The full dataset (~80 GB) is not required to run the pipeline. Only sequences with `velodyne/` data present can be processed:
-
-| Sequences | velodyne | labels | Notes |
-|-----------|----------|--------|-------|
-| 00, 01 | yes | yes | Available in this local checkout |
-| 02–10 | no | yes | Full dataset only |
-| 11–21 | no | no | Test split — no labels |
-
-> The complete dataset is stored separately (Windows desktop). To run on sequences beyond 00/01, copy the relevant `velodyne/` folder(s) into `dataset/sequences/<seq>/`.
+Only sequences 00 and 01 have velodyne data in this local checkout. The full dataset (~80 GB) is stored separately.
 
 ## How to Run
 
-1. Open `index.ipynb` for a step-by-step walkthrough of the implementation.
-2. Run the full pipeline from the project root:
-
 ```bash
-python main.py
+source .venv/bin/activate
+
+# Live visualizer (opens Open3D window)
+python src/main.py
+
+# Headless with output writing
+python src/main.py --no-gui --save-output --seq 00 --frames 100
+
+# Evaluate detection quality against GT labels
+python src/evaluate.py
+
+# Data exploration notebook
+jupyter notebook notebooks/data_exploratory.ipynb
 ```
+
+## Output
+
+When run with `--save-output`, the pipeline writes:
+- `output/<seq>/objects/<track_id>.ply` — per-object accumulated point clouds
+- `output/<seq>/tracks.json` — track metadata (ID, class, frame range, centroids)

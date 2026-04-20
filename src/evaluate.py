@@ -1,88 +1,41 @@
 """Evaluate detection (segmentation) quality against SemanticKITTI ground truth labels.
 
-Compares DBSCAN clusters against GT instance segmentation using point-level IoU.
+Compares HDBSCAN clusters against GT instance segmentation using point-level IoU.
 Prints per-frame and aggregate precision, recall, and F1.
 """
 
+import argparse
 import glob
 import os
+
 import numpy as np
 import open3d as o3d
 from scipy.spatial import cKDTree
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from pipeline import PIPELINE_CONFIG, cluster_objects, filter_clusters, remove_ground
 
-# --- Configuration ---
-CONFIG = {
-    "seq": "00",
-    "max_frames": 100,
-    "z_threshold": -2.0,
-    "voxel_size": 0.05,
-    "ransac_distance_threshold": 0.2,
-    "ransac_n": 3,
-    "ransac_num_iterations": 1000,
-    "dbscan_eps": 0.5,
-    "dbscan_min_points": 10,
-    "iou_threshold": 0.3,
-    # Bounding Box Heuristics
-    "min_points_in_cluster": 15,
-    "min_volume": 0.2,
-    "max_volume": 100.0,
-    "max_dim_length": 8.0,
-    "min_max_dim": 0.5,
-    "min_med_dim": 0.2,
-    "max_height_above_gnd": 3.0,
-}
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # SemanticKITTI "thing" classes (objects with instance labels)
 THING_CLASSES = {
-    10,
-    11,
-    13,
-    15,
-    16,
-    18,
-    20,
-    30,
-    31,
-    32,
-    252,
-    253,
-    254,
-    255,
-    256,
-    257,
-    258,
-    259,
+    10, 11, 13, 15, 16, 18, 20,
+    30, 31, 32,
+    252, 253, 254, 255, 256, 257, 258, 259,
 }
-
-# --- File Paths ---
-SEQ_DIR = os.path.join(PROJECT_ROOT, f"dataset/sequences/{CONFIG['seq']}")
-bin_paths = sorted(glob.glob(os.path.join(SEQ_DIR, "velodyne/*.bin")))[
-    : CONFIG["max_frames"]
-]
-label_paths = sorted(glob.glob(os.path.join(SEQ_DIR, "labels/*.label")))[
-    : CONFIG["max_frames"]
-]
 
 
 def compute_iou(mask_a: np.ndarray, mask_b: np.ndarray) -> float:
-    """IoU between two boolean masks over the same point set."""
     intersection = (mask_a & mask_b).sum()
     union = (mask_a | mask_b).sum()
     return intersection / union if union > 0 else 0.0
 
 
 def match_detections_to_gt(det_masks: dict, gt_masks: dict, iou_thresh: float):
-    """Greedy IoU matching between detection masks and ground truth masks.
+    """Greedy IoU matching. Returns: tp, fp, fn, list of match IoUs."""
+    matched_gt: set = set()
+    matched_det: set = set()
+    match_ious: list[float] = []
 
-    Returns: tp, fp, fn, list of match IoUs.
-    """
-    matched_gt = set()
-    matched_det = set()
-    match_ious = []
-
-    # Calculate all IoUs above threshold
     pairs = []
     for det_id, det_m in det_masks.items():
         for gt_id, gt_m in gt_masks.items():
@@ -90,7 +43,6 @@ def match_detections_to_gt(det_masks: dict, gt_masks: dict, iou_thresh: float):
             if iou >= iou_thresh:
                 pairs.append((iou, det_id, gt_id))
 
-    # Greedy match: highest IoU first
     pairs.sort(reverse=True)
 
     for iou, det_id, gt_id in pairs:
@@ -107,135 +59,102 @@ def match_detections_to_gt(det_masks: dict, gt_masks: dict, iou_thresh: float):
     return tp, fp, fn, match_ious
 
 
-def evaluate_frame(frame_idx: int):
+def evaluate_frame(bin_path: str, label_path: str, iou_threshold: float):
     """Run the detection pipeline on one frame and compare to GT."""
+    cfg = PIPELINE_CONFIG
 
-    # --- 1. Load Data ---
-    points = np.fromfile(bin_paths[frame_idx], dtype=np.float32).reshape(-1, 4)
+    # --- 1. Load data ---
+    points = np.fromfile(bin_path, dtype=np.float32).reshape(-1, 4)
     xyz = points[:, :3]
 
-    raw_labels = np.fromfile(label_paths[frame_idx], dtype=np.uint32)
+    raw_labels = np.fromfile(label_path, dtype=np.uint32)
     sem = raw_labels & 0xFFFF
     inst = raw_labels >> 16
 
-    # --- 2. Z-Filter ---
-    z_mask = xyz[:, 2] > CONFIG["z_threshold"]
+    # --- 2. Preprocessing with label propagation ---
+    z_mask = xyz[:, 2] > cfg["z_threshold"]
     xyz_filtered = xyz[z_mask]
     sem_filtered = sem[z_mask]
     inst_filtered = inst[z_mask]
 
-    # --- 3. Denoise & Downsample ---
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(xyz_filtered)
     pcd_denoised, ind_denoise = pcd.remove_statistical_outlier(
-        nb_neighbors=20, std_ratio=2.0
+        nb_neighbors=cfg["denoise_nb_neighbors"],
+        std_ratio=cfg["denoise_std_ratio"],
     )
 
-    # Propagate labels through denoising
     sem_denoised = sem_filtered[ind_denoise]
     inst_denoised = inst_filtered[ind_denoise]
     xyz_denoised = np.asarray(pcd_denoised.points)
 
-    pcd_down = pcd_denoised.voxel_down_sample(voxel_size=CONFIG["voxel_size"])
+    pcd_down = pcd_denoised.voxel_down_sample(voxel_size=cfg["voxel_size"])
     xyz_down = np.asarray(pcd_down.points)
 
-    # Propagate labels to new voxel centroids via Nearest Neighbor
     tree = cKDTree(xyz_denoised)
     _, nn_idx = tree.query(xyz_down)
     sem_down = sem_denoised[nn_idx]
     inst_down = inst_denoised[nn_idx]
 
-    # --- 4. Ground Segmentation (Local Frame) ---
-    plane_model, inliers = pcd_down.segment_plane(
-        distance_threshold=CONFIG["ransac_distance_threshold"],
-        ransac_n=CONFIG["ransac_n"],
-        num_iterations=CONFIG["ransac_num_iterations"],
-    )
-    [a, b, c, d] = plane_model
-    ground_normal_len = np.sqrt(a**2 + b**2 + c**2)
+    # --- 3-5. Shared pipeline: ground removal, clustering, filtering ---
+    ground_pcd, objects_pcd, ground_plane, ground_inliers = remove_ground(pcd_down)
 
     object_mask = np.ones(len(xyz_down), dtype=bool)
-    object_mask[inliers] = False
-    objects_pcd = pcd_down.select_by_index(np.where(object_mask)[0])
+    object_mask[ground_inliers] = False
 
-    # Labels exclusively for non-ground points
     sem_obj = sem_down[object_mask]
     inst_obj = inst_down[object_mask]
 
-    # --- 5. Clustering ---
-    cluster_labels = np.array(
-        objects_pcd.cluster_dbscan(
-            eps=CONFIG["dbscan_eps"],
-            min_points=CONFIG["dbscan_min_points"],
-            print_progress=False,
-        )
-    )
+    cluster_labels = cluster_objects(objects_pcd)
+    clusters = filter_clusters(objects_pcd, cluster_labels, ground_plane)
 
-    # --- 6. Bounding Box Filtering ---
-    valid_cluster_labels = []
-
-    for label in np.unique(cluster_labels):
-        if label == -1:
-            continue
-
-        cluster_idx = np.asarray(cluster_labels == label).nonzero()[0]
-        cluster_pcd = objects_pcd.select_by_index(cluster_idx)
-
-        if len(cluster_pcd.points) < CONFIG["min_points_in_cluster"]:
-            continue
-
-        bbox = cluster_pcd.get_oriented_bounding_box()
-        volume = bbox.volume()
-        if volume < CONFIG["min_volume"] or volume > CONFIG["max_volume"]:
-            continue
-
-        sorted_ext = np.sort(bbox.extent)
-        if sorted_ext[2] > CONFIG["max_dim_length"]:
-            continue
-        if (
-            sorted_ext[2] < CONFIG["min_max_dim"]
-            or sorted_ext[1] < CONFIG["min_med_dim"]
-        ):
-            continue
-
-        center = bbox.get_center()
-        height_above_ground = (
-            a * center[0] + b * center[1] + c * center[2] + d
-        ) / ground_normal_len
-        if height_above_ground > CONFIG["max_height_above_gnd"]:
-            continue
-
-        valid_cluster_labels.append(label)
-
-    # --- 7. Prepare Masks for Evaluation ---
+    # --- 6. Prepare masks for evaluation ---
+    valid_cluster_labels = [cl for _, cl in clusters]
     det_masks = {cl: (cluster_labels == cl) for cl in valid_cluster_labels}
 
-    # Build GT instance masks (thing classes only, over object points)
     thing_mask = np.isin(sem_obj, list(THING_CLASSES))
     gt_instances = np.unique(inst_obj[thing_mask])
-    gt_instances = gt_instances[gt_instances > 0]  # Skip 0 (unlabeled/background)
+    gt_instances = gt_instances[gt_instances > 0]
 
     gt_masks = {}
     for gi in gt_instances:
         m = (inst_obj == gi) & thing_mask
-        if m.sum() >= 10:  # Ignore microscopic/residual GT instances
+        if m.sum() >= 10:
             gt_masks[gi] = m
 
-    # --- 8. Match & Evaluate ---
-    return match_detections_to_gt(det_masks, gt_masks, CONFIG["iou_threshold"])
+    # --- 7. Match & evaluate ---
+    return match_detections_to_gt(det_masks, gt_masks, iou_threshold)
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Evaluate detection against GT")
+    parser.add_argument("--seq", default="00", help="Sequence ID")
+    parser.add_argument("--frames", type=int, default=100, help="Max frames")
+    parser.add_argument(
+        "--iou-threshold", type=float, default=0.3, help="IoU threshold"
+    )
+    args = parser.parse_args()
+
+    seq_dir = os.path.join(PROJECT_ROOT, f"dataset/sequences/{args.seq}")
+    bin_paths = sorted(glob.glob(os.path.join(seq_dir, "velodyne/*.bin")))[
+        : args.frames
+    ]
+    label_paths = sorted(glob.glob(os.path.join(seq_dir, "labels/*.label")))[
+        : args.frames
+    ]
+
     total_tp, total_fp, total_fn = 0, 0, 0
-    all_ious = []
+    all_ious: list[float] = []
 
     num_frames = len(bin_paths)
-    print(f"Evaluating detection on {num_frames} frames (sequence {CONFIG['seq']})...")
-    print(f"IoU threshold: {CONFIG['iou_threshold']}")
+    print(f"Evaluating detection on {num_frames} frames (sequence {args.seq})...")
+    print(f"IoU threshold: {args.iou_threshold}")
     print("-" * 80)
 
     for i in range(num_frames):
-        tp, fp, fn, ious = evaluate_frame(i)
+        tp, fp, fn, ious = evaluate_frame(
+            bin_paths[i], label_paths[i], args.iou_threshold
+        )
 
         total_tp += tp
         total_fp += fp

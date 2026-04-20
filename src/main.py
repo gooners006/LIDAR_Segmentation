@@ -1,193 +1,128 @@
+import argparse
 import glob
+import json
 import os
+
+import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
-import matplotlib.pyplot as plt
+
+from classifier import classify_bbox
+from pipeline import (
+    PIPELINE_CONFIG,
+    cluster_objects,
+    filter_clusters,
+    load_calib,
+    load_poses,
+    preprocess_frame,
+    remove_ground,
+)
 from tracker import CentroidTracker
 
-# --- 1. Configuration & Parameters ---
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Preprocessing & Voxelization
-Z_THRESHOLD = -2.0
-VOXEL_SIZE = 0.05
 
-# RANSAC (Local Frame)
-RANSAC_DISTANCE_THRESHOLD = 0.2
-RANSAC_N = 3
-RANSAC_ITERATIONS = 1000
+def parse_args():
+    parser = argparse.ArgumentParser(description="LiDAR segmentation pipeline")
+    parser.add_argument("--seq", default="00", help="Sequence ID")
+    parser.add_argument("--frames", type=int, default=100, help="Max frames to process")
+    parser.add_argument(
+        "--save-output", action="store_true", help="Write .ply and tracks.json"
+    )
+    parser.add_argument(
+        "--no-gui", action="store_true", help="Disable Open3D visualization"
+    )
+    return parser.parse_args()
 
-# Clustering (DBSCAN)
-DBSCAN_EPS = 0.5
-DBSCAN_MIN_POINTS = 10
 
-# Bounding Box Heuristics
-FILTER_CONFIG = {
-    "min_points_in_cluster": 15,
-    "min_volume": 0.2,  # m^3
-    "max_volume": 100.0,  # m^3
-    "max_dim_length": 8.0,  # Avoid long walls/fences
-    "min_max_dim": 0.5,  # Smallest allowed 'longest' dimension
-    "min_med_dim": 0.2,  # Smallest allowed 'medium' dimension
-    "max_height_above_gnd": 3.0,
-}
+def main():
+    args = parse_args()
 
-# --- 2. Setup File Paths ---
-bin_paths = sorted(
-    glob.glob(os.path.join(PROJECT_ROOT, "dataset/sequences/00/velodyne/*.bin"))
-)[:100]
+    # --- File paths ---
+    seq_dir = os.path.join(PROJECT_ROOT, f"dataset/sequences/{args.seq}")
+    bin_paths = sorted(glob.glob(os.path.join(seq_dir, "velodyne/*.bin")))[
+        : args.frames
+    ]
 
-poses_path = os.path.join(PROJECT_ROOT, "dataset/sequences/00/poses.txt")
-poses = []
-with open(poses_path, "r") as f:
-    for line in f:
-        values = np.array([float(x) for x in line.strip().split()])
-        T = np.eye(4)
-        T[:3, :] = values.reshape(3, 4)
-        poses.append(T)
+    poses = load_poses(os.path.join(seq_dir, "poses.txt"))
+    calib = load_calib(os.path.join(seq_dir, "calib.txt"))
+    Tr = calib["Tr"]
 
-# --- 3. Initialize Visualizer & Geometries ---
-vis = o3d.visualization.Visualizer()
-vis.create_window(window_name="LiDAR Tracking Stream", width=1920, height=1440)
+    # --- Tracker ---
+    tracker = CentroidTracker(
+        max_distance=PIPELINE_CONFIG["tracker_max_distance"],
+        max_disappeared=PIPELINE_CONFIG["tracker_max_disappeared"],
+    )
 
-opt = vis.get_render_option()
-opt.background_color = np.asarray([0, 0, 0])
-opt.point_size = 2.0
+    # --- Visualization ---
+    vis = None
+    pcd_geo_ground = o3d.geometry.PointCloud()
+    pcd_geo_objects = o3d.geometry.PointCloud()
+    prev_bboxes = []
+    vis_initialized = False
 
-# Pre-allocate point cloud geometries for efficient updating
-pcd_geo_ground = o3d.geometry.PointCloud()
-pcd_geo_objects = o3d.geometry.PointCloud()
-vis.add_geometry(pcd_geo_ground)
-vis.add_geometry(pcd_geo_objects)
+    if not args.no_gui:
+        vis = o3d.visualization.Visualizer()
+        vis.create_window(window_name="LiDAR Tracking Stream", width=1280, height=720)
+        opt = vis.get_render_option()
+        opt.background_color = np.asarray([0, 0, 0])
+        opt.point_size = 2.0
 
-prev_bboxes = []  # To keep track of geometries we need to remove from the visualizer
+    # --- Accumulation state (for --save-output) ---
+    track_points: dict[int, list[np.ndarray]] = {}
+    track_classes: dict[int, str] = {}
+    track_frames: dict[int, list[int]] = {}
+    track_centroids: dict[int, list[list[float]]] = {}
 
-# --- 4. Initialize Tracker ---
-tracker = CentroidTracker(max_distance=5.0, max_disappeared=15)
-
-# --- 5. Main Loop ---
-if __name__ == "__main__":
+    # --- Main loop ---
     print(f"Starting playback for {len(bin_paths)} frames...")
+    cmap = plt.get_cmap("tab20")
 
     for frame_idx, bin_path in enumerate(bin_paths):
 
-        # --- A. Load Data ---
+        # --- A. Load ---
         points = np.fromfile(bin_path, dtype=np.float32).reshape(-1, 4)
         xyz = points[:, :3]
 
-        # --- B. Local Frame Processing ---
-
-        # Step 1: Filter Z and downsample in LOCAL frame
-        mask = xyz[:, 2] > Z_THRESHOLD
-        xyz_filtered = xyz[mask]
-
-        pcd_local = o3d.geometry.PointCloud()
-        pcd_local.points = o3d.utility.Vector3dVector(xyz_filtered)
-        pcd_denoised, _ = pcd_local.remove_statistical_outlier(
-            nb_neighbors=20, std_ratio=2.0
+        # --- B. Steps 1-5 in local frame ---
+        pcd_down = preprocess_frame(xyz)
+        ground_pcd, objects_pcd, ground_plane, _ = remove_ground(pcd_down)
+        labels = cluster_objects(objects_pcd)
+        n_clusters = (
+            int(labels.max() + 1) if len(labels) > 0 and labels.max() >= 0 else 0
         )
-        pcd_down = pcd_denoised.voxel_down_sample(voxel_size=VOXEL_SIZE)
+        clusters = filter_clusters(objects_pcd, labels, ground_plane)
 
-        # Step 2: Ground Segmentation in LOCAL frame
-        plane_model, inliers = pcd_down.segment_plane(
-            distance_threshold=RANSAC_DISTANCE_THRESHOLD,
-            ransac_n=RANSAC_N,
-            num_iterations=RANSAC_ITERATIONS,
-        )
-
-        [a, b, c, d] = plane_model
-        ground_normal_len = np.sqrt(a**2 + b**2 + c**2)
-
-        ground_pcd = pcd_down.select_by_index(inliers)
-        objects_pcd = pcd_down.select_by_index(inliers, invert=True)
-
-        # Step 3: Clustering
-        # Turn off print_progress to avoid console spam
-        labels = np.array(
-            objects_pcd.cluster_dbscan(
-                eps=DBSCAN_EPS, min_points=DBSCAN_MIN_POINTS, print_progress=False
-            )
-        )
-
-        # Step 4: Bounding Box Extraction & Filtering (Local)
-        T = poses[frame_idx]
+        # --- C. Step 6: Classification (local frame) ---
         bbox_objects = []
         bbox_cluster_labels = []
+        cluster_classes = []
 
-        unique_labels = np.unique(labels)
-        n_clusters = int(labels.max() + 1) if labels.max() >= 0 else 0
-        rejected = {
-            "few_points": 0,
-            "volume": 0,
-            "max_dim": 0,
-            "min_dim": 0,
-            "height": 0,
-        }
+        for bbox, cluster_label in clusters:
+            result = classify_bbox(bbox.extent, bbox.get_center())
+            cluster_classes.append(result.label)
 
-        for label in unique_labels:
-            if label == -1:
-                continue
-
-            cluster_indices = np.asarray(labels == label).nonzero()[0]
-            cluster_pcd = objects_pcd.select_by_index(cluster_indices)
-
-            # Filter: Minimum points
-            if len(cluster_pcd.points) < FILTER_CONFIG["min_points_in_cluster"]:
-                rejected["few_points"] += 1
-                continue
-
-            bbox = cluster_pcd.get_oriented_bounding_box()
-
-            # Filter: Volume
-            volume = bbox.volume()
-            if (
-                volume < FILTER_CONFIG["min_volume"]
-                or volume > FILTER_CONFIG["max_volume"]
-            ):
-                rejected["volume"] += 1
-                continue
-
-            # Filter: Dimensions
-            extent = bbox.extent
-            sorted_ext = np.sort(extent)
-            min_dim, med_dim, max_dim = sorted_ext[0], sorted_ext[1], sorted_ext[2]
-
-            if max_dim > FILTER_CONFIG["max_dim_length"]:
-                rejected["max_dim"] += 1
-                continue
-            if (
-                max_dim < FILTER_CONFIG["min_max_dim"]
-                or med_dim < FILTER_CONFIG["min_med_dim"]
-            ):
-                rejected["min_dim"] += 1
-                continue
-
-            # Filter: Height above local ground plane
-            center = bbox.get_center()
-            height_above_ground = (
-                a * center[0] + b * center[1] + c * center[2] + d
-            ) / ground_normal_len
-            if height_above_ground > FILTER_CONFIG["max_height_above_gnd"]:
-                rejected["height"] += 1
-                continue
-
-            # --- Transform passed Bounding Box to GLOBAL frame ---
-            bbox.transform(T)
+            bbox_cluster_labels.append(cluster_label)
             bbox_objects.append(bbox)
-            bbox_cluster_labels.append(label)
 
-        # --- C. Transform Point Clouds to Global Frame ---
-        ground_pcd.transform(T)
-        objects_pcd.transform(T)
+        # --- D. Transform to global frame ---
+        T_total = poses[frame_idx] @ Tr
 
+        R_total = T_total[:3, :3]
+        t_total = T_total[:3, 3]
+        for bbox in bbox_objects:
+            bbox.rotate(R_total, center=np.zeros(3))
+            bbox.translate(t_total)
+
+        ground_pcd.transform(T_total)
+        objects_pcd.transform(T_total)
         ground_pcd.paint_uniform_color([0.5, 0.5, 0.5])
 
-        # --- D. Tracking (Global Frame) ---
+        # --- E. Tracking (global frame) ---
         tracked_objects, assignments = tracker.update(bbox_objects)
 
-        # Step 6: Color global points and bboxes by track ID
-        cmap = plt.get_cmap("tab20")
-        point_colors = np.zeros((len(labels), 3))  # Default black for noise/untracked
+        # Color by track ID
+        point_colors = np.zeros((len(labels), 3))
 
         for bbox_idx, track_id in assignments.items():
             color = np.array(cmap(track_id % 20)[:3])
@@ -195,45 +130,102 @@ if __name__ == "__main__":
             point_colors[labels == cluster_label] = color
             bbox_objects[bbox_idx].color = color
 
+            # Accumulate for output
+            if args.save_output:
+                if track_id not in track_points:
+                    track_points[track_id] = []
+                    track_classes[track_id] = cluster_classes[bbox_idx]
+                    track_frames[track_id] = []
+                    track_centroids[track_id] = []
+
+                cluster_pts = np.asarray(objects_pcd.points)[labels == cluster_label]
+                track_points[track_id].append(cluster_pts)
+                track_frames[track_id].append(frame_idx)
+                track_centroids[track_id].append(
+                    bbox_objects[bbox_idx].get_center().tolist()
+                )
+
         objects_pcd.colors = o3d.utility.Vector3dVector(point_colors)
 
-        # --- E. Visualization Update ---
+        # --- F. Visualization ---
+        if vis is not None:
+            pcd_geo_ground.points = ground_pcd.points
+            pcd_geo_ground.colors = ground_pcd.colors
+            pcd_geo_objects.points = objects_pcd.points
+            pcd_geo_objects.colors = objects_pcd.colors
 
-        # 1. Efficiently update point cloud geometry data
-        pcd_geo_ground.points = ground_pcd.points
-        pcd_geo_ground.colors = ground_pcd.colors
+            if not vis_initialized:
+                vis.add_geometry(pcd_geo_ground)
+                vis.add_geometry(pcd_geo_objects)
+                vis_initialized = True
+            else:
+                vis.update_geometry(pcd_geo_ground)
+                vis.update_geometry(pcd_geo_objects)
 
-        pcd_geo_objects.points = objects_pcd.points
-        pcd_geo_objects.colors = objects_pcd.colors
+            for bbox in prev_bboxes:
+                vis.remove_geometry(bbox, reset_bounding_box=False)
+            for bbox in bbox_objects:
+                vis.add_geometry(bbox, reset_bounding_box=False)
+            prev_bboxes = bbox_objects
 
-        vis.update_geometry(pcd_geo_ground)
-        vis.update_geometry(pcd_geo_objects)
+            ctr = vis.get_view_control()
+            ego_pos = T_total[:3, 3]
+            ctr.set_lookat(ego_pos)
+            ctr.set_zoom(0.15)
+            if frame_idx == 0:
+                ctr.rotate(-200.0, 150.0)
 
-        # 2. Manage bounding box geometries manually
-        for bbox in prev_bboxes:
-            vis.remove_geometry(bbox, reset_bounding_box=False)
+            vis.poll_events()
+            vis.update_renderer()
 
-        for bbox in bbox_objects:
-            vis.add_geometry(bbox, reset_bounding_box=False)
-
-        prev_bboxes = bbox_objects
-
-        # 3. Control camera (Follow ego vehicle in global frame)
-        ctr = vis.get_view_control()
-        ego_pos = T[:3, 3]
-        ctr.set_lookat(ego_pos)
-        ctr.set_zoom(0.15)
-
-        # Initialize rotation only on the first frame to allow manual control later
-        if frame_idx == 0:
-            ctr.rotate(0.0, -350.0)
-
-        vis.poll_events()
-        vis.update_renderer()
+        # --- G. Print ---
+        class_counts: dict[str, int] = {}
+        for cls in cluster_classes:
+            class_counts[cls] = class_counts.get(cls, 0) + 1
 
         print(
-            f"Frame {frame_idx:03d}: {n_clusters} clusters, {len(bbox_objects)} passed filters, "
-            f"tracking {len(tracker.objects)} objects | rejected: {rejected}"
+            f"Frame {frame_idx:03d}: {n_clusters} clusters, "
+            f"{len(bbox_objects)} passed, "
+            f"tracking {len(tracker.objects)} | classes: {class_counts}"
         )
 
-    vis.run()
+    # --- Output writing ---
+    if args.save_output:
+        output_dir = os.path.join(PROJECT_ROOT, f"output/{args.seq}/objects")
+        os.makedirs(output_dir, exist_ok=True)
+
+        tracks_meta = []
+        for track_id, pts_list in track_points.items():
+            all_pts = np.vstack(pts_list)
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(all_pts)
+            o3d.io.write_point_cloud(os.path.join(output_dir, f"{track_id}.ply"), pcd)
+
+            tracks_meta.append(
+                {
+                    "track_id": track_id,
+                    "class": track_classes[track_id],
+                    "first_frame": min(track_frames[track_id]),
+                    "last_frame": max(track_frames[track_id]),
+                    "point_count": len(all_pts),
+                    "centroid_history": track_centroids[track_id],
+                }
+            )
+
+        meta = {
+            "sequence": args.seq,
+            "frames_processed": len(bin_paths),
+            "tracks": tracks_meta,
+        }
+        json_path = os.path.join(PROJECT_ROOT, f"output/{args.seq}/tracks.json")
+        with open(json_path, "w") as f:
+            json.dump(meta, f, indent=2)
+
+        print(f"Saved {len(tracks_meta)} tracks to {output_dir}")
+
+    if vis is not None:
+        vis.run()
+
+
+if __name__ == "__main__":
+    main()
