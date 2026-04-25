@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+**Start of session:** Read `docs/session_summary.md` for a recap of previous sessions, open issues, and what's next.
+
 ## Thesis Context
 
 Master thesis research: LiDAR point cloud segmentation & object completion on SemanticKITTI. The project is in the **research & experimentation phase** — the focus is on iterating on ideas, running experiments, and measuring results, not production code.

@@ -59,3 +59,52 @@ New:       src/pipeline.py, src/classifier.py, src/completion.py
 New:       docs/findings.md, docs/pipeline_feedback.md
 Deleted:   docs/plan.md
 ```
+
+---
+
+# Session Summary — 2026-04-25
+
+## What was done
+
+### 1. ShapeNetCore exploration in notebook
+Added section 8 to `notebooks/data_exploratory.ipynb` — explores ShapeNetCore v2 from HuggingFace, focused on three KITTI-relevant categories:
+- **car** (`02958343.zip`, ~5.7 GB), **bus** (`02924116.zip`, ~727 MB), **motorcycle** (`03790512.zip`, ~572 MB)
+- Subsections 8.1–8.7: repo listing via `HfApi`, WordNet synset resolution, KITTI mapping, zip structure inspection, sample model visualization with `trimesh`, mesh statistics, complete vs simulated partial LiDAR comparison.
+- All data fetched dynamically from HuggingFace API — no hardcoded values.
+
+### 2. New dependencies installed
+- `huggingface_hub` — download from gated HF repos (`pip install huggingface_hub`)
+- `trimesh` — load OBJ meshes, sample point clouds from surfaces (`pip install trimesh`)
+
+### 3. HuggingFace authentication
+- Logged in via `from huggingface_hub import login; login(token='...')`. Token stored locally.
+- `huggingface-cli login` is **deprecated and broken** — always use the Python API.
+- Listing repo files works without auth; downloading from gated repos requires auth.
+
+### 4. Session summary skill created
+- Created `.claude/skills/session-summary/SKILL.md` — triggers on "update session summary", "wrap up", "end of session", etc.
+- Reads `docs/session_summary.md`, reviews conversation, appends new dated entry, shows draft before writing.
+
+### 5. CLAUDE.md updated
+- Added directive at top: "Read `docs/session_summary.md` for a recap of previous sessions."
+
+## Environment notes
+- ShapeNet zip naming: WordNet 3.0 noun synset offsets (8-digit). Resolve with `nltk.corpus.wordnet.synset_from_pos_and_offset('n', int(sid))`.
+- OBJ models pre-aligned: +Y up, -Z front. Path inside zip: `<synsetId>/<modelId>/models/model_normalized.obj`.
+- `DATA.md` in the HF repo documents format and alignment conventions.
+
+## What's next
+
+### Immediate
+1. **Run notebook end-to-end** to verify all ShapeNet cells execute (Ran, verified).
+2. **Mesh stats for car** (~7k models) may be slow — consider sampling a subset.
+
+### Medium-term
+3. **Connect ShapeNet to completion pipeline.** Use `trimesh.sample()` for dense point clouds, apply `simulate_lidar_noise()` from `completion.py` for partial inputs, train completion network.
+4. **Scale analysis.** ShapeNet models are normalized — need real-world scaling factors to match KITTI object dimensions.
+
+## Files changed
+```
+Modified:  CLAUDE.md, .gitignore, docs/session_summary.md, notebooks/data_exploratory.ipynb
+New:       .claude/skills/session-summary/SKILL.md
+```
