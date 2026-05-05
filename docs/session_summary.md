@@ -108,3 +108,57 @@ Added section 8 to `notebooks/data_exploratory.ipynb` — explores ShapeNetCore 
 Modified:  CLAUDE.md, .gitignore, docs/session_summary.md, notebooks/data_exploratory.ipynb
 New:       .claude/skills/session-summary/SKILL.md
 ```
+
+---
+
+# Session Summary — 2026-05-05
+
+## What was done
+
+### 1. PCN model implemented (`src/pcn.py`)
+Built Point Completion Network (Yuan et al., 2018) from scratch:
+- **PCNEncoder**: Stacked PointNet — Conv1d 3→128→256 (stage1), concat global feature back, Conv1d 512→512→1024 (stage2), max pool → (B, 1024). 6.87M params total.
+- **PCNDecoder**: FC 1024→1024→1024→3072 → coarse (B, 1024, 3); 4×4 grid folding with fold_mlp Conv1d 1029→512→512→3 → fine (B, 16384, 3).
+- **`chamfer_distance_chunked`**: Per-sample loop with `torch.cdist`, chunk_size=2048. Avoids 16384×16384 distance matrix OOM.
+- **`pcn_loss`**: Coarse CD (1024 vs 1024) + 0.5 × fine CD (subsampled to 4096 vs 4096 via `torch.randint` + `torch.gather`).
+
+### 2. Training script (`src/train_pcn.py`)
+- **`ShapeNetCompletionDataset`**: Loads OBJ meshes with trimesh, scales to real-world dims (car=4.5m, bus=10m, motorcycle=2.2m), samples 16384 GT points, generates partials via Open3D `RaycastingScene` depth rendering (256×256) from random viewpoints (elev [-20°,30°], azim [0°,360°], radius [2.5,4.5]m), back-projects to 3D, subsamples to 2048.
+- Training: Adam lr=1e-4, StepLR (×0.5 every 40 epochs), batch=8, 100 epochs. Logs to CSV, checkpoints every 10 epochs + best.
+- 3,834 train samples, ~0.69s per sample load time.
+- **Training is currently running** in a separate terminal.
+
+### 3. Dataset documentation (`docs/datasets.md`)
+Documents both datasets: SemanticKITTI (22 seqs, 41,624 frames, file formats, thing classes, coordinate system) and ShapeNetCore v2 (4,809 models: 3,533 car, 939 bus, 337 motorcycle; OBJ format, alignment conventions).
+
+### 4. PCN architecture documentation (`docs/pcn/`)
+Three detailed breakdown docs:
+- `pcn_encoder.md` — step-by-step encoder with tensor shapes, stacked vs vanilla PointNet comparison
+- `pcn_decoder.md` — coarse FC, 2D grid construction, tiling mechanics, folding MLP, residual offsets
+- `pcn_loss.md` — Chamfer Distance explanation, chunking algorithm, memory budget table, subsampling via `torch.gather`
+- `pcn.md` — main overview linking to the three sub-docs
+
+### 5. PyTorch with CUDA installed
+`pip install torch --index-url https://download.pytorch.org/whl/cu124` — verified CUDA available on RTX 3070 Ti.
+
+## Environment notes
+- User's markdown viewer doesn't support LaTeX `$...$` — use backtick code formatting for math expressions.
+- Open3D `RaycastingScene` tensor API is the correct way to generate synthetic partial point clouds (viewpoint-dependent occlusion).
+
+## What's next
+
+### Immediate
+1. **Review code.** User is currently reviewing `src/pcn.py`; `src/train_pcn.py` is next in line.
+2. **Check training results.** Training is running — inspect loss curves in CSV, evaluate checkpoint quality.
+3. **Add EMD loss.** User explicitly asked to be reminded. Sinkhorn approximation for coarse output to improve density uniformity.
+
+### Medium-term
+4. **Evaluate on KITTI objects.** Run trained PCN on real partial point clouds extracted by the segmentation pipeline (Step 7 integration).
+5. **Domain adaptation.** Bridge ShapeNet→KITTI gap — `simulate_lidar_noise()` from `completion.py` as augmentation during fine-tuning.
+6. **Try stronger architectures.** PoinTr or SeedFormer if PCN quality is insufficient for thesis.
+
+## Files changed
+```
+Modified:  .gitignore, docs/references.bib
+New:       src/pcn.py, src/train_pcn.py, docs/datasets.md, docs/pcn/pcn.md, docs/pcn/pcn_encoder.md, docs/pcn/pcn_decoder.md, docs/pcn/pcn_loss.md
+```
