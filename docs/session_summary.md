@@ -126,19 +126,37 @@ Built Point Completion Network (Yuan et al., 2018) from scratch:
 - **`ShapeNetCompletionDataset`**: Loads OBJ meshes with trimesh, scales to real-world dims (car=4.5m, bus=10m, motorcycle=2.2m), samples 16384 GT points, generates partials via Open3D `RaycastingScene` depth rendering (256×256) from random viewpoints (elev [-20°,30°], azim [0°,360°], radius [2.5,4.5]m), back-projects to 3D, subsamples to 2048.
 - Training: Adam lr=1e-4, StepLR (×0.5 every 40 epochs), batch=8, 100 epochs. Logs to CSV, checkpoints every 10 epochs + best.
 - 3,834 train samples, ~0.69s per sample load time.
-- **Training is currently running** in a separate terminal.
+- **Training completed** (100 epochs, ~18h total on RTX 3070 Ti).
 
-### 3. Dataset documentation (`docs/datasets.md`)
+### 3. PCN training results
+Training ran 100 epochs on 3,834 ShapeNet samples (car/bus/motorcycle). Key metrics:
+
+| Epoch | Train Loss | Val Loss | Val CD Coarse | Val CD Fine | Val F-Score | LR |
+|---|---|---|---|---|---|---|
+| 1 | 0.672 | 0.586 | 0.396 | 0.380 | — | 1e-4 |
+| 10 | 0.463 | 0.448 | 0.317 | 0.261 | 0.748 | 1e-4 |
+| 40 | 0.403 | 0.400 | 0.287 | 0.225 | 0.809 | 5e-5 |
+| 58 | 0.384 | 0.376 | 0.272 | 0.210 | — | 5e-5 |
+| 80 | 0.380 | 0.374 | 0.270 | 0.209 | 0.839 | 2.5e-5 |
+| 100 | 0.371 | 0.375 | 0.270 | 0.210 | 0.841 | 2.5e-5 |
+
+- **Best checkpoint** (`pcn_best.pth`): epoch 80, val_loss=0.374, F-Score=0.839.
+- Loss converged around epoch 60–70; final 30 epochs show minimal improvement (val loss plateau ~0.374).
+- LR schedule: 1e-4 → 5e-5 (epoch 40) → 2.5e-5 (epoch 80). Each LR drop gave a small improvement.
+- F-Score peaked at 0.841 (epoch 100), indicating good shape reconstruction quality on ShapeNet.
+- Checkpoints saved: every 10 epochs + best + last (13 files in `checkpoints/`).
+
+### 4. Dataset documentation (`docs/datasets.md`)
 Documents both datasets: SemanticKITTI (22 seqs, 41,624 frames, file formats, thing classes, coordinate system) and ShapeNetCore v2 (4,809 models: 3,533 car, 939 bus, 337 motorcycle; OBJ format, alignment conventions).
 
-### 4. PCN architecture documentation (`docs/pcn/`)
+### 5. PCN architecture documentation (`docs/pcn/`)
 Three detailed breakdown docs:
 - `pcn_encoder.md` — step-by-step encoder with tensor shapes, stacked vs vanilla PointNet comparison
 - `pcn_decoder.md` — coarse FC, 2D grid construction, tiling mechanics, folding MLP, residual offsets
 - `pcn_loss.md` — Chamfer Distance explanation, chunking algorithm, memory budget table, subsampling via `torch.gather`
 - `pcn.md` — main overview linking to the three sub-docs
 
-### 5. PyTorch with CUDA installed
+### 6. PyTorch with CUDA installed
 `pip install torch --index-url https://download.pytorch.org/whl/cu124` — verified CUDA available on RTX 3070 Ti.
 
 ## Environment notes
@@ -148,14 +166,13 @@ Three detailed breakdown docs:
 ## What's next
 
 ### Immediate
-1. **Review code.** User is currently reviewing `src/pcn.py`; `src/train_pcn.py` is next in line.
-2. **Check training results.** Training is running — inspect loss curves in CSV, evaluate checkpoint quality.
-3. **Add EMD loss.** User explicitly asked to be reminded. Sinkhorn approximation for coarse output to improve density uniformity.
+1. **Qualitative evaluation.** Visualize PCN completions on ShapeNet test samples to inspect output quality (coarse vs fine).
+2. **Evaluate on KITTI objects.** Run trained PCN on real partial point clouds extracted by the segmentation pipeline (Step 7 integration) — this is the key domain-transfer test.
+3. **Add EMD loss.** Sinkhorn approximation for coarse output to improve density uniformity.
 
 ### Medium-term
-4. **Evaluate on KITTI objects.** Run trained PCN on real partial point clouds extracted by the segmentation pipeline (Step 7 integration).
-5. **Domain adaptation.** Bridge ShapeNet→KITTI gap — `simulate_lidar_noise()` from `completion.py` as augmentation during fine-tuning.
-6. **Try stronger architectures.** PoinTr or SeedFormer if PCN quality is insufficient for thesis.
+4. **Domain adaptation.** Bridge ShapeNet→KITTI gap — `simulate_lidar_noise()` from `completion.py` as augmentation during fine-tuning on real data.
+5. **Try stronger architectures.** PoinTr or SeedFormer if PCN quality is insufficient for thesis.
 
 ## Files changed
 ```
