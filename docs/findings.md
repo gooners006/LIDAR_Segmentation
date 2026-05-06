@@ -49,3 +49,11 @@ height = (a*cx + b*cy + c*cz + d) / sqrt(a^2 + b^2 + c^2)
 ```
 
 Falls back to raw z when no ground plane was fitted (e.g. plane normal rejected). Threshold raised from 0.5m (sensor-relative) to 3.0m (ground-relative) to match the new reference frame.
+
+## 3. BEV Representation as Future Research Direction (2026-05-06)
+
+**Context:** Exploring alternative scene representations beyond raw 3D point clouds for the completion and segmentation pipeline.
+
+**Finding:** Bird's-Eye View (BEV) representation models project LiDAR 3D point clouds into a flat 2D top-down perspective. This representation compresses the vertical dimension while preserving spatial layout, making it amenable to efficient 2D convolution-based architectures. BEV is widely used in autonomous driving perception pipelines (e.g., BEVFormer, BEVFusion) for object detection, semantic segmentation, and occupancy prediction. It could complement the current 3D point-based pipeline by providing a more computationally efficient alternative for scene-level understanding.
+
+**Decision:** Noted as a future research direction. No immediate action — current focus remains on PCN completion and KITTI evaluation.

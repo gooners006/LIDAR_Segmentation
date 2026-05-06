@@ -165,17 +165,53 @@ Three detailed breakdown docs:
 
 ## What's next
 
-### Immediate
-1. **Qualitative evaluation.** Visualize PCN completions on ShapeNet test samples to inspect output quality (coarse vs fine).
-2. **Evaluate on KITTI objects.** Run trained PCN on real partial point clouds extracted by the segmentation pipeline (Step 7 integration) — this is the key domain-transfer test.
-3. **Add EMD loss.** Sinkhorn approximation for coarse output to improve density uniformity.
-
-### Medium-term
-4. **Domain adaptation.** Bridge ShapeNet→KITTI gap — `simulate_lidar_noise()` from `completion.py` as augmentation during fine-tuning on real data.
-5. **Try stronger architectures.** PoinTr or SeedFormer if PCN quality is insufficient for thesis.
+*See 2026-05-06 for updated next steps.*
 
 ## Files changed
 ```
 Modified:  .gitignore, docs/references.bib
 New:       src/pcn.py, src/train_pcn.py, docs/datasets.md, docs/pcn/pcn.md, docs/pcn/pcn_encoder.md, docs/pcn/pcn_decoder.md, docs/pcn/pcn_loss.md
+```
+
+---
+
+# Session Summary — 2026-05-06
+
+## What was done
+
+### 1. Progress report written
+- Created LaTeX progress report (`docs/report/progress_report_2026_05_06.tex`) covering full project history (Feb–May 2026).
+- Follows FPT university template format (header/footer, title page, IEEEtran bibliography).
+- Recent work (April 25 onward) highlighted with a blue `tcolorbox` banner.
+- Compiled successfully to 9-page PDF. Advisor name corrected to Dr. Doan Nhat Quang.
+
+### 2. LaTeX report skill created
+- Created `.claude/skills/latex-report/SKILL.md` — triggers on "report", "thesis", "writeup", "latex", etc.
+- Auto-gathers context from session_summary.md, findings.md, git log, training logs, references.bib.
+- Presents summary and asks for input before writing. Outputs to `docs/report/`.
+
+### 3. Report template files organized
+- Renamed `projectthesis_presentation-MSME-Report Writing Guidelines-20221117.pdf` → `docs/report-guidelines.pdf`
+- Renamed `report-guideline-resources/` → `docs/report-template/`
+
+### 4. BEV representation idea noted
+- Added finding #3 to `docs/findings.md`: Bird's-Eye View (BEV) representation as future research direction — projects 3D LiDAR to 2D top-down view for efficient conv-based architectures.
+
+## What's next
+
+### Immediate
+1. **Qualitative evaluation.** Visualize PCN completions on ShapeNet test samples (input → coarse → fine).
+2. **Evaluate on KITTI objects.** Run trained PCN on real partial point clouds from the segmentation pipeline — key domain-transfer test.
+3. **Add EMD loss.** Sinkhorn approximation for coarse output.
+
+### Medium-term
+4. **Domain adaptation.** Fine-tune with `simulate_lidar_noise()` augmentation on real KITTI data.
+5. **Try stronger architectures.** PoinTr or SeedFormer if PCN quality is insufficient.
+6. **Explore BEV representation.** Investigate BEV-based models as an alternative/complement to 3D point-based pipeline.
+
+## Files changed
+```
+Modified:  docs/session_summary.md, docs/findings.md
+New:       .claude/skills/latex-report/SKILL.md, docs/report/progress_report_2026_05_06.tex, docs/report/Images/fpt.png
+Renamed:   docs/report-guidelines.pdf (from long filename), docs/report-template/ (from report-guideline-resources/)
 ```

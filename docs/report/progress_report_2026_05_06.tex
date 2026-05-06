@@ -1,0 +1,373 @@
+\documentclass[a4paper, 12pt]{article}
+
+% --- Packages ---
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{array}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{bm}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage[left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue,
+}
+
+% --- Header & Footer ---
+\setlength{\headheight}{15pt}
+\addtolength{\topmargin}{-3pt}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{FPT School of Business \& Technology}
+\cfoot{\thepage}
+\rfoot{Ngo Vi Viet Anh - MSE13205}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0.5pt}
+
+% highlight box for recent work
+\newtcolorbox{recentwork}{
+    colback=blue!5,
+    colframe=blue!40,
+    fonttitle=\bfseries,
+    title=Recent Progress (April 25 -- May 6{,} 2026),
+    left=4pt, right=4pt, top=4pt, bottom=4pt,
+}
+
+\begin{document}
+\sloppy
+
+% --- Title Page ---
+\begin{titlepage}
+    \begin{center}
+        \includegraphics[scale=0.3]{Images/fpt.png}
+    \end{center}
+
+    \center
+    \vspace{0.5in}
+    \textbf{\large PROGRESS REPORT}
+    \vspace{0.5in}
+
+    \noindent\makebox[\linewidth]{\rule{\linewidth}{1.2pt}}
+    \textbf{\large LiDAR Point Cloud Segmentation and Object Completion \\
+    on SemanticKITTI}
+    \noindent\makebox[\linewidth]{\rule{\linewidth}{1.2pt}}
+
+    \vspace{0.3in}
+    {\large February -- May 2026}
+
+    \vspace{0.5in}
+
+    \begin{minipage}{0.65\textwidth}
+        \begin{flushleft}
+            \textit{Student:} \\
+            Ngo Vi Viet Anh - MSE13205 \\
+        \end{flushleft}
+    \end{minipage}
+    \begin{minipage}{0.3\textwidth}
+        \begin{flushright}
+            \textit{Advisor:} \\
+            Dr. Doan Nhat Quang \\
+        \end{flushright}
+    \end{minipage}
+
+\end{titlepage}
+
+% --- Page Numbering ---
+\pagenumbering{arabic}
+\setcounter{page}{2}
+\tableofcontents
+\newpage
+
+%--------------------------------------------------------------
+\section{Overview}
+%--------------------------------------------------------------
+
+This report summarizes the research progress on the master thesis ``LiDAR Point Cloud Segmentation and Object Completion on SemanticKITTI,'' covering the period from February to May 2026.
+
+The core research question is whether a classical (non-deep-learning) pipeline for LiDAR object segmentation can be used to extract real-world objects, which then serve as training data for a deep-learning-based point cloud completion network that bridges the synthetic-to-real domain gap.
+
+The work is organized into two main phases:
+\begin{enumerate}[nosep]
+    \item \textbf{Phase 1 --- Classical Segmentation Pipeline:} A 6-stage pipeline for object detection and tracking from raw LiDAR point clouds, evaluated against SemanticKITTI ground truth.
+    \item \textbf{Phase 2 --- Deep Learning Completion:} A Point Completion Network (PCN) trained on synthetic ShapeNet data to reconstruct full 3D shapes from partial LiDAR observations.
+\end{enumerate}
+
+Phase~1 has been completed and evaluated. Phase~2 has reached the training milestone, with the PCN model successfully trained on ShapeNet data.
+
+%--------------------------------------------------------------
+\section{Classical Segmentation Pipeline}
+%--------------------------------------------------------------
+
+A 6-stage pipeline was implemented to process raw LiDAR point clouds from the SemanticKITTI dataset~\cite{behley2019iccv} into detected and classified objects. All pipeline parameters are centralized in a single configuration dictionary (\texttt{PIPELINE\_CONFIG}) for easy experimentation.
+
+\subsection{Stage 1: Noise Removal}
+
+Raw point clouds are loaded from \texttt{.bin} files as $N \times 4$ arrays (x, y, z, reflectance). Two filtering steps are applied:
+\begin{itemize}[nosep]
+    \item A height threshold ($z > -2.0$\,m) removes points below the expected ground level.
+    \item Open3D's statistical outlier removal ($k=20$ neighbors, $\sigma=2$) eliminates isolated noise points.
+\end{itemize}
+
+\subsection{Stage 2: Voxel Downsampling}
+
+The filtered point cloud is downsampled using a voxel grid with resolution $0.05$\,m, reducing the number of points while preserving spatial structure. This balances computational cost against the geometric detail needed for clustering.
+
+\subsection{Stage 3: Ground Removal}
+
+Ground points are separated using RANSAC plane fitting with a distance threshold of $0.2$\,m. A normal direction check rejects non-horizontal planes: only planes whose fitted normal has $|c| / \|[a,b,c]\| > 0.5$ are accepted as ground, preventing walls or ramps from being misclassified.
+
+The fitted ground plane model $[a, b, c, d]$ is retained for use in the geometric filtering stage (Stage~5).
+
+\subsection{Stage 4: Clustering}
+
+Object points (non-ground) are clustered using HDBSCAN with \texttt{min\_cluster\_size}$\,=10$ and \texttt{min\_samples}$\,=5$. HDBSCAN was chosen over fixed-epsilon DBSCAN because LiDAR point density decreases quadratically with distance from the sensor, making a single $\varepsilon$ value unsuitable for detecting both near and far objects.
+
+The migration from DBSCAN to HDBSCAN was informed by a performance benchmark. Two Python implementations were evaluated on SemanticKITTI sequence~00, frame~0 ($\sim$45k object points):
+
+\begin{table}[H]
+\centering
+\caption{HDBSCAN implementation comparison}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Implementation} & \textbf{Time (s)} & \textbf{Clusters} \\
+\midrule
+Open3D DBSCAN (C++, $\varepsilon=0.5$) & $\sim$0.01 & --- \\
+\texttt{hdbscan} package (0.8.42)      & 0.48       & 293 \\
+\texttt{sklearn.cluster.HDBSCAN} (1.8.0) & 3.72     & 309 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The dedicated \texttt{hdbscan} package was selected as it is 7.7$\times$ faster than scikit-learn's implementation while producing comparable cluster counts.
+
+\subsection{Stage 5: Geometric Filtering}
+
+Each cluster is enclosed in an oriented bounding box (OBB). Clusters are filtered based on geometric criteria:
+\begin{itemize}[nosep]
+    \item Minimum bounding box volume: $0.5$\,m$^3$.
+    \item Maximum center height above the ground plane: $3.0$\,m. The height is computed as the signed distance from the bbox center to the RANSAC-fitted ground plane:
+    \begin{equation}
+        h = \frac{a \cdot c_x + b \cdot c_y + c \cdot c_z + d}{\sqrt{a^2 + b^2 + c^2}}
+    \end{equation}
+    where $(c_x, c_y, c_z)$ is the bbox center and $[a,b,c,d]$ is the ground plane model. This ground-relative measurement is robust to slopes and sensor tilt, unlike a raw sensor-frame $z$-threshold.
+\end{itemize}
+
+\subsection{Stage 6: Heuristic Classification}
+
+Detected objects are classified based on bounding box dimensions into five categories: pedestrian, car, truck, traffic sign, and vegetation. While simple, this provides a baseline classification that can be replaced with a learned classifier in future work.
+
+%--------------------------------------------------------------
+\section{Multi-Frame Tracking}
+%--------------------------------------------------------------
+
+A \texttt{CentroidTracker} assigns persistent IDs to detected objects across frames using the Hungarian algorithm for centroid-based assignment. Key parameters:
+\begin{itemize}[nosep]
+    \item Maximum match distance: $2.0$\,m --- centroids farther apart are not matched.
+    \item Maximum disappeared frames: $5$ --- tracks are dropped after 5 consecutive frames without a match.
+\end{itemize}
+
+Point clouds are transformed to a global coordinate frame using:
+\begin{equation}
+    T_{\text{global}} = T_{\text{pose}}^{(i)} \cdot T_r
+\end{equation}
+where $T_{\text{pose}}^{(i)}$ is the ego-motion pose (camera frame) and $T_r$ is the LiDAR-to-camera calibration matrix from \texttt{calib.txt}.
+
+%--------------------------------------------------------------
+\section{Segmentation Evaluation}
+%--------------------------------------------------------------
+
+An evaluation harness (\texttt{evaluate.py}) compares pipeline detections against SemanticKITTI ground-truth instance labels. For each frame, detected clusters and GT instances are matched using IoU (Intersection over Union), with a threshold of $0.3$. The metrics computed are:
+
+\begin{itemize}[nosep]
+    \item \textbf{Precision} --- fraction of detected clusters that match a GT instance.
+    \item \textbf{Recall} --- fraction of GT instances matched by a detection.
+    \item \textbf{F1} --- harmonic mean of precision and recall.
+    \item \textbf{Mean IoU} --- average IoU of matched pairs.
+\end{itemize}
+
+GT instances are derived from SemanticKITTI ``thing'' classes (cars, pedestrians, cyclists, etc.). The baseline results on sequence~00 (20 frames, IoU threshold $\geq 0.3$):
+
+\begin{table}[H]
+\centering
+\caption{Segmentation evaluation: DBSCAN vs. HDBSCAN baseline}
+\label{tab:seg-eval}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Method} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} \\
+\midrule
+DBSCAN ($\varepsilon=0.5$) & 0.188 & 0.804 & 0.305 \\
+HDBSCAN                    & 0.154 & 0.868 & 0.261 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+HDBSCAN improves recall by 6.4 percentage points but reduces precision, resulting in a lower F1. The higher recall reflects HDBSCAN's ability to detect distant objects that fixed-epsilon DBSCAN splits into multiple fragments. The lower precision indicates more false positives, which can be addressed by tightening geometric filters.
+
+%--------------------------------------------------------------
+\section{Recent Progress: ShapeNet Data Preparation and PCN Training}
+%--------------------------------------------------------------
+
+\begin{recentwork}
+The following sections describe work completed between April~25 and May~6, 2026, representing the transition from classical segmentation (Phase~1) to deep-learning-based completion (Phase~2).
+\end{recentwork}
+
+\subsection{ShapeNetCore v2 Exploration}
+
+ShapeNetCore v2~\cite{shapenet2015} was selected as the synthetic training data source for point cloud completion. Three object categories relevant to the KITTI driving domain~\cite{geiger2012cvpr} were identified:
+
+\begin{table}[H]
+\centering
+\caption{ShapeNet categories used for completion training}
+\begin{tabular}{llr}
+\toprule
+\textbf{Category} & \textbf{Synset ID} & \textbf{Models} \\
+\midrule
+Car         & 02958343 & 3{,}533 \\
+Bus         & 02924116 & 939 \\
+Motorcycle  & 03790512 & 337 \\
+\midrule
+\textbf{Total} & & \textbf{4{,}809} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Data was accessed via the HuggingFace API (\texttt{huggingface\_hub}). Mesh models (OBJ format) were loaded and visualized using \texttt{trimesh}. A preliminary comparison between complete point clouds (sampled from mesh surfaces) and simulated partial LiDAR scans was conducted in the data exploration notebook to validate the completion task setup.
+
+\subsection{PCN Architecture}
+
+The Point Completion Network (PCN)~\cite{yuan2018pcn} was implemented from scratch in PyTorch. The architecture consists of three components:
+
+\subsubsection{Encoder (Stacked PointNet)}
+
+The encoder uses a two-stage PointNet design to extract a global feature vector from an unordered input point cloud of 2{,}048 points:
+\begin{itemize}[nosep]
+    \item \textbf{Stage 1:} Conv1d layers ($3 \to 128 \to 256$) extract per-point local features. A max-pooled global feature is concatenated back to each point.
+    \item \textbf{Stage 2:} Conv1d layers ($512 \to 512 \to 1024$) process the enriched features. A final max pool produces the global feature vector $\mathbf{g} \in \mathbb{R}^{1024}$.
+\end{itemize}
+Total parameters: 6.87M.
+
+\subsubsection{Decoder (Coarse-to-Fine)}
+
+The decoder produces the completed point cloud in two stages:
+\begin{enumerate}[nosep]
+    \item \textbf{Coarse output:} Fully-connected layers ($1024 \to 1024 \to 1024 \to 3072$) produce 1{,}024 coarse points that approximate the overall shape.
+    \item \textbf{Fine output:} Each coarse point is combined with a $4 \times 4$ 2D grid (16 points). A folding MLP ($1029 \to 512 \to 512 \to 3$) maps each grid point to a 3D offset, producing $1{,}024 \times 16 = 16{,}384$ fine points that capture surface detail.
+\end{enumerate}
+
+\subsubsection{Loss Function (Chamfer Distance)}
+
+The training loss combines Chamfer Distance (CD) on both output resolutions:
+\begin{equation}
+    \mathcal{L} = \text{CD}(\hat{Y}_{\text{coarse}},\; Y) \;+\; \alpha \cdot \text{CD}(\hat{Y}_{\text{fine}},\; Y), \quad \alpha = 0.5
+\end{equation}
+where the Chamfer Distance between predicted set $P$ and ground truth set $Q$ is:
+\begin{equation}
+    \text{CD}(P, Q) = \frac{1}{|P|} \sum_{p \in P} \min_{q \in Q} \|p - q\|_2^2
+    \;+\; \frac{1}{|Q|} \sum_{q \in Q} \min_{p \in P} \|q - p\|_2^2
+\end{equation}
+
+A chunked implementation (chunk size 2{,}048) computes distance matrices in segments to avoid GPU memory overflow when processing 16{,}384-point sets. The fine CD is computed on a random subsample of 4{,}096 points from both prediction and ground truth for efficiency.
+
+\subsection{Training Data Generation}
+
+The \texttt{ShapeNetCompletionDataset} loader generates training pairs on-the-fly:
+
+\begin{itemize}[nosep]
+    \item \textbf{Ground truth (dense):} 16{,}384 points sampled uniformly from the mesh surface using \texttt{trimesh}.
+    \item \textbf{Input (partial):} Simulated LiDAR scans via Open3D \texttt{RaycastingScene} depth rendering ($256 \times 256$ resolution) from randomized viewpoints (elevation $[-20^\circ, 30^\circ]$, azimuth $[0^\circ, 360^\circ]$, radius $[2.5, 4.5]$\,m). Depth images are back-projected to 3D and subsampled to 2{,}048 points.
+    \item \textbf{Real-world scaling:} ShapeNet models are normalized; they are rescaled to match real-world dimensions (car = 4.5\,m, bus = 10\,m, motorcycle = 2.2\,m).
+\end{itemize}
+
+Total training samples: 3{,}834.
+
+\subsection{Training Configuration}
+
+\begin{table}[H]
+\centering
+\caption{PCN training hyperparameters}
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Optimizer       & Adam \\
+Initial learning rate & $10^{-4}$ \\
+LR scheduler    & StepLR ($\times 0.5$ every 40 epochs) \\
+Batch size      & 8 \\
+Epochs          & 100 \\
+GPU             & NVIDIA RTX 3070 Ti (CUDA) \\
+Total training time & $\sim$18 hours \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Training Results}
+
+Training was completed for all 100 epochs. Table~\ref{tab:pcn-results} presents the key metrics at selected checkpoints.
+
+\begin{table}[H]
+\centering
+\caption{PCN training results on ShapeNetCore v2}
+\label{tab:pcn-results}
+\begin{tabular}{rcccccc}
+\toprule
+\textbf{Epoch} & \textbf{Train Loss} & \textbf{Val Loss} & \textbf{CD Coarse} & \textbf{CD Fine} & \textbf{F-Score} & \textbf{LR} \\
+\midrule
+1   & 0.672 & 0.586 & 0.396 & 0.380 & ---   & $10^{-4}$ \\
+10  & 0.463 & 0.448 & 0.317 & 0.261 & 0.748 & $10^{-4}$ \\
+40  & 0.403 & 0.400 & 0.287 & 0.225 & 0.809 & $5 \times 10^{-5}$ \\
+58  & 0.384 & 0.376 & 0.272 & 0.210 & ---   & $5 \times 10^{-5}$ \\
+80  & 0.380 & 0.374 & 0.270 & 0.209 & 0.839 & $2.5 \times 10^{-5}$ \\
+100 & 0.371 & 0.375 & 0.270 & 0.210 & 0.841 & $2.5 \times 10^{-5}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Analysis}
+
+\begin{itemize}[nosep]
+    \item \textbf{Convergence:} The loss decreased rapidly during the first 40 epochs and converged around epoch 60--70. The final 30 epochs produced minimal improvement, with the validation loss plateauing at approximately $0.374$.
+    \item \textbf{Learning rate schedule:} Each LR reduction (at epochs 40 and 80) produced a small but measurable improvement, confirming the effectiveness of the step decay strategy.
+    \item \textbf{F-Score:} The final F-Score of 0.841 indicates good shape reconstruction quality on synthetic ShapeNet data. However, this metric reflects performance on clean synthetic objects and does not yet account for the domain gap with real LiDAR data.
+    \item \textbf{Best checkpoint:} Epoch 80 achieved the lowest validation loss ($0.374$) and an F-Score of $0.839$. The epoch 100 checkpoint shows a marginally higher validation loss ($0.375$), indicating no overfitting but also no further improvement.
+    \item \textbf{Overfitting:} The gap between training and validation loss remained stable throughout, with no divergence observed. This suggests the model generalizes well within the ShapeNet domain.
+\end{itemize}
+
+%--------------------------------------------------------------
+\section{Next Steps}
+%--------------------------------------------------------------
+
+\begin{enumerate}
+    \item \textbf{Qualitative evaluation of PCN.} Visualize completion results on ShapeNet test samples (input partial $\to$ coarse output $\to$ fine output) to inspect shape quality and identify failure modes.
+
+    \item \textbf{Evaluate PCN on real KITTI objects.} Run the trained PCN on partial point clouds extracted by the segmentation pipeline (Step~7 integration). This is the critical domain-transfer test: the model was trained on clean synthetic data and must generalize to noisy, sparse LiDAR observations.
+
+    \item \textbf{Add Earth Mover's Distance (EMD) loss.} Supplement the Chamfer Distance with an EMD term (Sinkhorn approximation) for the coarse output to improve point distribution uniformity.
+
+    \item \textbf{Domain adaptation.} Bridge the ShapeNet-to-KITTI domain gap by applying the \texttt{simulate\_lidar\_noise()} augmentation during fine-tuning on real data extracted by the pipeline.
+
+    \item \textbf{Tune segmentation filters.} Tighten geometric filters to reduce false positives from HDBSCAN clustering and improve segmentation precision without sacrificing the recall gains.
+
+    \item \textbf{Explore stronger completion architectures.} If PCN quality proves insufficient for the thesis, evaluate PoinTr or SeedFormer as alternatives with potentially better reconstruction fidelity.
+\end{enumerate}
+
+%--------------------------------------------------------------
+\bibliography{../references}
+\bibliographystyle{IEEEtran}
+%--------------------------------------------------------------
+
+\end{document}

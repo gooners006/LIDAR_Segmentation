@@ -1,0 +1,608 @@
+\documentclass[a4paper, 12pt]{article}
+
+% --- 1. Gói lệnh cơ bản ---
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc} % Sửa lỗi font shape undefined
+\usepackage{lmodern}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{array} 
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{bm}
+\usepackage{float}
+
+% --- 2. Cấu hình Header & Footer ---
+\setlength{\headheight}{15pt}
+\addtolength{\topmargin}{-3pt}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{FPT School of Business \& Technology}
+\cfoot{\thepage}
+\rfoot{Ngo Vi Viet Anh - MSE13205}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0.5pt}
+
+\begin{document}
+	\sloppy
+	
+	% --- 3. TRANG TIÊU ĐỀ ---
+	\begin{titlepage}
+		\begin{center}
+			\includegraphics[scale=0.3]{Images/fpt.png}
+		\end{center}
+		
+		\center
+		\vspace{0.5in}
+		\textbf{\large MASTER THESIS PROPOSAL}
+		\vspace{0.5in}
+		
+		\noindent\makebox[\linewidth]{\rule{\linewidth}{1.2pt}}
+		\textbf{\large Unsupervised 3D Scene Reconstruction from Sparse LiDAR}
+		\noindent\makebox[\linewidth]{\rule{\linewidth}{1.2pt}}
+		
+		\vspace{0.5in}
+		
+		\begin{minipage}{0.65\textwidth}
+			\begin{flushleft}
+				\textit{Student:} \\
+				Ngo Vi Viet Anh - MSE13205 \\
+			\end{flushleft}
+		\end{minipage}
+		\begin{minipage}{0.3\textwidth}
+			\begin{flushright}
+				\textit{Advisor:} \\
+				Dr. Le Minh Duc \\
+			\end{flushright}
+		\end{minipage}
+		
+		\vspace{2in}
+		\textbf{\large GRI501} \\
+		\today
+	\end{titlepage}
+	
+	% --- 4. ĐÁNH SỐ TRANG ---
+	\pagenumbering{arabic}
+	\setcounter{page}{2}
+	\tableofcontents
+	\newpage
+	
+	\section{Introduction}
+	
+	The rapid advancement of autonomous driving and robotic navigation has placed
+	three-dimensional scene understanding at the forefront of modern perception
+	research. LiDAR (Light Detection and Ranging) sensors have become a cornerstone
+	of outdoor 3D perception pipelines, providing precise geometric measurements of
+	the surrounding environment \cite{Behley_2019_ICCV, 6248074}. However, due to
+	physical constraints such as limited angular resolution and beam count, raw
+	LiDAR scans produce inherently sparse point clouds that capture only a fraction
+	of the true scene geometry. This sparsity is further exacerbated at longer
+	ranges and in the presence of occlusions caused by dynamic objects such as
+	vehicles and pedestrians \cite{10469138}.
+	
+	To bridge the gap between sparse sensor observations and the dense 3D
+	representations required for safe navigation, the task of Semantic Scene
+	Completion (SSC) has emerged as a critical research direction. SSC aims to
+	jointly predict the occupancy and semantic class of every voxel in a defined 3D
+	volume from partial observations \cite{Song_2017_CVPR}. While supervised
+	approaches have achieved notable performance on established benchmarks
+	\cite{Li_2023_CVPR, 9320442, Cao_2022_CVPR}, they are fundamentally dependent
+	on dense, voxel-level ground-truth annotations. The acquisition of such
+	annotations is prohibitively expensive and labor-intensive, requiring
+	specialized equipment and extensive manual correction. This dependency on
+	labeled data constitutes a significant bottleneck that limits the scalability
+	and generalizability of current methods to new environments and sensor
+	configurations.
+	
+	Unsupervised and self-supervised learning paradigms offer a principled
+	alternative by leveraging geometric priors and structural regularities inherent
+	in outdoor environments, such as ground planarity, surface continuity, and
+	temporal consistency across sequential scans \cite{9812507, 8793637}. Despite
+	their promise, the application of unsupervised methodologies to full-scale
+	outdoor 3D scene completion remains underexplored. Existing unsupervised efforts
+	have predominantly focused on object-level completion using synthetic datasets
+	\cite{10959142, lee2025unsupervisedpointcloudcompletion}, and their extension to
+	large-scale, real-world driving scenarios with complex occlusion patterns and
+	dynamic content presents substantial open challenges.
+	
+	Consequently, the primary objective of this thesis is to investigate and develop
+	an unsupervised learning framework for 3D scene reconstruction from sparse
+	LiDAR point clouds. The proposed approach formulates the task as voxel-based
+	occupancy prediction, leveraging geometric consistency losses and structural
+	priors to train without ground-truth dense annotations. The framework will be
+	evaluated on the SemanticKITTI Scene Completion benchmark
+	\cite{Behley_2019_ICCV, 10802143}, enabling direct comparison with established
+	supervised baselines and providing a quantitative assessment of the viability of
+	unsupervised methods for this task.
+	
+	\section{Background}
+	
+	To establish a comprehensive foundation for this proposal, it is essential to
+	examine the current state of research across three interconnected domains. This
+	section outlines existing methodologies, recent advancements, and the critical
+	challenges that motivate an unsupervised approach to 3D scene reconstruction
+	from sparse LiDAR data.
+	
+	\subsection{LiDAR-Based Semantic Scene Completion}
+	
+	The task of Semantic Scene Completion (SSC) was formally introduced by Song et
+	al. \cite{Song_2017_CVPR}, who proposed SSCNet to jointly infer the occupancy
+	and semantic labels of a voxelized 3D volume from a single depth image. This
+	formulation established the standard pipeline: given a partial observation of a
+	scene, the model must predict the complete volumetric representation including
+	regions that are unobserved or occluded. The task has since become a central
+	benchmark for evaluating holistic 3D scene understanding in autonomous driving
+	contexts \cite{10469138, 10802143}.
+	
+	Subsequent research has extended SSCNet along multiple axes. LMSCNet
+	\cite{9320442} introduced a lightweight multi-scale architecture that
+	significantly reduced computational cost while maintaining competitive
+	accuracy, making real-time deployment more feasible. S3CNet
+	\cite{pmlr-v155-cheng21a} addressed the challenge of sparse LiDAR inputs
+	directly, designing a network that operates on raw point clouds rather than
+	dense voxelized inputs. More recently, VoxFormer \cite{Li_2023_CVPR} applied
+	the Transformer architecture to sparse voxel queries, achieving
+	state-of-the-art results on the SemanticKITTI benchmark by decoupling geometry
+	completion from semantic labeling. Camera-based approaches such as MonoScene
+	\cite{Cao_2022_CVPR} have also demonstrated that monocular images alone can
+	produce reasonable volumetric predictions, though with reduced geometric
+	precision compared to LiDAR-based methods.
+	
+	Multi-modal fusion has emerged as another active direction. Lu et al.
+	\cite{10613892} proposed a continuous voxelized fusion strategy that
+	integrates LiDAR and camera features, while Xiao et al. \cite{10379527}
+	introduced instance-level awareness into monocular SSC to improve the
+	completion of individual objects. Sze and Kunze \cite{10588696} focused on
+	real-time efficiency through memory-efficient sparse convolution, addressing
+	the deployment constraints of autonomous vehicles. Yang et al. \cite{9636662} proposed a semantic segmentation-assisted
+	approach that leverages 2D semantic predictions to guide 3D scene completion,
+	demonstrating the benefit of auxiliary semantic cues for improving geometric
+	reconstruction. Rist et al. \cite{9477025} explored deep implicit functions
+	as an alternative to discrete voxel grids, enabling continuous geometric
+	representations from LiDAR data.
+	
+	Despite this progress, a fundamental limitation persists across all the above
+	methods: they rely on dense voxel-level ground-truth annotations for training.
+	The SemanticKITTI Scene Completion benchmark \cite{Behley_2019_ICCV} provides
+	such annotations by aggregating multiple LiDAR scans and projecting semantic
+	labels into a voxel grid, but this process is sensor-specific, environment-
+	specific, and does not scale to new domains without significant re-annotation
+	effort. This dependency on supervised labels motivates the exploration of
+	unsupervised alternatives.
+	
+	\subsection{Unsupervised and Self-Supervised 3D Learning}
+	
+	The prohibitive cost of obtaining dense 3D annotations has driven significant
+	research interest toward learning paradigms that reduce or eliminate the need
+	for ground-truth labels. This section examines three related but distinct
+	threads: self-supervised depth completion, unsupervised point cloud completion,
+	and self-supervised occupancy prediction.
+	
+	Self-supervised depth completion methods aim to produce dense depth maps from
+	sparse LiDAR inputs combined with monocular camera images. Ma et al.
+	\cite{8793637} introduced a foundational framework that trains a sparse-to-dense
+	network using photometric consistency between the predicted dense depth and
+	the observed camera image, requiring no ground-truth dense depth maps. Song et
+	al. \cite{9525167} extended this paradigm by integrating visual-LiDAR odometry
+	to enforce geometric consistency across consecutive frames. For extremely sparse
+	inputs, Hu et al. \cite{10258421} demonstrated self-supervised depth completion
+	from a single-line LiDAR, pushing the boundary of how little geometric
+	supervision is required. Feng et al. \cite{pmlr-v164-feng22a} further advanced
+	self-supervised monocular depth estimation by using sparse LiDAR measurements
+	as a complementary training signal rather than as direct supervision. While
+	these methods successfully densify depth representations, they operate in 2.5D
+	(depth image space) rather than producing full volumetric 3D reconstructions,
+	limiting their applicability to downstream tasks that require complete scene
+	geometry.
+	
+	In the domain of unsupervised point cloud completion, recent work has focused
+	on learning to reconstruct complete 3D shapes without access to ground-truth
+	complete point clouds. Wu et al. \cite{10959142} proposed a multi-view
+	adversarial learning framework that leverages rendered 2D projections from
+	multiple viewpoints as a supervisory signal, enabling completion through
+	cross-view geometric agreement. Lee et al.
+	\cite{lee2025unsupervisedpointcloudcompletion} formulated the completion task
+	as an unbalanced optimal transport problem, providing a principled mathematical
+	framework for matching partial observations to complete shapes without
+	paired training data. However, both approaches have been evaluated primarily on
+	synthetic object-level datasets such as ShapeNet, and their scalability to
+	large-scale outdoor driving environments with hundreds of dynamic objects and
+	complex occlusion patterns remains undemonstrated.
+	
+	A more recent and directly relevant thread is self-supervised occupancy
+	prediction. SelfOcc \cite{Huang_2024_CVPR} demonstrated that 3D occupancy
+	representations can be learned from camera inputs alone using neural rendering
+	as the supervisory signal, bypassing the need for voxel-level annotations
+	entirely. OccFeat \cite{Sirko-Galouchenko_2024_CVPR} approached the problem
+	from a pretraining perspective, learning occupancy features in a
+	self-supervised manner to improve downstream Bird's Eye View segmentation.
+	Occupancy-MAE \cite{10273603} applied masked autoencoder pretraining to
+	large-scale LiDAR point clouds, learning occupancy representations by
+	reconstructing randomly masked voxel regions. Lange et al.
+	\cite{lange2025selfsupervisedmultifutureoccupancyforecasting} extended
+	self-supervised occupancy learning to the temporal dimension, predicting
+	multiple future occupancy states without ground-truth annotations. Vizzo et
+	al. \cite{9812507}
+	proposed a self-supervised scan completion method specifically designed for
+	sparse outdoor LiDAR, exploiting temporal aggregation of sequential scans as a
+	proxy for ground-truth dense geometry. While these approaches demonstrate the
+	feasibility of reducing label dependency, they either focus on pretraining
+	representations for supervised fine-tuning, or address partial aspects of the
+	completion task rather than full unsupervised scene reconstruction from sparse
+	LiDAR inputs.
+	
+	\subsection{Neural Scene Representations for Outdoor Environments}
+	
+	An alternative paradigm for 3D scene reconstruction has emerged through neural
+	scene representations, which learn continuous implicit or explicit functions to
+	model geometry and appearance. These methods are inherently self-supervised in
+	their training procedure, as they optimize scene representations through
+	differentiable rendering losses without requiring 3D ground-truth annotations.
+	
+	Neural Radiance Fields (NeRF) have been adapted to outdoor driving contexts
+	by several recent works. Lightning NeRF \cite{10611130} introduced a hybrid
+	representation combining explicit voxel grids with implicit neural features to
+	accelerate both training and rendering for large-scale driving scenes. S-NeRF++
+	\cite{10891659} extended the NeRF framework to support autonomous driving
+	simulation, enabling both reconstruction of existing scenes and generation of
+	novel traffic configurations. DriveEnv-NeRF
+	\cite{shen2024driveenvnerfexplorationnerfbasedautonomous} explored the use of
+	NeRF-based reconstructions as virtual environments for validating autonomous
+	driving systems, demonstrating the practical utility of high-fidelity neural
+	scene models. Shen et al. \cite{shen2024neuralrenderingbasedurban} provided a
+	broader survey of neural rendering techniques applied to urban scene
+	reconstruction, identifying both the potential and the current limitations of
+	these approaches for autonomous driving applications.
+	
+	Despite their capacity to produce visually compelling reconstructions, neural
+	scene representations face several fundamental limitations in the context of
+	this thesis. First, most NeRF-based methods require per-scene optimization,
+	meaning a separate model must be trained for each individual scene rather than
+	learning a generalizable reconstruction function across scenes. This makes
+	them impractical for real-time deployment or large-scale evaluation across
+	diverse environments. Second, these methods are primarily designed for static
+	scenes and struggle with dynamic objects such as moving vehicles and
+	pedestrians, which are prevalent in driving scenarios. Third, their output is a
+	continuous radiance or density field rather than a discrete voxel occupancy
+	grid, making direct comparison against established SSC benchmarks such as
+	SemanticKITTI non-trivial without additional post-processing steps. For these
+	reasons, neural scene representations, while promising for visualization and
+	simulation tasks, are not directly suited to the structured evaluation framework
+	of semantic scene completion benchmarks, and their application to unsupervised
+	volumetric reconstruction from sparse LiDAR remains an open research direction.
+	
+	\subsection{Geometric Distance Metrics for 3D Reconstruction}
+	
+	Unsupervised 3D reconstruction methods depend critically on the choice of
+	geometric loss function, as no ground-truth dense geometry is available during
+	training. The loss must quantify the discrepancy between a predicted 3D
+	structure and an observed partial measurement, and its properties directly
+	influence training stability, convergence behavior, and the quality of
+	reconstructed outputs. This section reviews the principal distance metrics
+	used in point cloud and voxel-based reconstruction, with emphasis on recent
+	variants that address known failure modes of the standard formulation.
+	
+	The Chamfer Distance (CD) is the most widely adopted metric for evaluating
+	and training point cloud reconstruction models. Given a predicted point set
+	$P$ and a reference point set $Q$, the symmetric Chamfer Distance is defined
+	as:
+	
+	\begin{equation}
+		\text{CD}(P, Q) = \frac{1}{|P|} \sum_{p \in P} \min_{q \in Q} \| p - q \|_2^2
+		\;+\; \frac{1}{|Q|} \sum_{q \in Q} \min_{p \in P} \| q - p \|_2^2
+	\end{equation}
+	
+	The first term penalizes predicted points that lack nearby counterparts in the
+	reference (accuracy), while the second penalizes reference points not covered
+	by the prediction (completeness). Despite its simplicity and differentiability,
+	the standard CD suffers from well-documented pathological behaviors. Wu et al.
+	\cite{wu2021densityawarechamferdistancecomprehensive} demonstrated that CD is
+	insensitive to local density variations: a prediction that clusters points
+	densely in some regions while leaving others uncovered can achieve a low CD
+	score, producing visually implausible reconstructions. To address this, they
+	proposed Density-aware Chamfer Distance (DCD), which incorporates a
+	density-penalizing term that encourages uniform coverage of the target surface.
+	
+	Several subsequent works have proposed alternative modifications to the CD
+	formulation. Lin et al. \cite{Lin_2023_ICCV} introduced Hyperbolic Chamfer
+	Distance, which embeds point representations in hyperbolic space to better
+	capture hierarchical geometric structures, achieving improved completion
+	quality on objects with complex topology. The same research group later
+	proposed InfoCD \cite{NEURIPS2023_f2ea1943}, a contrastive formulation that
+	reinterprets the completion loss through the lens of mutual information
+	maximization, providing stronger gradients for training and reducing
+	sensitivity to outliers. Huang et al. \cite{HUANG202443} proposed Learnable
+	Chamfer Distance, which parameterizes the distance function itself as a
+	trainable module, allowing the loss to adapt to the specific geometric
+	characteristics of the reconstruction task during training. Lu et al.
+	\cite{9785649} developed Oriented and Directional Chamfer Distance variants
+	that incorporate surface normal information into the distance computation,
+	improving reconstruction accuracy for objects with thin structures and sharp
+	edges where standard Euclidean nearest-neighbor matching is ambiguous.
+	
+	In the voxelized setting relevant to semantic scene completion, the
+	reconstruction objective is typically formulated as per-voxel binary
+	classification (occupied vs. free) rather than point-to-point distance
+	minimization. Binary cross-entropy and its class-balanced variants are the
+	standard losses for supervised SSC. For unsupervised training, however, the
+	loss must be derived from geometric consistency between predicted voxel
+	occupancy and observed point clouds or multi-frame aggregations, making the
+	choice and adaptation of geometric distance metrics a central design decision
+	in the proposed framework.
+	
+	\section{Research Gap and Problem Statement}
+	
+	The preceding literature review reveals a clear gap at the intersection of
+	three research threads. Supervised semantic scene completion methods
+	(Section~2.1) achieve strong performance but are fundamentally constrained by
+	the requirement for dense voxel-level annotations that are expensive to
+	acquire and do not transfer across sensor configurations or environments.
+	Unsupervised and self-supervised 3D learning approaches (Section~2.2) have
+	demonstrated that meaningful geometric representations can be learned without
+	dense labels, but existing work has either focused on 2.5D depth completion,
+	object-level point cloud completion on synthetic data, or pretraining
+	representations intended for subsequent supervised fine-tuning. Neural scene
+	representations (Section~2.3) offer an alternative reconstruction paradigm but
+	require per-scene optimization and produce continuous fields that are
+	incompatible with the discrete voxel evaluation framework of established SSC
+	benchmarks. Furthermore, the geometric distance metrics reviewed in
+	Section~2.4 exhibit pathological behaviors under standard formulations,
+	adding complexity to the design of unsupervised training objectives that must
+	operate without direct supervision.
+	
+	To date, no existing method has demonstrated fully unsupervised scene
+	completion from sparse LiDAR point clouds at the scale and evaluation
+	rigor of standard benchmarks such as SemanticKITTI. The specific open
+	challenges that this thesis aims to address are:
+	
+	\begin{enumerate}
+		\item \textbf{Scalability of unsupervised completion to full outdoor scenes.}
+		Existing unsupervised point cloud completion methods
+		\cite{10959142, lee2025unsupervisedpointcloudcompletion} operate on
+		isolated synthetic objects. Extending these to large-scale outdoor
+		environments with hundreds of objects, complex occlusion patterns, and
+		significant depth variation is non-trivial.
+		\item \textbf{Geometric supervision without dense ground truth.} The
+		unsupervised training signal must be derived entirely from the sparse
+		observations themselves. Temporal aggregation of sequential LiDAR scans
+		\cite{9812507} provides a proxy for denser geometry, but designing loss
+		functions that effectively exploit this signal for voxel-level occupancy
+		prediction requires careful formulation.
+		\item \textbf{Evaluation against established supervised baselines.} The
+		viability of unsupervised methods must be assessed quantitatively on the
+		same benchmarks used by supervised approaches. Understanding the
+		performance gap and identifying where unsupervised methods succeed or
+		fail relative to their supervised counterparts is essential for guiding
+		future research.
+	\end{enumerate}
+	
+	Formally, given a sparse LiDAR point cloud $\mathcal{X}_t \subset
+	\mathbb{R}^3$ captured at time $t$, and a sequence of temporally adjacent
+	scans $\{\mathcal{X}_{t-k}, \ldots, \mathcal{X}_{t+k}\}$ with known ego-motion
+	transformations, the objective is to learn a function
+	$f_\theta : \mathcal{X}_t \rightarrow \hat{\mathcal{V}} \in \{0, 1\}^{H
+		\times W \times D}$ that predicts the binary occupancy of each voxel in a
+	predefined 3D volume, \textit{without} access to ground-truth voxel labels
+	$\mathcal{V}^*$ during training.
+	
+	\section{Proposed Methodology}
+	
+	This section presents the proposed unsupervised framework for 3D scene
+	reconstruction from sparse LiDAR. The method consists of three principal
+	components: a voxel-based encoder--decoder network for occupancy prediction,
+	a temporal aggregation module that constructs pseudo-dense supervision from
+	sequential scans, and a set of geometric consistency losses that provide the
+	unsupervised training signal.
+	
+	\subsection{Framework Overview}
+	
+	The overall pipeline operates as follows. At training time, a sparse LiDAR
+	scan $\mathcal{X}_t$ is voxelized into a binary input tensor
+	$\mathcal{V}_{\text{in}} \in \{0, 1\}^{H \times W \times D}$, where each
+	voxel is marked as occupied if it contains at least one LiDAR return point.
+	This sparse input is processed by a 3D encoder--decoder network that produces
+	a dense occupancy probability map $\hat{\mathcal{V}} \in [0, 1]^{H \times W
+		\times D}$. Concurrently, the temporal aggregation module transforms and
+	merges neighboring scans $\{\mathcal{X}_{t-k}, \ldots, \mathcal{X}_{t+k}\}$
+	into the coordinate frame of $\mathcal{X}_t$ using ego-motion estimates,
+	producing a pseudo-dense reference volume $\mathcal{V}_{\text{agg}}$. The
+	network parameters $\theta$ are optimized by minimizing a composite loss that
+	measures geometric consistency between $\hat{\mathcal{V}}$ and
+	$\mathcal{V}_{\text{agg}}$, supplemented by structural regularization priors.
+	At inference time, only the single-scan input path is used; the temporal
+	aggregation module is not required.
+	
+	\subsection{Voxel Encoder--Decoder Network}
+	
+	The encoder--decoder architecture follows the established U-Net paradigm
+	adapted for 3D sparse convolution, drawing on design principles from LMSCNet
+	\cite{9320442} and S3CNet \cite{pmlr-v155-cheng21a}. The encoder applies a
+	series of sparse 3D convolutional blocks with residual connections and
+	progressive downsampling to extract multi-scale geometric features from the
+	sparse input volume. Skip connections transmit high-resolution features to
+	the decoder, which applies transposed sparse convolutions to upsample the
+	representation back to the original voxel resolution. The final output layer
+	applies a sigmoid activation to produce per-voxel occupancy probabilities.
+	
+	Sparse convolution is essential for computational efficiency, as the vast
+	majority of voxels in outdoor LiDAR volumes are unoccupied. By operating only
+	on non-empty voxels and their neighborhoods, the network avoids the cubic
+	memory and computation costs of dense 3D convolution, following the
+	efficiency principles demonstrated by Sze and Kunze \cite{10588696}.
+	
+	\subsection{Temporal Aggregation for Pseudo-Dense Supervision}
+	
+	The core insight enabling unsupervised training is that while any individual
+	LiDAR scan is sparse, the aggregation of multiple temporally adjacent scans
+	observed from different ego-vehicle positions yields a substantially denser
+	representation of the static scene geometry \cite{9812507}. This aggregated
+	volume serves as a pseudo-ground-truth supervisory signal.
+	
+	Given a sequence of scans $\{\mathcal{X}_{t-k}, \ldots, \mathcal{X}_{t+k}\}$
+	and the corresponding ego-motion transformations $\{T_{t-k \rightarrow t},
+	\ldots, T_{t+k \rightarrow t}\}$ (obtained from LiDAR odometry or GPS/IMU),
+	each neighboring scan is transformed into the coordinate frame of the
+	reference scan $\mathcal{X}_t$ and voxelized. The union of all transformed
+	voxel occupancies produces $\mathcal{V}_{\text{agg}}$. To mitigate noise
+	introduced by dynamic objects that move between frames, a statistical
+	filtering step removes voxels with inconsistent occupancy across the temporal
+	window: voxels occupied in fewer than a threshold fraction of contributing
+	scans are discarded. This approach follows the principle established by
+	Vizzo et al. \cite{9812507} and is analogous to the multi-scan aggregation
+	used to construct the SemanticKITTI ground truth \cite{Behley_2019_ICCV},
+	but applied automatically without manual annotation.
+	
+	\subsection{Unsupervised Loss Formulation}
+	
+	The training objective combines three complementary loss terms:
+	
+	\paragraph{Occupancy consistency loss.} The primary loss measures the
+	agreement between predicted occupancy $\hat{\mathcal{V}}$ and the pseudo-dense
+	reference $\mathcal{V}_{\text{agg}}$ using binary cross-entropy applied only
+	to voxels where $\mathcal{V}_{\text{agg}}$ provides reliable information
+	(i.e., voxels that are either consistently occupied or confirmed free by
+	ray-casting through the aggregated scans):
+	\begin{equation}
+		\mathcal{L}_{\text{occ}} = -\frac{1}{|\mathcal{M}|} \sum_{v \in \mathcal{M}}
+		\left[ \mathcal{V}_{\text{agg}}(v) \log \hat{\mathcal{V}}(v) +
+		(1 - \mathcal{V}_{\text{agg}}(v)) \log (1 - \hat{\mathcal{V}}(v)) \right]
+	\end{equation}
+	where $\mathcal{M}$ denotes the set of voxels with reliable pseudo-labels.
+	
+	\paragraph{Geometric smoothness prior.} A total-variation regularizer
+	encourages spatial coherence in the predicted occupancy, penalizing isolated
+	spurious voxels and encouraging smooth surfaces:
+	\begin{equation}
+		\mathcal{L}_{\text{smooth}} = \sum_{v} \sum_{v' \in \mathcal{N}(v)}
+		\left| \hat{\mathcal{V}}(v) - \hat{\mathcal{V}}(v') \right|
+	\end{equation}
+	where $\mathcal{N}(v)$ denotes the 6-connected spatial neighborhood of
+	voxel $v$.
+	
+	\paragraph{Ground plane constraint.} Outdoor driving scenes exhibit a strong
+	structural prior: the ground surface is approximately planar and should be
+	consistently occupied in the lowest voxel layers. A constraint term encourages
+	high occupancy probability for voxels at the estimated ground height, derived
+	from a RANSAC plane fit to the lowest LiDAR returns:
+	\begin{equation}
+		\mathcal{L}_{\text{ground}} = -\frac{1}{|\mathcal{G}|} \sum_{v \in \mathcal{G}}
+		\log \hat{\mathcal{V}}(v)
+	\end{equation}
+	where $\mathcal{G}$ is the set of voxels on the estimated ground plane.
+	
+	The total loss is:
+	\begin{equation}
+		\mathcal{L} = \mathcal{L}_{\text{occ}} + \lambda_s \mathcal{L}_{\text{smooth}}
+		+ \lambda_g \mathcal{L}_{\text{ground}}
+	\end{equation}
+	where $\lambda_s$ and $\lambda_g$ are weighting hyperparameters to be
+	determined through ablation.
+	
+	\section{Experimental Design}
+	
+	\subsection{Dataset and Benchmark}
+	
+	The proposed method will be evaluated on the SemanticKITTI Scene Completion
+	benchmark \cite{Behley_2019_ICCV, 10802143}, which provides voxelized
+	ground-truth occupancy and semantic labels for 22 driving sequences captured
+	by a Velodyne HDL-64E LiDAR sensor. The standard split uses sequences 00--10
+	for training (with sequence 08 reserved for validation) and sequences 11--21
+	for testing. The completion volume is defined as $256 \times 256 \times 32$
+	voxels at $0.2\,\text{m}$ resolution, covering $51.2\,\text{m} \times
+	51.2\,\text{m} \times 6.4\,\text{m}$ in front of the ego-vehicle.
+	Additionally, the Occ3D benchmark \cite{NEURIPS2023_cabfaeec} will be
+	considered as a secondary evaluation to assess generalizability across
+	different annotation pipelines and sensor configurations.
+	
+	\subsection{Evaluation Metrics}
+	
+	Following standard SSC evaluation protocol, the primary metric for geometry
+	completion (the focus of this thesis) is the Intersection over Union (IoU)
+	computed over all occupied voxels regardless of semantic class:
+	\begin{equation}
+		\text{IoU} = \frac{|\hat{\mathcal{V}}_{\text{occ}} \cap \mathcal{V}^*_{\text{occ}}|}
+		{|\hat{\mathcal{V}}_{\text{occ}} \cup \mathcal{V}^*_{\text{occ}}|}
+	\end{equation}
+	where $\hat{\mathcal{V}}_{\text{occ}}$ and $\mathcal{V}^*_{\text{occ}}$
+	denote the sets of voxels predicted and labeled as occupied, respectively.
+	Precision and recall will also be reported to distinguish between accuracy
+	and completeness of the reconstruction. The analysis will additionally
+	examine performance stratified by distance from the ego-vehicle, as
+	reconstruction difficulty increases with range due to increasing point cloud
+	sparsity.
+	
+	\subsection{Baselines and Comparisons}
+	
+	The experimental comparison will include the following categories:
+	
+	\begin{itemize}
+		\item \textbf{Supervised SSC methods} (upper-bound reference): LMSCNet
+		\cite{9320442}, S3CNet \cite{pmlr-v155-cheng21a}, VoxFormer
+		\cite{Li_2023_CVPR}, and MonoScene \cite{Cao_2022_CVPR}.
+		\item \textbf{Self-supervised methods}: Vizzo et al. \cite{9812507}
+		(self-supervised scan completion), Occupancy-MAE \cite{10273603}
+		(self-supervised pretraining), and SelfOcc \cite{Huang_2024_CVPR}
+		(self-supervised occupancy from cameras).
+		\item \textbf{Ablated variants of the proposed method}: to isolate the
+		contribution of each loss component ($\mathcal{L}_{\text{occ}}$,
+		$\mathcal{L}_{\text{smooth}}$, $\mathcal{L}_{\text{ground}}$), the
+		temporal aggregation window size $k$, and the dynamic object filtering
+		threshold.
+	\end{itemize}
+	
+	\section{Expected Contributions}
+	
+	This thesis is expected to make the following contributions:
+	
+	\begin{enumerate}
+		\item An unsupervised learning framework for voxel-based 3D scene
+		reconstruction from sparse LiDAR that requires no dense ground-truth
+		annotations, combining temporal aggregation with geometric consistency
+		losses and structural priors.
+		\item A systematic quantitative comparison between the proposed unsupervised
+		approach and established supervised baselines on the SemanticKITTI Scene
+		Completion benchmark, providing empirical evidence on the viability and
+		current limitations of label-free methods for this task.
+		\item An analysis of the conditions under which unsupervised reconstruction
+		succeeds or fails (e.g., distance ranges, scene complexity, dynamic
+		object density), informing future research directions in self-supervised
+		3D perception.
+	\end{enumerate}
+	
+	\section{Preliminary Timeline}
+	
+	\begin{table}[H]
+		\centering
+		\begin{tabular}{|>{\centering\arraybackslash}m{3.5cm}|m{9cm}|}
+			\hline
+			\textbf{Period}           & \textbf{Activities}                                                                                                                          \\
+			\hline
+			Months 1--2               & Literature review finalization; dataset preparation and
+			preprocessing pipeline (SemanticKITTI voxelization, ego-motion extraction,
+			temporal aggregation implementation).                                                                                                                                        \\
+			\hline
+			Months 3--4               & Implementation of the voxel encoder--decoder network; baseline
+			reproduction (LMSCNet supervised training) for validation of the evaluation
+			pipeline.                                                                                                                                                                    \\
+			\hline
+			Months 5--6               & Implementation of the unsupervised training pipeline
+			(pseudo-dense supervision generation, loss formulation); initial training
+			experiments and hyperparameter tuning ($\lambda_s$, $\lambda_g$, $k$).                                                                                                      \\
+			\hline
+			Months 7--8               & Comprehensive evaluation on SemanticKITTI; ablation studies;
+			distance-stratified analysis; comparison against baselines. Secondary
+			evaluation on Occ3D if time permits.                                                                                                                                         \\
+			\hline
+			Months 9--10              & Results analysis; thesis writing; revision and submission.                                                                                    \\
+			\hline
+		\end{tabular}
+		\caption{Preliminary research timeline.}
+		\label{tab:timeline}
+	\end{table}
+	
+	\bibliography{sources-personal}
+	\bibliographystyle{IEEEtran}
+	
+\end{document}
