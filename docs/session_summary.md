@@ -215,3 +215,43 @@ Modified:  docs/session_summary.md, docs/findings.md
 New:       .claude/skills/latex-report/SKILL.md, docs/report/progress_report_2026_05_06.tex, docs/report/Images/fpt.png
 Renamed:   docs/report-guidelines.pdf (from long filename), docs/report-template/ (from report-guideline-resources/)
 ```
+
+---
+
+# Session Summary — 2026-05-11
+
+## What was done
+
+### 1. Answered advisor's review questions
+Created `docs/advisor_questions_2026_05_10.md` responding to 4 questions from Dr. Doan Nhat Quang about the progress report:
+1. Stage 6 (classification) — confirmed implemented in `src/classifier.py`
+2. PCN trained on ShapeNet — yes; tested on KITTI LiDAR — not yet
+3. Phase 2 continues from full Phase 1 output (segmented + tracked objects)
+4. Stage 6 is in Phase 1 (before completion), not after Phase 2
+
+Translated to Vietnamese with natural advisor-student tone.
+
+### 2. Pipeline diagram for report (`docs/report/figures/pipeline_diagram.tex`)
+Created TikZ flowchart showing full pipeline with per-stage In/Out/Method annotations:
+- Phase 1 (blue, Stages 1–6 + Tracking) and Phase 2 (green/orange, Stage 7) in separate dashed boxes
+- Fixed two layout issues: phase box outlines clipping IO text, Phase 2 label overlapping arrow
+- Compiled PDF: `docs/report/figures/pipeline_diagram.pdf`
+
+## What's next
+
+### Immediate
+1. **Qualitative evaluation.** Visualize PCN completions on ShapeNet test samples (input → coarse → fine).
+2. **Evaluate on KITTI objects.** Run trained PCN on real partial point clouds from the segmentation pipeline — key domain-transfer test.
+3. **Add EMD loss.** Sinkhorn approximation for coarse output.
+4. **Include pipeline diagram in report.** Use `\resizebox{\textwidth}{!}{\input{...}}` in the main report .tex.
+
+### Medium-term
+5. **Domain adaptation.** Fine-tune with `simulate_lidar_noise()` augmentation on real KITTI data.
+6. **Try stronger architectures.** PoinTr or SeedFormer if PCN quality is insufficient.
+7. **Explore BEV representation.** Investigate BEV-based models as alternative/complement to 3D point-based pipeline.
+8. **Tune geometric filters.** Tighten filters to reduce HDBSCAN false positives.
+
+## Files changed
+```
+New:       docs/advisor_questions_2026_05_10.md, docs/report/figures/pipeline_diagram.tex, docs/report/figures/pipeline_diagram.pdf
+```
