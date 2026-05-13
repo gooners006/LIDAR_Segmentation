@@ -355,23 +355,24 @@ Round 2:
 
 ### Immediate
 
-1. **Train classifier.** `python src/train_classifier.py` — requires ShapeNet data.
-2. **Pipeline smoke test.** `python src/main.py --no-gui --save-output --seq 00 --frames 20` — verify no errors, labels in tracks.json.
-3. **Retrain PCN.** Camera radius, unit-sphere normalization, and seeded split changes invalidate old checkpoint.
+1. **Train classifier.** `python src/train_classifier.py` — no checkpoint exists yet; pipeline falls back to heuristic.
+2. **Retrain PCN.** `python src/train_pcn.py` — old checkpoint invalidated by camera radius, unit-sphere loss, and seeded split fixes.
+3. **Pipeline smoke test.** `python src/main.py --no-gui --save-output --seq 00 --frames 20` — verify classifier integration end-to-end.
+4. **Tighten geometric filters.** Precision is 0.154 with HDBSCAN — too many false positives. Increase `min_volume`, `min_points_in_cluster`, or add aspect-ratio filter.
 
 ### Medium-term
 
-4. **Compare learned vs heuristic classifier.** Run with/without `--no-learned-classifier`, compare tracks.json output.
-5. **Stage B classifier evaluation.** Real LiDAR cluster evaluation with SemanticKITTI labels for actual rejection quality.
-6. **Qualitative PCN evaluation.** Visualize completions on ShapeNet test samples (input → coarse → fine).
-7. **Evaluate PCN on KITTI objects.** Run trained PCN on real partial point clouds — key domain-transfer test.
-8. **Include pipeline diagram in report.**
+5. **Wire PCN into pipeline.** Connect completion to tracked objects in `main.py`; currently dormant in `completion.py`.
+6. **Stage B classifier evaluation.** Real LiDAR cluster evaluation with SemanticKITTI labels for actual rejection quality.
+7. **Compare learned vs heuristic classifier.** Run with/without `--no-learned-classifier`, compare tracks.json output.
+8. **Qualitative PCN evaluation.** Visualize completions on ShapeNet test samples (input → coarse → fine).
+9. **Evaluate PCN on KITTI objects.** Run trained PCN on real partial point clouds — key domain-transfer test.
+10. **Include pipeline diagram in report.**
 
 ### Low priority
 
-9. **Add EMD loss.** Sinkhorn approximation for PCN coarse output.
-10. **Domain adaptation.** Fine-tune PCN with `simulate_lidar_noise()` augmentation on real KITTI data.
-11. **Try stronger architectures.** PoinTr or SeedFormer if PCN quality is insufficient.
-12. **Explore BEV representation.** Investigate BEV-based models as alternative/complement.
-13. **Tune geometric filters.** Tighten filters to reduce HDBSCAN false positives.
-14. **Tracker upgrade.** IOU-based matching (SORT-style) if completion uses multi-frame accumulation.
+11. **Add EMD loss.** Sinkhorn approximation for PCN coarse output.
+12. **Domain adaptation.** Fine-tune PCN with `simulate_lidar_noise()` augmentation on real KITTI data.
+13. **Try stronger architectures.** PoinTr or SeedFormer if PCN quality is insufficient.
+14. **Explore BEV representation.** Investigate BEV-based models as alternative/complement.
+15. **Tracker upgrade.** IOU-based matching (SORT-style) if completion uses multi-frame accumulation.
