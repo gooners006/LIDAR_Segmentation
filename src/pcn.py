@@ -132,10 +132,11 @@ def chamfer_distance_chunked(
     gt: torch.Tensor,
     chunk_size: int = 2048,
 ) -> torch.Tensor:
-    """Memory-safe bidirectional Chamfer Distance (squared L2).
+    """Memory-safe bidirectional Chamfer Distance (L2, not squared).
 
     Processes one sample at a time, chunking the inner dimension to control peak memory.
-    With chunk_size=2048 and M=N=16384: peak ~16384×2048×3×4 = 384MB per direction.
+    With chunk_size=2048 and M=N=16384: peak ~16384×2048×4 = 128MB per direction
+    (torch.cdist outputs scalar distances, not 3D vectors; backward may allocate more).
 
     Args:
         pred: (B, M, 3)

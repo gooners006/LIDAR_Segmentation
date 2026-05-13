@@ -22,7 +22,7 @@ import trimesh
 from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(__file__))
-from completion import chamfer_distance, f_score
+from completion import f_score
 from pcn import PCN, pcn_loss
 
 logging.getLogger("trimesh").setLevel(logging.ERROR)
@@ -48,8 +48,9 @@ TRAIN_CONFIG = {
     "depth_w": 256,
     "viewpoint_elev_range": (-20.0, 30.0),
     "viewpoint_azim_range": (0.0, 360.0),
-    "viewpoint_radius_range": (2.5, 4.5),
+    "viewpoint_radius_factor_range": (1.5, 2.5),
     "val_fraction": 0.2,
+    "split_seed": 42,
     "alpha": 0.5,
     "epochs": 100,
     "batch_size": 8,
@@ -68,6 +69,7 @@ TRAIN_CONFIG = {
 # Dataset
 # ---------------------------------------------------------------------------
 
+
 class ShapeNetCompletionDataset(data.Dataset):
     """ShapeNet meshes → (partial, gt, gt_coarse) via depth-image back-projection."""
 
@@ -81,6 +83,8 @@ class ShapeNetCompletionDataset(data.Dataset):
             if not os.path.isdir(cat_dir):
                 continue
             model_dirs = sorted(os.listdir(cat_dir))
+            rng = np.random.default_rng(config["split_seed"])
+            rng.shuffle(model_dirs)
             n_val = int(len(model_dirs) * config["val_fraction"])
             n_train = len(model_dirs) - n_val
             if split == "train":
@@ -97,51 +101,59 @@ class ShapeNetCompletionDataset(data.Dataset):
         return len(self.items)
 
     def __getitem__(self, idx: int) -> dict:
-        obj_path, synset_id = self.items[idx]
-        scale_m = self.config["category_scale_m"][synset_id]
+        max_retries = 10
+        for attempt in range(max_retries):
+            try_idx = idx if attempt == 0 else np.random.randint(0, len(self))
+            obj_path, synset_id = self.items[try_idx]
+            scale_m = self.config["category_scale_m"][synset_id]
 
-        mesh = self._load_and_scale(obj_path, scale_m)
-        if mesh is None or mesh.area < 1e-6:
-            return self._fallback(idx)
+            mesh = self._load_and_scale(obj_path, scale_m)
+            if mesh is None or mesh.area < 1e-6:
+                continue
 
-        # GT: uniform surface sampling
-        gt_pts = self._sample_gt(mesh)
+            gt_pts = self._sample_gt(mesh)
 
-        # Partial: depth rendering from random viewpoint
-        partial_pts = self._render_partial(mesh)
-        if partial_pts is None:
-            return self._fallback(idx)
+            partial_pts = self._render_partial(mesh, scale_m)
+            if partial_pts is None:
+                continue
 
-        # Center both on GT centroid
-        centroid = gt_pts.mean(axis=0)
-        gt_pts -= centroid
-        partial_pts -= centroid
+            # Center both on GT centroid
+            centroid = gt_pts.mean(axis=0)
+            gt_pts -= centroid
+            partial_pts -= centroid
 
-        # Random Z-axis rotation augmentation
-        if self.split == "train":
-            gt_pts, partial_pts = self._augment_rotation(gt_pts, partial_pts)
+            # Normalize to unit sphere so CD loss is scale-invariant across categories
+            radius = np.linalg.norm(gt_pts, axis=1).max()
+            if radius > 1e-6:
+                gt_pts /= radius
+                partial_pts /= radius
 
-        # Subsample GT for coarse loss target
-        coarse_idx = np.random.choice(len(gt_pts), self.config["coarse_n_points"], replace=False)
-        gt_coarse = gt_pts[coarse_idx]
+            # Random Z-axis rotation augmentation
+            if self.split == "train":
+                gt_pts, partial_pts = self._augment_rotation(gt_pts, partial_pts)
 
-        return {
-            "partial": torch.from_numpy(partial_pts).float(),
-            "gt": torch.from_numpy(gt_pts).float(),
-            "gt_coarse": torch.from_numpy(gt_coarse).float(),
-        }
+            # Subsample GT for coarse loss target
+            coarse_idx = np.random.choice(
+                len(gt_pts), self.config["coarse_n_points"], replace=False
+            )
+            gt_coarse = gt_pts[coarse_idx]
 
-    def _fallback(self, idx: int) -> dict:
-        """On error, return a different random sample."""
-        new_idx = np.random.randint(0, len(self))
-        if new_idx == idx:
-            new_idx = (idx + 1) % len(self)
-        return self[new_idx]
+            return {
+                "partial": torch.from_numpy(partial_pts).float(),
+                "gt": torch.from_numpy(gt_pts).float(),
+                "gt_coarse": torch.from_numpy(gt_coarse).float(),
+            }
+
+        raise RuntimeError(
+            f"Failed to load a valid sample after {max_retries} retries (initial idx={idx})"
+        )
 
     @staticmethod
     def _load_and_scale(obj_path: str, scale_m: float):
         try:
-            mesh = trimesh.load(obj_path, force="mesh", process=False, skip_materials=True)
+            mesh = trimesh.load(
+                obj_path, force="mesh", process=False, skip_materials=True
+            )
         except Exception:
             return None
         extents = mesh.bounding_box.extents
@@ -156,7 +168,9 @@ class ShapeNetCompletionDataset(data.Dataset):
         pts, _ = trimesh.sample.sample_surface(mesh, self.config["gt_n_points"])
         return np.array(pts, dtype=np.float32)
 
-    def _render_partial(self, mesh, max_retries: int = 5) -> np.ndarray | None:
+    def _render_partial(
+        self, mesh, scale_m: float, max_retries: int = 5
+    ) -> np.ndarray | None:
         """Render depth from a random viewpoint and back-project to 3D."""
         vertices = np.array(mesh.vertices, dtype=np.float32)
         faces = np.array(mesh.faces, dtype=np.int32)
@@ -176,7 +190,7 @@ class ShapeNetCompletionDataset(data.Dataset):
         intrinsic = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float32)
 
         for _ in range(max_retries):
-            extrinsic = self._random_extrinsic()
+            extrinsic = self._random_extrinsic(scale_m)
             rays = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
                 o3d.core.Tensor(intrinsic),
                 o3d.core.Tensor(extrinsic),
@@ -201,22 +215,25 @@ class ShapeNetCompletionDataset(data.Dataset):
 
         return None
 
-    def _random_extrinsic(self) -> np.ndarray:
+    def _random_extrinsic(self, scale_m: float) -> np.ndarray:
         """Sample a random viewpoint and return the world-to-camera 4×4 matrix."""
         elev_min, elev_max = self.config["viewpoint_elev_range"]
         azim_min, azim_max = self.config["viewpoint_azim_range"]
-        r_min, r_max = self.config["viewpoint_radius_range"]
+        f_min, f_max = self.config["viewpoint_radius_factor_range"]
 
         elev = np.radians(np.random.uniform(elev_min, elev_max))
         azim = np.radians(np.random.uniform(azim_min, azim_max))
-        r = np.random.uniform(r_min, r_max)
+        r = np.random.uniform(f_min * scale_m, f_max * scale_m)
 
         # Camera position in world coordinates
-        cam_pos = np.array([
-            r * np.cos(elev) * np.cos(azim),
-            r * np.cos(elev) * np.sin(azim),
-            r * np.sin(elev),
-        ], dtype=np.float64)
+        cam_pos = np.array(
+            [
+                r * np.cos(elev) * np.cos(azim),
+                r * np.cos(elev) * np.sin(azim),
+                r * np.sin(elev),
+            ],
+            dtype=np.float64,
+        )
 
         # Look-at: camera looks at origin
         forward = -cam_pos / np.linalg.norm(cam_pos)
@@ -262,6 +279,7 @@ class ShapeNetCompletionDataset(data.Dataset):
 # Training
 # ---------------------------------------------------------------------------
 
+
 def train_one_epoch(model, loader, optimizer, device, config, epoch):
     model.train()
     total_loss = 0.0
@@ -288,7 +306,11 @@ def train_one_epoch(model, loader, optimizer, device, config, epoch):
         n_batches += 1
 
         if n_batches % config["log_every"] == 0:
-            pbar.set_postfix(loss=f"{loss.item():.5f}", cd_c=f"{cd_c.item():.5f}", cd_f=f"{cd_f.item():.5f}")
+            pbar.set_postfix(
+                loss=f"{loss.item():.5f}",
+                cd_c=f"{cd_c.item():.5f}",
+                cd_f=f"{cd_f.item():.5f}",
+            )
 
     return {
         "train_loss": total_loss / n_batches,
@@ -335,19 +357,23 @@ def evaluate(model, loader, device, config, compute_fscore: bool = False):
 
 
 def save_checkpoint(model, optimizer, scheduler, epoch, metrics, path):
-    torch.save({
-        "epoch": epoch,
-        "model_state_dict": model.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
-        "scheduler_state_dict": scheduler.state_dict() if scheduler else None,
-        "metrics": metrics,
-        "config": TRAIN_CONFIG,
-    }, path)
+    torch.save(
+        {
+            "epoch": epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "scheduler_state_dict": scheduler.state_dict() if scheduler else None,
+            "metrics": metrics,
+            "config": TRAIN_CONFIG,
+        },
+        path,
+    )
 
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main():
     parser = argparse.ArgumentParser(description="Train PCN on ShapeNet")
@@ -366,7 +392,9 @@ def main():
     config["lr"] = args.lr
     config["num_workers"] = args.workers
 
-    device = torch.device("cpu" if args.no_cuda or not torch.cuda.is_available() else "cuda")
+    device = torch.device(
+        "cpu" if args.no_cuda or not torch.cuda.is_available() else "cuda"
+    )
     print(f"Device: {device}")
 
     torch.manual_seed(config["seed"])
@@ -378,12 +406,19 @@ def main():
     print(f"Train: {len(train_ds)} samples | Val: {len(val_ds)} samples")
 
     train_loader = data.DataLoader(
-        train_ds, batch_size=config["batch_size"], shuffle=True,
-        num_workers=config["num_workers"], pin_memory=True, drop_last=True,
+        train_ds,
+        batch_size=config["batch_size"],
+        shuffle=True,
+        num_workers=config["num_workers"],
+        pin_memory=True,
+        drop_last=True,
     )
     val_loader = data.DataLoader(
-        val_ds, batch_size=config["batch_size"], shuffle=False,
-        num_workers=config["num_workers"], pin_memory=True,
+        val_ds,
+        batch_size=config["batch_size"],
+        shuffle=False,
+        num_workers=config["num_workers"],
+        pin_memory=True,
     )
 
     # Model
@@ -392,7 +427,9 @@ def main():
     print(f"PCN parameters: {n_params:,}")
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"], weight_decay=1e-6)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config["lr_decay_step"], gamma=config["lr_decay_gamma"])
+    scheduler = torch.optim.lr_scheduler.StepLR(
+        optimizer, step_size=config["lr_decay_step"], gamma=config["lr_decay_gamma"]
+    )
 
     # Resume
     start_epoch = 0
@@ -419,49 +456,93 @@ def main():
     log_file = open(log_path, "a", newline="")
     log_writer = csv.writer(log_file)
     if not log_exists:
-        log_writer.writerow(["epoch", "train_loss", "train_cd_coarse", "train_cd_fine",
-                             "val_loss", "val_cd_coarse", "val_cd_fine", "val_fscore", "lr", "time_s"])
+        log_writer.writerow(
+            [
+                "epoch",
+                "train_loss",
+                "train_cd_coarse",
+                "train_cd_fine",
+                "val_loss",
+                "val_cd_coarse",
+                "val_cd_fine",
+                "val_fscore",
+                "lr",
+                "time_s",
+            ]
+        )
 
     for epoch in range(start_epoch, config["epochs"]):
         t0 = time.time()
 
-        train_metrics = train_one_epoch(model, train_loader, optimizer, device, config, epoch)
+        train_metrics = train_one_epoch(
+            model, train_loader, optimizer, device, config, epoch
+        )
         scheduler.step()
 
         compute_fs = (epoch + 1) % 10 == 0 or epoch == config["epochs"] - 1
-        val_metrics = evaluate(model, val_loader, device, config, compute_fscore=compute_fs)
+        val_metrics = evaluate(
+            model, val_loader, device, config, compute_fscore=compute_fs
+        )
 
         elapsed = time.time() - t0
         lr = scheduler.get_last_lr()[0]
 
-        print(f"Epoch {epoch+1:3d}/{config['epochs']} | "
-              f"train={train_metrics['train_loss']:.5f} | "
-              f"val={val_metrics['val_loss']:.5f} | "
-              f"cd_f={val_metrics['val_cd_fine']:.5f} | "
-              f"lr={lr:.2e} | {elapsed:.0f}s")
+        print(
+            f"Epoch {epoch+1:3d}/{config['epochs']} | "
+            f"train={train_metrics['train_loss']:.5f} | "
+            f"val={val_metrics['val_loss']:.5f} | "
+            f"cd_f={val_metrics['val_cd_fine']:.5f} | "
+            f"lr={lr:.2e} | {elapsed:.0f}s"
+        )
 
-        log_writer.writerow([
-            epoch + 1, train_metrics["train_loss"], train_metrics["train_cd_coarse"],
-            train_metrics["train_cd_fine"], val_metrics["val_loss"], val_metrics["val_cd_coarse"],
-            val_metrics["val_cd_fine"], val_metrics.get("val_fscore", ""),
-            lr, f"{elapsed:.1f}",
-        ])
+        log_writer.writerow(
+            [
+                epoch + 1,
+                train_metrics["train_loss"],
+                train_metrics["train_cd_coarse"],
+                train_metrics["train_cd_fine"],
+                val_metrics["val_loss"],
+                val_metrics["val_cd_coarse"],
+                val_metrics["val_cd_fine"],
+                val_metrics.get("val_fscore", ""),
+                lr,
+                f"{elapsed:.1f}",
+            ]
+        )
         log_file.flush()
 
         # Save checkpoints
         all_metrics = {**train_metrics, **val_metrics}
-        save_checkpoint(model, optimizer, scheduler, epoch, all_metrics,
-                        os.path.join(config["checkpoint_dir"], "pcn_last.pth"))
+        save_checkpoint(
+            model,
+            optimizer,
+            scheduler,
+            epoch,
+            all_metrics,
+            os.path.join(config["checkpoint_dir"], "pcn_last.pth"),
+        )
 
         if val_metrics["val_loss"] < best_val_loss:
             best_val_loss = val_metrics["val_loss"]
-            save_checkpoint(model, optimizer, scheduler, epoch, all_metrics,
-                            os.path.join(config["checkpoint_dir"], "pcn_best.pth"))
+            save_checkpoint(
+                model,
+                optimizer,
+                scheduler,
+                epoch,
+                all_metrics,
+                os.path.join(config["checkpoint_dir"], "pcn_best.pth"),
+            )
             print(f"  → new best (val_loss={best_val_loss:.6f})")
 
         if (epoch + 1) % config["checkpoint_every"] == 0:
-            save_checkpoint(model, optimizer, scheduler, epoch, all_metrics,
-                            os.path.join(config["checkpoint_dir"], f"pcn_epoch{epoch+1:03d}.pth"))
+            save_checkpoint(
+                model,
+                optimizer,
+                scheduler,
+                epoch,
+                all_metrics,
+                os.path.join(config["checkpoint_dir"], f"pcn_epoch{epoch+1:03d}.pth"),
+            )
 
     log_file.close()
     print(f"\nDone. Best val loss: {best_val_loss:.6f}")

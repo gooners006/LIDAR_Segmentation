@@ -2,12 +2,14 @@ import argparse
 import glob
 import json
 import os
+import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
+import torch
 
-from classifier import classify_bbox
+from classifier import classify_bbox_heuristic, classify_cluster, load_classifier
 from pipeline import (
     PIPELINE_CONFIG,
     cluster_objects,
@@ -32,6 +34,21 @@ def parse_args():
     parser.add_argument(
         "--no-gui", action="store_true", help="Disable Open3D visualization"
     )
+    parser.add_argument(
+        "--classifier-ckpt", type=str,
+        default=os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "checkpoints", "classifier_best.pth"),
+        help="Path to learned classifier checkpoint",
+    )
+    parser.add_argument(
+        "--classifier-unknown-threshold", type=float, default=0.65,
+        help="Softmax threshold below which clusters are labeled unknown",
+    )
+    parser.add_argument(
+        "--no-learned-classifier", action="store_true",
+        help="Use heuristic classifier instead of learned model",
+    )
     return parser.parse_args()
 
 
@@ -53,6 +70,19 @@ def main():
         max_distance=PIPELINE_CONFIG["tracker_max_distance"],
         max_disappeared=PIPELINE_CONFIG["tracker_max_disappeared"],
     )
+
+    # --- Classifier ---
+    cls_model, cls_bbox_stats = None, None
+    cls_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if not args.no_learned_classifier:
+        cls_model, cls_bbox_stats = load_classifier(args.classifier_ckpt, cls_device)
+        if cls_model is not None:
+            print(f"Loaded learned classifier from {args.classifier_ckpt}")
+        else:
+            warnings.warn(
+                f"Classifier checkpoint not found: {args.classifier_ckpt}. "
+                "Falling back to heuristic classifier.")
+    use_learned_classifier = cls_model is not None
 
     # --- Visualization ---
     vis = None
@@ -98,8 +128,19 @@ def main():
         bbox_cluster_labels = []
         cluster_classes = []
 
+        assert len(labels) == len(np.asarray(objects_pcd.points)), \
+            "Cluster labels must align with objects_pcd.points"
+
         for bbox, cluster_label in clusters:
-            result = classify_bbox(bbox.extent, bbox.get_center())
+            if use_learned_classifier:
+                mask = labels == cluster_label
+                cluster_points = np.asarray(objects_pcd.points)[mask]
+                result = classify_cluster(
+                    cluster_points, cls_model, cls_device, cls_bbox_stats,
+                    unknown_threshold=args.classifier_unknown_threshold,
+                )
+            else:
+                result = classify_bbox_heuristic(bbox.extent, bbox.get_center())
             cluster_classes.append(result.label)
 
             bbox_cluster_labels.append(cluster_label)
