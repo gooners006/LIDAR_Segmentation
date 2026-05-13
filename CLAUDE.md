@@ -10,17 +10,14 @@ This is research code. Prioritize clarity, reproducibility, and easy experimenta
 
 At the start of each session:
 
-1. Read `docs/session_summary.md`.
-2. Identify:
-   - current research goal
-   - latest experiment results
-   - open issues
-   - next planned step
+1. Read `docs/project_state.md` for the current context and immediate next steps.
+2. Do not read `docs/session_history.md` unless explicitly requested.
 3. Check relevant files in `docs/` before asking the user for background context.
 
 Important docs:
 
-- `docs/session_summary.md` — latest progress, open issues, next steps
+- `docs/project_state.md` — current architecture, blockers, next steps (read this first)
+- `docs/session_history.md` — chronological session diary (read only if asked)
 - `docs/datasets.md` — dataset layout and assumptions
 - `docs/findings.md` — experiment observations and conclusions
 - `docs/pipeline_feedback.md` — notes on pipeline behavior and known problems
@@ -138,7 +135,7 @@ Before editing code:
 2. Explain the intended change for exploratory/risky changes.
 3. Keep the diff minimal.
 4. Run or suggest the correct evaluation command.
-5. Update `docs/session_summary.md` if the change affects project direction or results.
+5. Update `docs/project_state.md` if the change affects project direction or results.
 
 ## Out of Scope
 

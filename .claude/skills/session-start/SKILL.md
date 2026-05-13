@@ -1,7 +1,7 @@
 ---
 name: session-start
 description: >
-  Read docs/session_summary.md and present a brief recap at the start of a new session.
+  Read docs/project_state.md and present a brief recap at the start of a new session.
   Use this skill when the user says "start session", "session start", "catch me up",
   "what's the context", "where did we leave off", "recap", "what happened last time",
   or any variation of wanting to review previous session context before starting work.
@@ -10,16 +10,16 @@ description: >
 
 # Session Start Skill
 
-You are reading the session summary and giving the user a quick recap so they can jump into work with full context.
+You are reading the project state and giving the user a quick recap so they can jump into work.
 
 ## Steps
 
-1. **Read** `docs/session_summary.md`.
-2. **Summarize** the most recent session entry in a few bullet points:
-   - What was accomplished last time
-   - Any open issues or blockers
-   - What's next (the most actionable items)
-3. **Present** the recap to the user in a short, scannable format — no walls of text.
+1. **Read** `docs/project_state.md`.
+2. **Summarize** in a few bullet points:
+   - Current state of the pipeline and components
+   - Active blockers or issues
+   - Top 3 immediate next steps
+3. **Present** the recap in a short, scannable format.
 4. **Ask** what they'd like to work on this session.
 
 ## Output format
@@ -27,20 +27,24 @@ You are reading the session summary and giving the user a quick recap so they ca
 Keep it brief. Example:
 
 ```
-**Last session (YYYY-MM-DD):**
-- Did X, Y, Z
-- Open issue: ...
+**Current state:**
+- Pipeline stages 1-6 + tracking working
+- Classifier: code done, not trained
+- PCN: needs retrain
+
+**Blockers:**
+- No classifier checkpoint
 
 **Up next:**
-1. First priority
-2. Second priority
+1. Train classifier
+2. Retrain PCN
+3. Pipeline smoke test
 
 What would you like to tackle?
 ```
 
 ## Guidelines
 
-- Only summarize the most recent session entry unless the user asks for more history.
-- Highlight blockers or gotchas from "Environment notes" if they're relevant to the next steps.
-- Don't repeat the full session summary verbatim — distill it.
-- If `docs/session_summary.md` doesn't exist, say so and offer to create it.
+- Only read `docs/project_state.md`. Do NOT read `docs/session_history.md` unless the user asks for history.
+- Don't repeat the file verbatim — distill it.
+- If `docs/project_state.md` doesn't exist, say so and offer to create it.
