@@ -9,7 +9,6 @@ Usage:
 
 import argparse
 import csv
-import logging
 import os
 import sys
 import time
@@ -19,7 +18,6 @@ import open3d as o3d
 import torch
 import torch.nn as nn
 import torch.utils.data as data
-import trimesh
 from sklearn.metrics import classification_report, confusion_matrix, f1_score
 from tqdm import tqdm
 
@@ -36,7 +34,6 @@ from classifier import (
     sample_or_pad,
 )
 
-logging.getLogger("trimesh").setLevel(logging.ERROR)
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -156,16 +153,19 @@ class ShapeNetClassificationDataset(data.Dataset):
         n_cropped = n // 4
         n_noisy = n - n_geometric - n_cropped
 
-        for i in range(n_geometric):
+        for i in tqdm(range(n_geometric), desc="Generating geometric unknowns",
+                      leave=False):
             unknowns.append(self._generate_geometric_unknown(rng, i))
 
-        for _ in range(n_cropped):
+        for _ in tqdm(range(n_cropped), desc="Generating cropped partials",
+                      leave=False):
             pts = self._generate_cropped_partial(rng)
             if pts is None:
                 pts = self._generate_geometric_unknown(rng)
             unknowns.append(pts)
 
-        for _ in range(n_noisy):
+        for _ in tqdm(range(n_noisy), desc="Generating noisy subsets",
+                      leave=False):
             pts = self._generate_noisy_subset(rng)
             if pts is None:
                 pts = self._generate_geometric_unknown(rng)
@@ -194,11 +194,10 @@ class ShapeNetClassificationDataset(data.Dataset):
         obj_path, synset_id = self.vehicle_items[idx]
         scale_m = self.config["category_scale_m"][synset_id]
         mesh = self._load_and_scale(obj_path, scale_m)
-        if mesh is None or mesh.area < 1e-6:
+        if mesh is None or mesh.get_surface_area() < 1e-6:
             return None
         try:
-            pts, _ = trimesh.sample.sample_surface(mesh, 1024)
-            pts = pts.astype(np.float32)
+            pts = self._sample_mesh_surface(mesh, 1024, rng)
         except Exception:
             return None
         axis = int(rng.integers(0, 3))
@@ -218,11 +217,10 @@ class ShapeNetClassificationDataset(data.Dataset):
         obj_path, synset_id = self.vehicle_items[idx]
         scale_m = self.config["category_scale_m"][synset_id]
         mesh = self._load_and_scale(obj_path, scale_m)
-        if mesh is None or mesh.area < 1e-6:
+        if mesh is None or mesh.get_surface_area() < 1e-6:
             return None
         try:
-            pts, _ = trimesh.sample.sample_surface(mesh, 512)
-            pts = pts.astype(np.float32)
+            pts = self._sample_mesh_surface(mesh, 512, rng)
         except Exception:
             return None
         keep_frac = float(rng.uniform(0.3, 0.6))
@@ -266,7 +264,7 @@ class ShapeNetClassificationDataset(data.Dataset):
             label = self.config["category_label"][synset_id]
 
             mesh = self._load_and_scale(obj_path, scale_m)
-            if mesh is None or mesh.area < 1e-6:
+            if mesh is None or mesh.get_surface_area() < 1e-6:
                 continue
 
             pts = self._render_partial(mesh, scale_m, rng=rng)
@@ -315,25 +313,46 @@ class ShapeNetClassificationDataset(data.Dataset):
     # --- Mesh loading and rendering (adapted from train_pcn.py) ---
 
     @staticmethod
+    def _sample_mesh_surface(mesh, n_points: int,
+                             rng: np.random.Generator) -> np.ndarray:
+        """Area-weighted triangle sampling with controlled RNG."""
+        verts = np.asarray(mesh.vertices, dtype=np.float64)
+        tris = np.asarray(mesh.triangles)
+        v0, v1, v2 = verts[tris[:, 0]], verts[tris[:, 1]], verts[tris[:, 2]]
+        areas = 0.5 * np.linalg.norm(np.cross(v1 - v0, v2 - v0), axis=1)
+        probs = areas / areas.sum()
+        tri_idx = rng.choice(len(tris), size=n_points, p=probs)
+        r1 = rng.random(n_points)
+        r2 = rng.random(n_points)
+        sqrt_r1 = np.sqrt(r1)
+        pts = ((1 - sqrt_r1)[:, None] * v0[tri_idx]
+               + (sqrt_r1 * (1 - r2))[:, None] * v1[tri_idx]
+               + (sqrt_r1 * r2)[:, None] * v2[tri_idx])
+        return pts.astype(np.float32)
+
+    @staticmethod
     def _load_and_scale(obj_path: str, scale_m: float):
         try:
-            mesh = trimesh.load(obj_path, force="mesh", process=False,
-                                skip_materials=True)
+            mesh = o3d.io.read_triangle_mesh(obj_path, enable_post_processing=True)
         except Exception:
             return None
-        extents = mesh.bounding_box.extents
+        if not mesh.has_vertices() or not mesh.has_triangles():
+            return None
+        verts = np.asarray(mesh.vertices)
+        extents = verts.max(axis=0) - verts.min(axis=0)
         max_extent = extents.max()
         if max_extent < 1e-6:
             return None
-        mesh.apply_scale(scale_m / max_extent)
-        mesh.vertices -= mesh.centroid
+        scale = scale_m / max_extent
+        centroid = verts.mean(axis=0)
+        mesh.vertices = o3d.utility.Vector3dVector((verts - centroid) * scale)
         return mesh
 
     def _render_partial(self, mesh, scale_m: float,
                         rng: np.random.Generator | None = None,
                         max_retries: int = 5) -> np.ndarray | None:
-        vertices = np.array(mesh.vertices, dtype=np.float32)
-        faces = np.array(mesh.faces, dtype=np.int32)
+        vertices = np.asarray(mesh.vertices, dtype=np.float32)
+        faces = np.asarray(mesh.triangles, dtype=np.int32)
 
         scene = o3d.t.geometry.RaycastingScene()
         mesh_t = o3d.t.geometry.TriangleMesh()
