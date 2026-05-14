@@ -20,7 +20,9 @@ PIPELINE_CONFIG = {
     "max_dim_length": 8.0,
     "min_max_dim": 0.5,
     "min_med_dim": 0.2,
-    "max_center_height_above_ground": 3.0,
+    "max_center_height_above_ground": 1.5,
+    "max_height_span": 1.8,
+    "max_aspect_max_min": 6.0,
     "tracker_max_distance": 2.0,
     "tracker_max_disappeared": 5,
 }
@@ -151,6 +153,15 @@ def filter_clusters(
             height = center[2]
 
         if height > config["max_center_height_above_ground"]:
+            continue
+
+        cluster_pts = np.asarray(cluster_pcd.points)
+        height_span = cluster_pts[:, 2].max() - cluster_pts[:, 2].min()
+        if height_span > config["max_height_span"]:
+            continue
+
+        aspect_max_min = max_dim / min_dim if min_dim > 1e-6 else float("inf")
+        if aspect_max_min > config["max_aspect_max_min"]:
             continue
 
         results.append((bbox, int(label)))

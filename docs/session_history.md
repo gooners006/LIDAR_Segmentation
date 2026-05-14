@@ -376,3 +376,61 @@ Round 2:
 13. **Try stronger architectures.** PoinTr or SeedFormer if PCN quality is insufficient.
 14. **Explore BEV representation.** Investigate BEV-based models as alternative/complement.
 15. **Tracker upgrade.** IOU-based matching (SORT-style) if completion uses multi-frame accumulation.
+
+---
+
+# Session Summary — 2026-05-14 (cont.)
+
+## What was done
+
+### 1. FP analysis script (`src/analyze_fp.py`)
+
+Created false-positive analysis tool that runs pipeline stages 1-5 on SemanticKITTI, matches detections to GT via greedy IoU, and writes per-cluster features to CSV (18 columns). Prints TP and FP distributions side-by-side (semantic breakdown + percentiles for 6 features).
+
+- Usage: `python src/analyze_fp.py --seq 00 --frames 100`
+- Output: `output/eval_fp_analysis_{seq}.csv`
+- Baseline result (100 frames, seq 00): 5882 detections, 1393 TP, 4489 FP (precision 0.237)
+- Top FP sources: vegetation (38.3%), building (32.9%), trunk (12.5%)
+
+### 2. Geometric filter tuning (`src/pipeline.py`)
+
+Data-driven filter tuning based on FP analysis distributions:
+
+| Parameter | Before | After | Rationale |
+|---|---|---|---|
+| `max_center_height_above_ground` | 3.0 | 1.5 | TP median 0.81m, building/trunk FP medians >1.7m |
+| `max_height_span` | *(none)* | 1.8 | TP p95 = 1.66m; vegetation/building FP medians >1.5m |
+| `max_aspect_max_min` | *(none)* | 6.0 | TP p95 = 5.79; building FP median 5.34 |
+
+Post-tuning results (100 frames, seq 00):
+
+| Metric | Before | After | Change |
+|---|---|---|---|
+| Precision | 0.237 | 0.654 | +176% |
+| Recall | 0.868 | 0.704 | -19% |
+| F1 | — | 0.678 | — |
+| FP count | 4489 | 676 | -85% |
+| Mean IoU | — | 0.944 | — |
+
+Residual FPs: 64% vegetation (short, compact clusters geometrically overlapping with vehicles).
+
+### 3. Distance-dependent evaluation
+
+Precision by distance: 0-20m = 0.692, 20-40m = 0.635, 40m+ = 0.367. 95% of TPs within 40m. Point density drops ~5x from near to far. Far-range FPs mostly "unlabeled" (likely GT annotation gaps).
+
+### 4. Findings recorded (`docs/findings.md`)
+
+Added findings #4 (FP analysis + filter tuning) and #5 (distance-dependent evaluation).
+
+### 5. Stage B mining script designed (not written)
+
+Designed `src/mine_stage_b.py`: run pipeline on SemanticKITTI, match clusters to GT, save centroid-centered .npy files organized by class (car/bus/motorcycle/unknown). User deferred writing to next session.
+
+## Files changed
+
+```
+Modified:  docs/findings.md (added findings #4, #5)
+Modified:  docs/project_state.md (precision-first plan update)
+Modified:  src/pipeline.py (3 filter changes in PIPELINE_CONFIG + filter_clusters)
+New:       src/analyze_fp.py
+```
