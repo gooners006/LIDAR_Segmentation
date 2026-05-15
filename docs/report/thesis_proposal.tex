@@ -1,0 +1,188 @@
+\documentclass[runningheads]{llncs}
+
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\begin{document}
+
+\title{Thesis Proposal:\\Classical Segmentation and Deep Learning Completion\\for LiDAR Point Clouds}
+
+\titlerunning{Thesis Proposal: LiDAR Segmentation and Completion}
+
+\author{Ngo Vi Viet Anh\inst{1} \and
+Doan Nhat Quang\inst{1}}
+
+\authorrunning{N. V. V. Anh et al.}
+
+\institute{FPT School of Business \& Technology, FPT University, Vietnam\\
+\email{ngovivietanh@gmail.com}}
+
+\maketitle
+
+\begin{abstract}
+This proposal presents a hybrid pipeline for LiDAR point cloud processing that combines classical geometric segmentation with deep learning--based object classification and shape completion. Phase~1 segments objects from raw LiDAR scans using RANSAC ground removal, HDBSCAN clustering, geometric filtering, and a two-stage PointNet classifier trained on synthetic ShapeNet data and fine-tuned on real SemanticKITTI clusters. Phase~2 reconstructs dense object shapes from sparse partial observations using a Point Completion Network (PCN), trained with both Chamfer Distance and Earth Mover's Distance losses. Preliminary evaluation on SemanticKITTI sequence~00 (100 frames) shows the geometric pipeline achieves an F1 of 0.678 with precision 0.654 and recall 0.704; the learned classifier is expected to further reduce false positives. This work investigates whether a modular, interpretable pipeline can achieve competitive segmentation quality while providing dense shape output for downstream tasks.
+
+\keywords{LiDAR \and point cloud segmentation \and point cloud completion \and SemanticKITTI \and HDBSCAN \and PointNet \and PCN}
+\end{abstract}
+
+
+\section{Introduction}
+
+LiDAR sensors are a cornerstone of 3D perception in autonomous driving, producing point clouds that capture the geometry of the surrounding environment. Processing these point clouds to detect and identify objects---vehicles, pedestrians, cyclists---is essential for safe navigation. Two fundamental challenges arise: (1)~\emph{segmentation}, extracting individual object instances from the raw scan, and (2)~\emph{completion}, reconstructing dense object shapes from the sparse, partial observations that single-scan LiDAR inherently produces.
+
+End-to-end deep learning methods~\cite{Qi_2017_CVPR,Hu_2020_CVPR} dominate current benchmarks but require large annotated datasets, offer limited interpretability, and can be difficult to debug when failures occur in deployment. Classical geometric methods---ground fitting, density-based clustering, bounding-box filtering---are transparent and require no training data for the segmentation stage, but they struggle to distinguish objects from non-object structures (vegetation, building fragments) that share similar geometric properties.
+
+This thesis proposes a \emph{hybrid approach} that leverages the strengths of both paradigms. A classical pipeline handles the spatial decomposition of the scene, while lightweight learned components (a PointNet-based classifier and a Point Completion Network) address the discrimination and reconstruction tasks that pure geometry cannot solve. The design is deliberately modular: each stage can be evaluated, tuned, and replaced independently, and the pipeline remains interpretable end-to-end.
+
+We target the SemanticKITTI dataset~\cite{Behley_2019_ICCV}, built on the KITTI Vision Benchmark~\cite{geiger2012we}, which provides per-point semantic and instance annotations across 22 driving sequences with over 43\,000 frames. The central research question is:
+
+\medskip
+\noindent\emph{Can a modular pipeline combining classical geometric segmentation with lightweight learned classification and shape completion achieve competitive object detection quality on SemanticKITTI while maintaining interpretability and low data requirements?}
+
+
+\section{Related Work}
+
+\subsection{LiDAR Point Cloud Segmentation}
+
+Traditional LiDAR segmentation follows a detect-then-classify paradigm: RANSAC-based ground plane removal~\cite{geiger2012we} separates road surfaces, then clustering algorithms such as DBSCAN or HDBSCAN group remaining points into candidate objects. Geometric filters on bounding-box dimensions reject obvious non-objects. These methods are transparent and fast but produce high false-positive rates on cluttered scenes, as vegetation and building fragments can resemble vehicles in size and shape.
+
+Deep learning approaches operate directly on point sets (PointNet~\cite{Qi_2017_CVPR}, PointNet++~\cite{NIPS2017_d8bf84be}, RandLA-Net~\cite{Hu_2020_CVPR}) or on projected representations (SqueezeSeg~\cite{10.1109/ICRA.2018.8462926}, RangeNet++~\cite{milioto2019rangenet++}). These achieve high accuracy but require extensive per-point annotations and are less amenable to stage-by-stage analysis.
+
+Our work occupies a middle ground: classical spatial decomposition followed by a lightweight learned classifier that requires only category-level supervision, not per-point labels.
+
+\subsection{Point Cloud Completion}
+
+Point cloud completion reconstructs dense shapes from partial observations. PCN~\cite{yuan2019pcnpointcompletionnetwork} introduced a coarse-to-fine architecture using a PointNet encoder and grid-folding decoder, trained with Chamfer Distance (CD). Subsequent architectures---PoinTr~\cite{yu2021pointr}, SeedFormer~\cite{zhou2022seedformer}, SnowflakeNet~\cite{xiang2021snowflakenet}---improve quality through attention mechanisms and progressive refinement. Earth Mover's Distance (EMD) has been shown to produce more uniform point distributions than CD alone, as CD tends to favour point clusters near surface modes. A persistent challenge is the synthetic-to-real domain gap: models trained on clean ShapeNet~\cite{chang2015shapenetinformationrich3dmodel} meshes degrade on noisy, sparse LiDAR scans. We address this through a two-stage training strategy that pre-trains on synthetic data and fine-tunes on real mined clusters.
+
+
+\section{Objectives}
+
+The thesis has three primary objectives:
+
+\begin{enumerate}
+    \item \textbf{Object segmentation.} Develop and evaluate a classical segmentation pipeline (ground removal, density-adaptive clustering, geometric filtering) that extracts object instances from raw LiDAR frames without per-point training labels. Quantify precision, recall, and F1 against SemanticKITTI ground truth.
+
+    \item \textbf{Learned classification.} Train a dual-branch PointNet classifier---combining point geometry with metric bounding-box features---to distinguish vehicles from non-object clusters (vegetation, buildings, infrastructure). Use a two-stage strategy: Stage~A on balanced synthetic ShapeNet data, Stage~B fine-tuned on real LiDAR clusters mined from SemanticKITTI with ground-truth semantic labels.
+
+    \item \textbf{Shape completion.} Apply a Point Completion Network to reconstruct dense object shapes from the sparse partial point clouds produced by segmentation, using a combined Chamfer Distance and Earth Mover's Distance loss to ensure both accuracy and uniform point distribution. Bridge the synthetic-to-real domain gap through noise augmentation and real-data fine-tuning.
+\end{enumerate}
+
+
+\section{Proposed Pipeline}
+
+The pipeline processes each LiDAR frame through six stages for segmentation, applies multi-frame tracking, classifies candidate objects, and optionally completes sparse shapes. Table~\ref{tab:pipeline} summarises the architecture.
+
+\begin{table}[htbp]
+\caption{Pipeline architecture overview.}\label{tab:pipeline}
+\centering
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}clll@{}}
+\toprule
+\# & Stage & Method & Key Parameters \\
+\midrule
+1 & Noise removal & $z$-filter + stat.\ outlier & $z > -2.0$\,m, $k{=}20$, $\sigma{=}2$ \\
+2 & Downsampling & Voxel grid & cell $= 0.05$\,m \\
+3 & Ground removal & RANSAC + normal check & $d{=}0.2$\,m, $|c|/\|\mathbf{n}\|{>}0.5$ \\
+4 & Clustering & HDBSCAN & min\_cluster $= 10$, min\_samples $= 5$ \\
+5 & Geometric filter & OBB rules & vol., height, aspect ratio \\
+6 & Classification & PointNet (80K params) & 4 classes, dual-branch \\
+\midrule
+  & Tracking & Hungarian centroid & $d_{\max} = 2.0$\,m \\
+  & Completion & PCN (6.87M params) & coarse-to-fine, CD + EMD loss \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Segmentation (Stages 1--5).}
+Raw point clouds are filtered, downsampled, and separated into ground and non-ground points via RANSAC. Non-ground points are clustered using HDBSCAN, which adapts to the density gradient across the scan (dense nearby, sparse at range). Clusters are filtered by oriented bounding box (OBB) geometry: volume ($0.5$--$100$\,m$^3$), maximum dimension (${\leq}8$\,m), height above the fitted ground plane (${\leq}1.5$\,m), vertical span (${\leq}1.8$\,m), and aspect ratio (${\leq}6.0$). These thresholds were derived from false-positive analysis on SemanticKITTI sequence~00 (100 frames), reducing FP count by 85\% while limiting recall loss to 19\%.
+
+\paragraph{Classification (Stage 6).}
+A dual-branch PointNet classifier processes each surviving cluster. The point branch applies Conv1d layers ($3 {\to} 64 {\to} 128 {\to} 256$) with max-pooling to extract a 256-d shape descriptor from 512 normalised points. The bbox branch maps 8 metric features (extents, volume, aspect ratios, height, log point count) through a linear layer to 32-d. The concatenated 288-d vector is classified into four categories: car, bus, motorcycle, or unknown. Training uses a two-stage strategy: Stage~A on synthetic ShapeNet partial renders (balanced across classes including 52 non-vehicle ShapeNet categories as negatives), Stage~B fine-tuned on real clusters mined from SemanticKITTI with ${\geq}0.75$ semantic purity.
+
+\paragraph{Completion.}
+PCN reconstructs dense shapes (16\,384 points) from sparse partial inputs (2\,048 points) via a PointNet encoder and coarse-to-fine decoder with grid folding. The training loss combines Chamfer Distance at both resolution levels with an Earth Mover's Distance term on the coarse output:
+\begin{equation}
+\mathcal{L} = \text{CD}(\mathbf{Y}_{\text{coarse}}, \hat{\mathbf{Y}}_{\text{coarse}}) + \alpha \cdot \text{CD}(\mathbf{Y}_{\text{fine}}, \hat{\mathbf{Y}}_{\text{fine}}) + \beta \cdot \text{EMD}(\mathbf{Y}_{\text{coarse}}, \hat{\mathbf{Y}}_{\text{coarse}})
+\end{equation}
+where $\alpha = 0.5$ and $\beta$ is tuned to balance the two losses. The EMD term, approximated via the Sinkhorn algorithm for computational tractability, encourages uniform point distribution across the reconstructed surface, addressing the tendency of CD-only training to produce clustered point patterns. The model is trained on ShapeNet vehicle categories and will be adapted to real LiDAR data through noise augmentation and domain-specific fine-tuning.
+
+
+\section{Evaluation Plan}
+
+\subsection{Segmentation Metrics}
+
+Evaluation follows an IoU-based matching protocol on SemanticKITTI. For each frame, detection point masks are matched to ground-truth instance masks by greedy descending IoU, requiring IoU~${\geq}\,0.3$ for a valid match.
+
+\begin{itemize}
+    \item \textbf{Precision}: fraction of detections that match a GT instance
+    \item \textbf{Recall}: fraction of GT instances matched by a detection
+    \item \textbf{F1}: harmonic mean of precision and recall
+    \item \textbf{Mean IoU}: average IoU over matched pairs
+\end{itemize}
+
+Training sequences: 00--07, 09--10; validation: sequence~08. Preliminary baseline (geometric filters only, 100 frames of seq~00): Precision~0.654, Recall~0.704, F1~0.678, Mean~IoU~0.944.
+
+\subsection{Completion Metrics}
+
+\begin{itemize}
+    \item \textbf{Chamfer Distance (CD)}: bidirectional average nearest-neighbour distance between predicted and ground-truth point sets, measured at both coarse (1\,024 points) and fine (16\,384 points) levels
+    \item \textbf{Earth Mover's Distance (EMD)}: optimal transport cost between predicted and target point sets, penalising uneven point distribution more strongly than CD
+    \item \textbf{F-Score}: fraction of predicted points within distance threshold $\tau = 0.01$ of the ground truth (and vice versa), providing a percentage-based quality measure
+\end{itemize}
+
+Current ShapeNet validation results: CD$_{\text{fine}}$ = 0.066, F-Score = 0.841. Real-world evaluation will apply the model to KITTI clusters extracted by the segmentation pipeline, with qualitative inspection and quantitative comparison against multi-frame accumulated dense shapes.
+
+\subsection{Planned Ablation Studies}
+
+\begin{itemize}
+    \item Geometric filters only vs.\ filters + learned classifier (precision gain)
+    \item Stage~A (synthetic only) vs.\ Stage~A+B (fine-tuned) classifier accuracy
+    \item HDBSCAN vs.\ DBSCAN clustering (recall/precision tradeoff)
+    \item CD-only vs.\ CD+EMD completion loss (point distribution quality)
+    \item PCN on synthetic ShapeNet vs.\ noise-augmented vs.\ real KITTI clusters (domain gap)
+\end{itemize}
+
+
+\section{Timeline}
+
+\begin{table}[htbp]
+\caption{Projected timeline.}\label{tab:timeline}
+\centering
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Period & Tasks & Deliverable \\
+\midrule
+Weeks 1--2 & Classifier Stage~B fine-tuning; & Classifier checkpoint; \\
+(May 2026) & integrate classifier into pipeline & ablation results \\
+\addlinespace
+Weeks 3--4 & PCN integration; add EMD loss; & Completion evaluation; \\
+(Jun 2026) & real-data completion evaluation & adapted PCN model \\
+\addlinespace
+Weeks 5--6 & Domain adaptation; track-level & Full pipeline metrics \\
+(Jun 2026) & filtering; full sequence evaluation & on multiple sequences \\
+\addlinespace
+Weeks 7--8 & Thesis writing: methodology, & Draft thesis chapters \\
+(Jul 2026) & experiments, analysis & \\
+\addlinespace
+Weeks 9--10 & Revision, defense preparation & Final thesis; \\
+(Jul 2026) & & presentation slides \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\begin{credits}
+\subsubsection{\ackname}
+This work is conducted as part of the Master's thesis programme at FPT School of Business \& Technology, FPT University.
+\end{credits}
+
+\bibliographystyle{splncs04}
+\bibliography{../references}
+
+\end{document}
