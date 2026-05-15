@@ -10,17 +10,30 @@ import os
 
 import numpy as np
 import open3d as o3d
+import torch
 from scipy.spatial import cKDTree
 
+from classifier import classify_cluster, load_classifier
 from pipeline import PIPELINE_CONFIG, cluster_objects, filter_clusters, remove_ground
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # SemanticKITTI "thing" classes (objects with instance labels)
-THING_CLASSES = {
+THING_CLASSES_ALL = {
     10, 11, 13, 15, 16, 18, 20,
     30, 31, 32,
     252, 253, 254, 255, 256, 257, 258, 259,
+}
+
+# Only classes the classifier can recognize (car, bus, motorcycle + moving variants)
+THING_CLASSES_SUPPORTED = {
+    10, 13, 15,       # car, bus, motorcycle
+    252, 255, 257,    # moving-car, moving-motorcyclist, moving-bus
+}
+
+TARGET_MODES = {
+    "all-things": THING_CLASSES_ALL,
+    "supported-vehicles": THING_CLASSES_SUPPORTED,
 }
 
 
@@ -59,8 +72,13 @@ def match_detections_to_gt(det_masks: dict, gt_masks: dict, iou_thresh: float):
     return tp, fp, fn, match_ious
 
 
-def evaluate_frame(bin_path: str, label_path: str, iou_threshold: float):
+def evaluate_frame(bin_path: str, label_path: str, iou_threshold: float,
+                   cls_model=None, cls_device=None, cls_bbox_stats=None,
+                   unknown_threshold: float = 0.65,
+                   thing_classes: set | None = None):
     """Run the detection pipeline on one frame and compare to GT."""
+    if thing_classes is None:
+        thing_classes = THING_CLASSES_ALL
     cfg = PIPELINE_CONFIG
 
     # --- 1. Load data ---
@@ -108,11 +126,26 @@ def evaluate_frame(bin_path: str, label_path: str, iou_threshold: float):
     cluster_labels = cluster_objects(objects_pcd)
     clusters = filter_clusters(objects_pcd, cluster_labels, ground_plane)
 
-    # --- 6. Prepare masks for evaluation ---
+    # --- 6. Classification (optional) ---
+    if cls_model is not None:
+        obj_points = np.asarray(objects_pcd.points)
+        filtered_clusters = []
+        for bbox, cl in clusters:
+            mask = cluster_labels == cl
+            cluster_points = obj_points[mask]
+            result = classify_cluster(
+                cluster_points, cls_model, cls_device, cls_bbox_stats,
+                unknown_threshold=unknown_threshold,
+            )
+            if result.label != "unknown":
+                filtered_clusters.append((bbox, cl))
+        clusters = filtered_clusters
+
+    # --- 6b. Prepare masks for evaluation ---
     valid_cluster_labels = [cl for _, cl in clusters]
     det_masks = {cl: (cluster_labels == cl) for cl in valid_cluster_labels}
 
-    thing_mask = np.isin(sem_obj, list(THING_CLASSES))
+    thing_mask = np.isin(sem_obj, list(thing_classes))
     gt_instances = np.unique(inst_obj[thing_mask])
     gt_instances = gt_instances[gt_instances > 0]
 
@@ -133,7 +166,41 @@ if __name__ == "__main__":
     parser.add_argument(
         "--iou-threshold", type=float, default=0.3, help="IoU threshold"
     )
+    parser.add_argument(
+        "--classifier-ckpt", type=str,
+        default=os.path.join(PROJECT_ROOT, "checkpoints", "classifier_best.pth"),
+        help="Path to classifier checkpoint",
+    )
+    parser.add_argument(
+        "--classifier-unknown-threshold", type=float, default=0.65,
+        help="Unknown class probability threshold",
+    )
+    parser.add_argument(
+        "--no-learned-classifier", action="store_true",
+        help="Disable learned classifier (geometric filters only)",
+    )
+    parser.add_argument(
+        "--target", type=str, default="all-things",
+        choices=list(TARGET_MODES.keys()),
+        help="GT target classes: all-things (default) or supported-vehicles "
+             "(car/bus/motorcycle only — use with classifier)",
+    )
     args = parser.parse_args()
+
+    thing_classes = TARGET_MODES[args.target]
+
+    # Load classifier
+    cls_model, cls_bbox_stats, cls_device = None, None, None
+    if not args.no_learned_classifier:
+        cls_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        cls_model, cls_bbox_stats = load_classifier(args.classifier_ckpt, cls_device)
+        if cls_model is not None:
+            print(f"Loaded classifier from {args.classifier_ckpt}")
+        else:
+            print(f"Classifier not found: {args.classifier_ckpt}. "
+                  "Running without classifier.")
+    else:
+        print("Classifier disabled (geometric filters only).")
 
     seq_dir = os.path.join(PROJECT_ROOT, f"dataset/sequences/{args.seq}")
     bin_paths = sorted(glob.glob(os.path.join(seq_dir, "velodyne/*.bin")))[
@@ -143,17 +210,27 @@ if __name__ == "__main__":
         : args.frames
     ]
 
+    if len(bin_paths) != len(label_paths):
+        raise RuntimeError(
+            f"Mismatched velodyne/label files: {len(bin_paths)} bins, "
+            f"{len(label_paths)} labels")
+
     total_tp, total_fp, total_fn = 0, 0, 0
     all_ious: list[float] = []
 
     num_frames = len(bin_paths)
     print(f"Evaluating detection on {num_frames} frames (sequence {args.seq})...")
     print(f"IoU threshold: {args.iou_threshold}")
+    print(f"Target classes: {args.target}")
     print("-" * 80)
 
     for i in range(num_frames):
         tp, fp, fn, ious = evaluate_frame(
-            bin_paths[i], label_paths[i], args.iou_threshold
+            bin_paths[i], label_paths[i], args.iou_threshold,
+            cls_model=cls_model, cls_device=cls_device,
+            cls_bbox_stats=cls_bbox_stats,
+            unknown_threshold=args.classifier_unknown_threshold,
+            thing_classes=thing_classes,
         )
 
         total_tp += tp

@@ -1,10 +1,17 @@
-"""Train PointNet classifier on ShapeNet partials.
+"""Train PointNet classifier.
+
+Stage A: synthetic ShapeNet partials.
+Stage B: fine-tune on real mined LiDAR clusters (--stage-b).
 
 Usage:
     python src/train_classifier.py
     python src/train_classifier.py --epochs 30 --batch-size 16
-    python src/train_classifier.py --resume checkpoints/classifier_last.pth
+    python src/train_classifier.py --resume checkpoints/classifier_best.pth
     python src/train_classifier.py --eval-only --resume checkpoints/classifier_best.pth
+
+    # Stage B fine-tuning (loads Stage A checkpoint automatically):
+    python src/train_classifier.py --stage-b --epochs 15
+    python src/train_classifier.py --stage-b --resume checkpoints/classifier_best.pth --epochs 15
 """
 
 import argparse
@@ -85,11 +92,102 @@ TRAIN_CONFIG = {
     "unknown_threshold": 0.65,
 }
 
+STAGE_B_CONFIG = {
+    "stage_b_root": os.path.join(PROJECT_ROOT, "dataset", "stage_b"),
+    "num_points": NUM_POINTS,
+    "bbox_feat_dim": BBOX_FEAT_DIM,
+    "jitter_std": 0.005,
+    "epochs": 15,
+    "batch_size": 64,
+    "lr": 1e-4,
+    "lr_decay_step": 10,
+    "lr_decay_gamma": 0.5,
+    "num_workers": 4,
+    "num_classes": NUM_CLASSES,
+    "checkpoint_dir": os.path.join(PROJECT_ROOT, "checkpoints"),
+    "checkpoint_every": 5,
+    "log_every": 50,
+    "unknown_threshold": 0.65,
+    "stage_a_ckpt": os.path.join(PROJECT_ROOT, "checkpoints", "classifier_best.pth"),
+}
 
 
 # ---------------------------------------------------------------------------
 # Dataset
 # ---------------------------------------------------------------------------
+
+
+class StageBDataset(data.Dataset):
+    """Real mined LiDAR clusters for Stage B fine-tuning.
+
+    Loads centroid-centered .npy files from dataset/stage_b/{split}/{class}/.
+    """
+
+    def __init__(self, root: str, split: str, config: dict):
+        self.config = config
+        self.split = split
+        self.bbox_mean: np.ndarray | None = None
+        self.bbox_std: np.ndarray | None = None
+
+        split_dir = os.path.join(root, split)
+        self.items: list[tuple[str, int]] = []  # (npy_path, label)
+        for cls_name in CLASS_LABELS:
+            cls_dir = os.path.join(split_dir, cls_name)
+            if not os.path.isdir(cls_dir):
+                continue
+            label = CLASS_TO_IDX[cls_name]
+            for fname in sorted(os.listdir(cls_dir)):
+                if fname.endswith(".npy"):
+                    self.items.append((os.path.join(cls_dir, fname), label))
+
+        self.class_counts = np.zeros(NUM_CLASSES, dtype=np.int64)
+        for _, label in self.items:
+            self.class_counts[label] += 1
+        print(f"  [{split}] {len(self.items)} samples: "
+              f"{dict(zip(CLASS_LABELS, self.class_counts.tolist()))}")
+
+    def __len__(self) -> int:
+        return len(self.items)
+
+    def get_raw_sample(self, idx: int) -> tuple[np.ndarray, np.ndarray, int]:
+        path, label = self.items[idx]
+        points = np.load(path).astype(np.float32)
+        bbox_feats = extract_bbox_features(points)
+        return points, bbox_feats, label
+
+    def __getitem__(self, idx: int) -> dict:
+        points, bbox_feats, label = self.get_raw_sample(idx)
+
+        if self.bbox_mean is not None:
+            bbox_feats = (bbox_feats - self.bbox_mean) / (self.bbox_std + 1e-6)
+            bbox_feats = np.clip(bbox_feats, -5.0, 5.0)
+
+        if self.split == "train":
+            points = self._augment_rotation(points)
+
+        if self.split == "train":
+            rng = np.random.default_rng()
+        else:
+            rng = np.random.default_rng(42 + idx)
+        pts = sample_or_pad(points, self.config["num_points"], rng=rng)
+        pts = normalize_unit_sphere(pts)
+
+        if self.split == "train":
+            pts += np.random.normal(0, self.config["jitter_std"],
+                                    size=pts.shape).astype(np.float32)
+
+        return {
+            "points": torch.from_numpy(pts).float(),
+            "bbox_feats": torch.from_numpy(bbox_feats).float(),
+            "label": label,
+        }
+
+    @staticmethod
+    def _augment_rotation(points: np.ndarray) -> np.ndarray:
+        angle = np.random.uniform(0, 2 * np.pi)
+        c, s = np.cos(angle), np.sin(angle)
+        R = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]], dtype=np.float32)
+        return (points @ R.T).astype(np.float32)
 
 
 class ShapeNetClassificationDataset(data.Dataset):
@@ -393,16 +491,32 @@ class ShapeNetClassificationDataset(data.Dataset):
 # ---------------------------------------------------------------------------
 
 
-def compute_bbox_stats(dataset: ShapeNetClassificationDataset):
-    """Compute mean/std of bbox features from unaugmented training samples."""
-    print("Computing bbox feature statistics...")
+def compute_bbox_stats(dataset, max_samples: int = 0):
+    """Compute mean/std of bbox features from unaugmented training samples.
+
+    Args:
+        dataset: any dataset with get_raw_sample(idx) -> (pts, bbox_feats, label).
+        max_samples: if > 0, subsample to this many for speed.
+    """
+    n = len(dataset)
+    if max_samples > 0 and n > max_samples:
+        indices = np.random.default_rng(42).choice(n, max_samples, replace=False)
+        print(f"Computing bbox stats on {max_samples}/{n} samples...")
+    else:
+        indices = np.arange(n)
+        print(f"Computing bbox stats on {n} samples...")
     feats = []
-    for i in tqdm(range(len(dataset)), desc="bbox stats"):
+    failed = 0
+    for i in tqdm(indices, desc="bbox stats"):
         try:
-            _, bf, _ = dataset.get_raw_sample(i)
+            _, bf, _ = dataset.get_raw_sample(int(i))
             feats.append(bf)
         except Exception:
-            continue
+            failed += 1
+    if not feats:
+        raise RuntimeError("No valid bbox features; cannot compute stats.")
+    if failed:
+        print(f"  Warning: skipped {failed}/{len(indices)} samples")
     feats = np.stack(feats)
     mean = feats.mean(axis=0).astype(np.float32)
     std = np.maximum(feats.std(axis=0), 1e-6).astype(np.float32)
@@ -506,9 +620,24 @@ def main():
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--resume", type=str, default=None)
     parser.add_argument("--eval-only", action="store_true")
+    parser.add_argument("--stage-b", action="store_true",
+                        help="Fine-tune on real mined clusters (Stage B)")
     args = parser.parse_args()
 
-    config = TRAIN_CONFIG.copy()
+    if args.eval_only and args.resume is None:
+        parser.error("--eval-only requires --resume")
+
+    is_stage_b = args.stage_b
+
+    if is_stage_b:
+        config = STAGE_B_CONFIG.copy()
+        # Auto-resume from Stage A checkpoint if no explicit --resume
+        if args.resume is None and os.path.isfile(config["stage_a_ckpt"]):
+            args.resume = config["stage_a_ckpt"]
+            print(f"Stage B: auto-loading Stage A checkpoint: {args.resume}")
+    else:
+        config = TRAIN_CONFIG.copy()
+
     if args.epochs is not None:
         config["epochs"] = args.epochs
     if args.batch_size is not None:
@@ -518,22 +647,30 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
+    print(f"Stage: {'B (real LiDAR fine-tuning)' if is_stage_b else 'A (synthetic ShapeNet)'}")
 
     # Datasets
-    train_ds = ShapeNetClassificationDataset(config, split="train")
-    val_ds = ShapeNetClassificationDataset(config, split="val")
-    print(f"Train: {len(train_ds)} samples "
-          f"({len(train_ds.vehicle_items)} vehicles + "
-          f"{len(train_ds.unknown_items)} unknowns)")
-    print(f"Val:   {len(val_ds)} samples "
-          f"({len(val_ds.vehicle_items)} vehicles + "
-          f"{len(val_ds.unknown_items)} unknowns)")
+    if is_stage_b:
+        train_ds = StageBDataset(config["stage_b_root"], "train", config)
+        val_ds = StageBDataset(config["stage_b_root"], "val", config)
+    else:
+        train_ds = ShapeNetClassificationDataset(config, split="train")
+        val_ds = ShapeNetClassificationDataset(config, split="val")
+        print(f"Train: {len(train_ds)} samples "
+              f"({len(train_ds.vehicle_items)} vehicles + "
+              f"{len(train_ds.unknown_items)} unknowns)")
+        print(f"Val:   {len(val_ds)} samples "
+              f"({len(val_ds.vehicle_items)} vehicles + "
+              f"{len(val_ds.unknown_items)} unknowns)")
 
-    # Bbox stats: load from checkpoint if resuming, else compute fresh
+    # Bbox stats: always recompute for Stage B (different domain),
+    # for Stage A load from checkpoint if resuming
     ckpt = None
     if args.resume:
         ckpt = torch.load(args.resume, map_location=device, weights_only=False)
-    if ckpt is not None and "bbox_mean" in ckpt:
+    if is_stage_b:
+        bbox_mean, bbox_std = compute_bbox_stats(train_ds, max_samples=50_000)
+    elif ckpt is not None and "bbox_mean" in ckpt:
         bbox_mean = np.array(ckpt["bbox_mean"], dtype=np.float32)
         bbox_std = np.array(ckpt["bbox_std"], dtype=np.float32)
         print("Loaded bbox stats from checkpoint")
@@ -547,36 +684,33 @@ def main():
     print(f"Bbox std:  {bbox_std}")
 
     # Class weights
-    class_counts = np.zeros(NUM_CLASSES, dtype=np.float64)
-    for i in range(len(train_ds)):
-        try:
-            _, _, label = train_ds.get_raw_sample(i)
-            class_counts[label] += 1
-        except Exception:
-            continue
-    if np.any(class_counts == 0):
-        raise ValueError(f"Missing classes in training data: {class_counts}")
-    weights = 1.0 / np.sqrt(class_counts)
+    if is_stage_b:
+        class_counts = train_ds.class_counts.astype(np.float64)
+    else:
+        class_counts = np.zeros(NUM_CLASSES, dtype=np.float64)
+        for i in range(len(train_ds)):
+            try:
+                _, _, label = train_ds.get_raw_sample(i)
+                class_counts[label] += 1
+            except Exception:
+                continue
+    # Handle missing classes: use 1.0 as placeholder weight (won't affect training)
+    has_all_classes = np.all(class_counts > 0)
+    if not has_all_classes:
+        missing = [CLASS_LABELS[i] for i in range(NUM_CLASSES) if class_counts[i] == 0]
+        print(f"Warning: missing classes in training data: {missing}")
+        class_counts_safe = np.where(class_counts > 0, class_counts, 1.0)
+    else:
+        class_counts_safe = class_counts
+    weights = 1.0 / np.sqrt(class_counts_safe)
     weights = weights / weights.mean()
+    if not has_all_classes:
+        for i in range(NUM_CLASSES):
+            if class_counts[i] == 0:
+                weights[i] = 0.0
     class_weights = torch.from_numpy(weights).float().to(device)
     print(f"Class counts: {dict(zip(CLASS_LABELS, class_counts.astype(int)))}")
     print(f"Class weights: {dict(zip(CLASS_LABELS, weights.round(3)))}")
-
-    # Majority-class baseline
-    val_labels = []
-    for i in range(len(val_ds)):
-        try:
-            _, _, label = val_ds.get_raw_sample(i)
-            val_labels.append(label)
-        except Exception:
-            continue
-    val_labels = np.array(val_labels)
-    majority_class = np.bincount(val_labels).argmax()
-    majority_preds = np.full_like(val_labels, majority_class)
-    baseline_f1 = f1_score(val_labels, majority_preds, average="macro",
-                           zero_division=0)
-    print(f"Majority-class baseline macro F1: {baseline_f1:.4f} "
-          f"(class={CLASS_LABELS[majority_class]})")
 
     # Dataloaders
     train_loader = data.DataLoader(
@@ -604,15 +738,19 @@ def main():
     start_epoch = 0
     best_macro_f1 = 0.0
 
-    # Resume model/optimizer state from checkpoint loaded earlier
     if ckpt is not None:
         model.load_state_dict(ckpt["model_state_dict"])
-        if not args.eval_only:
+        if is_stage_b:
+            # Stage B: load weights only, fresh optimizer/scheduler/epoch
+            print(f"Loaded model weights from {args.resume} (Stage B: fresh optimizer)")
+        elif not args.eval_only:
             optimizer.load_state_dict(ckpt["optimizer_state_dict"])
             scheduler.load_state_dict(ckpt["scheduler_state_dict"])
             start_epoch = ckpt.get("epoch", 0) + 1
             best_macro_f1 = ckpt.get("metrics", {}).get("val_macro_f1_thresh", 0.0)
-        print(f"Resumed from {args.resume} (epoch {start_epoch})")
+            print(f"Resumed from {args.resume} (epoch {start_epoch})")
+        else:
+            print(f"Loaded from {args.resume}")
 
     # Eval only
     if args.eval_only:
@@ -633,8 +771,9 @@ def main():
 
     # CSV log
     os.makedirs(config["checkpoint_dir"], exist_ok=True)
+    prefix = "stage_b" if is_stage_b else "classifier"
     csv_path = os.path.join(config["checkpoint_dir"],
-                            "classifier_training_log.csv")
+                            f"{prefix}_training_log.csv")
     csv_fields = [
         "epoch", "train_loss", "train_acc", "val_loss", "val_acc",
         "val_macro_f1", "val_macro_f1_thresh", "val_unknown_rate_thresh", "lr",
@@ -704,23 +843,21 @@ def main():
         if metrics["val_macro_f1_thresh"] > best_macro_f1:
             best_macro_f1 = metrics["val_macro_f1_thresh"]
             torch.save(ckpt_data, os.path.join(
-                config["checkpoint_dir"], "classifier_best.pth"))
+                config["checkpoint_dir"], f"{prefix}_best.pth"))
             print(f"  -> New best macro F1 (thresh): {best_macro_f1:.4f}")
 
         # Last
         torch.save(ckpt_data, os.path.join(
-            config["checkpoint_dir"], "classifier_last.pth"))
+            config["checkpoint_dir"], f"{prefix}_last.pth"))
 
         # Periodic
         if (epoch + 1) % config["checkpoint_every"] == 0:
             torch.save(ckpt_data, os.path.join(
-                config["checkpoint_dir"], f"classifier_epoch{epoch+1}.pth"))
+                config["checkpoint_dir"], f"{prefix}_epoch{epoch+1}.pth"))
 
     # Final report
     print(f"\nTraining complete. Best macro F1 (thresh): {best_macro_f1:.4f}")
-    print(f"Majority-class baseline: {baseline_f1:.4f}")
 
-    # Print final confusion matrix
     model.eval()
     final = validate(model, val_loader, criterion, device, config)
     print(f"\nFinal per-class report:")
@@ -729,9 +866,15 @@ def main():
         print(f"  {cls:12s}  P={r.get('precision', 0):.3f}  "
               f"R={r.get('recall', 0):.3f}  F1={r.get('f1-score', 0):.3f}")
     print(f"\nConfusion matrix:\n{final['confusion_matrix']}")
-    print("\nNote: unknown-class metrics are based on non-vehicle ShapeNet "
-          "categories. Real-world rejection quality requires evaluation on "
-          "real LiDAR negatives (Stage B).")
+
+    if is_stage_b:
+        print(f"\nStage B checkpoints saved with prefix '{prefix}_'.")
+        print("To evaluate on pipeline: python src/evaluate.py "
+              f"--classifier-ckpt checkpoints/{prefix}_best.pth")
+    else:
+        print("\nNote: unknown-class metrics are based on non-vehicle ShapeNet "
+              "categories. Real-world rejection quality requires evaluation on "
+              "real LiDAR negatives (Stage B).")
 
 
 if __name__ == "__main__":

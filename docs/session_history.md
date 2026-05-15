@@ -471,9 +471,35 @@ New:       src/analyze_fp.py
 ### 6. Finding #6 recorded
 - Stage B mining class distribution from seq 00 sanity check. Confirms Stage A+B strategy necessity.
 
+### 7. Val mining completed
+- Val split (seq 08): 130,182 clusters — car 25,047 / unknown 104,659 / motorcycle 476 / bus 0.
+- Train split (seq 00-07,09-10): 420,130 clusters — car 88,491 / unknown 329,961 / motorcycle 1,650 / bus 28.
+
+### 8. Stage B fine-tuning code
+- Added `StageBDataset` + `STAGE_B_CONFIG` to `src/train_classifier.py`.
+- `--stage-b` flag: auto-loads Stage A checkpoint, recomputes bbox stats from 50K real samples, fresh optimizer, LR 1e-4, batch 64, 15 epochs.
+- Separate checkpoints: `stage_b_best.pth`, `stage_b_last.pth`, `stage_b_training_log.csv`.
+- Handles missing classes (bus=0 in val) with zero weight.
+
+### 9. Evaluation target class fix
+- `evaluate.py` was penalizing classifier for correctly rejecting unsupported classes (pedestrians, trucks, etc.).
+- Added `--target` flag: `all-things` (default) vs `supported-vehicles` (car/bus/motorcycle only).
+- Added bin/label file count validation.
+
+### 10. Code review fixes
+- `--eval-only` requires `--resume`. `compute_bbox_stats()` reports failures. Fixed duplicate comment.
+
+### 11. Findings #7-#9 recorded
+- #7: Stage A domain gap — 0/1279 TP on real data.
+- #8: Full mining results with train/val split tables.
+- #9: Evaluation target class mismatch and fix.
+
+### 12. Thesis proposal fix
+- `\clearpage` before `\bibliographystyle` to prevent Timeline table floating into references.
+
 ## Files changed
 
 ```
-Modified: CLAUDE.md, docs/findings.md, src/train_classifier.py
+Modified: CLAUDE.md, docs/findings.md, src/train_classifier.py, src/evaluate.py, docs/report/thesis_proposal.tex
 New:      src/download_shapenet.py, src/mine_stage_b.py
 ```

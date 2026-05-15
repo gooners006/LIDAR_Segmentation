@@ -170,3 +170,54 @@ Point density drops ~5x from near to far range. Any density-based filter would n
 ~20 clusters/frame average. Heavy car dominance, zero buses (seq 00 appears to have none), rare motorcycles. The low discard rate suggests most pipeline clusters are semantically coherent at the 0.75 purity level.
 
 **Decision:** Class imbalance confirms the Stage A + B strategy: pre-train on balanced synthetic ShapeNet data (Stage A), then fine-tune on real data (Stage B). Training on real data alone would starve bus and motorcycle classes.
+
+## 7. Stage A Classifier — Synthetic-to-Real Domain Gap (2026-05-15)
+
+**Context:** Wired the Stage A classifier (trained on synthetic ShapeNet, 50 epochs, best val_macro_f1 0.9968) into `evaluate.py` to measure its impact on pipeline precision.
+
+**Finding:** The classifier predicts ALL real LiDAR clusters as "unknown" with ~100% confidence. On 20 clusters from frame 0, every single one was classified as "unknown" with softmax probability 0.987–1.000; car probability was essentially 0.000.
+
+Pipeline evaluation with classifier enabled (100 frames seq 00):
+
+| Metric | Geometric only | + Stage A classifier |
+|---|---|---|
+| TP | 1,279 | 0 |
+| FP | 676 | 11 |
+| Precision | 0.654 | 0.000 |
+| Recall | 0.704 | 0.000 |
+| F1 | 0.678 | 0.000 |
+
+The classifier was effective at removing FPs (676 → 11) but also removed every single TP. The synthetic ShapeNet feature distributions don't overlap with real LiDAR at all.
+
+**Decision:** Stage A classifier is completely useless on real data without Stage B fine-tuning. This is the expected synthetic-to-real domain gap and validates the two-stage training strategy.
+
+## 8. Full Stage B Mining Results (2026-05-15)
+
+**Context:** Ran `mine_stage_b.py` across all SemanticKITTI sequences to build the Stage B fine-tuning dataset. Train: seq 00-07, 09-10. Val: seq 08.
+
+**Finding:**
+
+| | Train | Val | Total |
+|---|---|---|---|
+| car | 88,491 (21.1%) | 25,047 (19.2%) | 113,538 |
+| unknown | 329,961 (78.5%) | 104,659 (80.4%) | 434,620 |
+| motorcycle | 1,650 (0.39%) | 476 (0.37%) | 2,126 |
+| bus | 28 (0.007%) | 0 (0.0%) | 28 |
+| **total** | **420,130** | **130,182** | **550,312** |
+| discarded | 2,873 (0.68%) | 939 (0.72%) | 3,812 |
+
+Proportions are consistent across splits (~80% unknown, ~20% car, <0.5% motorcycle, near-zero bus). Dataset is ~76x larger than Stage A synthetic data (~5,500 samples). Discard rate ~0.7% — pipeline clusters are semantically coherent at the 0.75 purity threshold.
+
+**Decision:** Class weighting or balanced sampling essential for Stage B. Bus (28 train samples) relies almost entirely on Stage A pre-training. Val split (130K samples from seq 08) is adequate for monitoring fine-tuning.
+
+## 9. Evaluation Target Class Mismatch (2026-05-15)
+
+**Context:** Code review identified that `evaluate.py` counted all SemanticKITTI thing classes (pedestrians, bicyclists, trucks, etc.) as GT instances, but the classifier only recognizes car, bus, and motorcycle. When the classifier correctly rejects a pedestrian as "unknown", it was counted as a false negative — inflating FN and deflating recall.
+
+**Finding:** Added `--target` flag to `evaluate.py` with two modes:
+- `all-things` (default): all 18 SemanticKITTI thing class IDs — use for geometric-only evaluation
+- `supported-vehicles`: car (10, 252), bus (13, 257), motorcycle (15, 255) only — use when evaluating with classifier
+
+Without this fix, classifier-filtered evaluation would have reported artificially low recall because GT instances of unsupported classes (pedestrian, bicycle, truck, etc.) would always be unmatched.
+
+**Decision:** Use `--target all-things` for geometric baseline, `--target supported-vehicles` for classifier-filtered runs. This makes the two evaluations measure different things — document clearly in any comparison table.
