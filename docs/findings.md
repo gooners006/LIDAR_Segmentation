@@ -152,3 +152,21 @@ Vegetation is the dominant FP source at all ranges. At 40m+, the majority of FPs
 Point density drops ~5x from near to far range. Any density-based filter would need to be distance-adaptive to avoid killing far-range TPs.
 
 **Conclusion:** No actionable filter change from this analysis. Near/mid range precision (~0.65) is where most detections live and is the classifier's domain. Far-range precision is low but the sample size is too small to optimize for, and the unlabeled FPs may reflect GT annotation gaps.
+
+## 6. Stage B Mining — Class Distribution from SemanticKITTI (2026-05-15)
+
+**Context:** Built `src/mine_stage_b.py` to extract real LiDAR clusters with GT semantic labels for classifier fine-tuning (Stage B). Ran sanity check on seq 00, 100 frames.
+
+**Finding:** 1979 clusters seen, 17 discarded below 0.75 purity threshold (0.86% discard rate).
+
+| Class | Count | % |
+|---|---|---|
+| car | 1,246 | 63.5% |
+| unknown | 684 | 34.9% |
+| motorcycle | 32 | 1.6% |
+| bus | 0 | 0.0% |
+| **total** | **1,962** | |
+
+~20 clusters/frame average. Heavy car dominance, zero buses (seq 00 appears to have none), rare motorcycles. The low discard rate suggests most pipeline clusters are semantically coherent at the 0.75 purity level.
+
+**Decision:** Class imbalance confirms the Stage A + B strategy: pre-train on balanced synthetic ShapeNet data (Stage A), then fine-tune on real data (Stage B). Training on real data alone would starve bus and motorcycle classes.

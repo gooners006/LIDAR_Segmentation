@@ -28,6 +28,9 @@ Important docs:
 Activate the environment:
 
 ```bash
+# Windows
+.venv\Scripts\activate
+# Linux/macOS
 source .venv/bin/activate
 ```
 
@@ -49,11 +52,42 @@ Evaluate segmentation against ground-truth labels:
 python src/evaluate.py --seq 00 --frames 100 --iou-threshold 0.3
 ```
 
+Train the PointNet classifier (Stage A — synthetic ShapeNet):
+
+```bash
+python src/train_classifier.py --epochs 50
+```
+
+Mine real LiDAR clusters for Stage B fine-tuning:
+
+```bash
+python src/mine_stage_b.py --seq 00 --frames 5000 --split train
+```
+
 Open the exploratory notebook:
 
 ```bash
 jupyter notebook notebooks/data_exploratory.ipynb
 ```
+
+## Key Files
+
+- `src/pipeline.py` — PIPELINE_CONFIG and core stages (ground removal, clustering, filtering)
+- `src/main.py` — full pipeline runner with visualization and output
+- `src/evaluate.py` — segmentation evaluation against SemanticKITTI GT
+- `src/classifier.py` — PointNet classifier model and bbox feature extraction
+- `src/train_classifier.py` — Stage A classifier training on ShapeNet
+- `src/mine_stage_b.py` — mine real LiDAR clusters for Stage B fine-tuning
+- `src/pcn_model.py` — Point Completion Network model
+- `src/train_pcn.py` — PCN training script
+
+## Training Strategy
+
+Classifier uses two-stage training:
+- **Stage A:** Train on synthetic ShapeNet partial renders (balanced across 4 classes)
+- **Stage B:** Fine-tune on real mined LiDAR clusters from SemanticKITTI
+
+Checkpoints are saved in `checkpoints/`. Training logs are CSV files alongside checkpoints.
 
 ## Experiment Protocol
 

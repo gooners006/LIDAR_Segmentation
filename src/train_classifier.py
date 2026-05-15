@@ -1,4 +1,4 @@
-"""Train PointNet classifier on ShapeNet partials + synthetic unknowns.
+"""Train PointNet classifier on ShapeNet partials.
 
 Usage:
     python src/train_classifier.py
@@ -68,6 +68,7 @@ TRAIN_CONFIG = {
     "val_fraction": 0.2,
     "split_seed": 42,
     "unknown_fraction": 0.30,
+    "unknown_scale_range": (0.5, 4.0),
     "unknown_train_seed": 10042,
     "unknown_val_seed": 20042,
     "jitter_std": 0.005,
@@ -84,17 +85,6 @@ TRAIN_CONFIG = {
     "unknown_threshold": 0.65,
 }
 
-# Synthetic unknown shapes: (name, (x_size, y_size, z_size))
-UNKNOWN_SHAPES = [
-    ("pole",       (0.2, 0.2, 3.0)),
-    ("sign",       (0.1, 1.0, 1.5)),
-    ("barrier",    (2.0, 0.3, 0.8)),
-    ("box_carish", (3.5, 1.8, 1.5)),
-    ("box_busish", (8.0, 2.5, 3.0)),
-    ("flat_patch", (2.0, 2.0, 0.05)),
-    ("pedestrian", (0.6, 0.6, 1.7)),
-    ("small_obj",  (0.5, 0.5, 0.5)),
-]
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +93,11 @@ UNKNOWN_SHAPES = [
 
 
 class ShapeNetClassificationDataset(data.Dataset):
-    """ShapeNet partial renders + synthetic unknowns for classifier training."""
+    """ShapeNet partial renders for classifier training.
+
+    Vehicle classes use category-specific scales. Unknowns are rendered from
+    non-vehicle ShapeNet categories with random scales.
+    """
 
     def __init__(self, config: dict, split: str = "train"):
         self.config = config
@@ -111,125 +105,63 @@ class ShapeNetClassificationDataset(data.Dataset):
         self.bbox_mean: np.ndarray | None = None
         self.bbox_std: np.ndarray | None = None
 
+        vehicle_synsets = set(config["categories"].keys())
+
         # Vehicle items: (obj_path, synset_id)
         self.vehicle_items: list[tuple[str, str]] = []
         for synset_id in config["categories"]:
-            cat_dir = os.path.join(config["shapenet_root"], synset_id)
-            if not os.path.isdir(cat_dir):
-                continue
-            model_dirs = sorted(os.listdir(cat_dir))
-            rng = np.random.default_rng(config["split_seed"])
-            rng.shuffle(model_dirs)
-            n_val = int(len(model_dirs) * config["val_fraction"])
-            n_train = len(model_dirs) - n_val
-            if split == "train":
-                model_dirs = model_dirs[:n_train]
-            else:
-                model_dirs = model_dirs[n_train:]
-            for md in model_dirs:
-                obj_path = os.path.join(cat_dir, md, "models", "model_normalized.obj")
-                if os.path.isfile(obj_path):
-                    self.vehicle_items.append((obj_path, synset_id))
+            self.vehicle_items.extend(
+                self._discover_category(synset_id, split, config))
 
-        # Generate synthetic unknowns
+        # Unknown items: all non-vehicle categories
+        all_unknown_items: list[tuple[str, str]] = []
+        for synset_dir in sorted(os.listdir(config["shapenet_root"])):
+            if synset_dir in vehicle_synsets:
+                continue
+            full = os.path.join(config["shapenet_root"], synset_dir)
+            if not os.path.isdir(full):
+                continue
+            all_unknown_items.extend(
+                self._discover_category(synset_dir, split, config))
+
+        # Subsample unknowns to maintain unknown_fraction
         n_unknown = int(len(self.vehicle_items) * config["unknown_fraction"]
                         / (1.0 - config["unknown_fraction"]))
         seed = (config["unknown_train_seed"] if split == "train"
                 else config["unknown_val_seed"])
-        self.unknown_points = self._generate_unknowns(n_unknown, seed)
-
-        self.total_len = len(self.vehicle_items) + len(self.unknown_points)
-
-    def _generate_unknowns(self, n: int, seed: int) -> list[np.ndarray]:
-        """Generate n synthetic unknown point clouds in metric scale.
-
-        Mix: ~50% geometric shapes, ~25% cropped vehicle partials,
-             ~25% noisy vehicle subsets.
-        """
         rng = np.random.default_rng(seed)
-        unknowns = []
-
-        n_geometric = n // 2
-        n_cropped = n // 4
-        n_noisy = n - n_geometric - n_cropped
-
-        for i in tqdm(range(n_geometric), desc="Generating geometric unknowns",
-                      leave=False):
-            unknowns.append(self._generate_geometric_unknown(rng, i))
-
-        for _ in tqdm(range(n_cropped), desc="Generating cropped partials",
-                      leave=False):
-            pts = self._generate_cropped_partial(rng)
-            if pts is None:
-                pts = self._generate_geometric_unknown(rng)
-            unknowns.append(pts)
-
-        for _ in tqdm(range(n_noisy), desc="Generating noisy subsets",
-                      leave=False):
-            pts = self._generate_noisy_subset(rng)
-            if pts is None:
-                pts = self._generate_geometric_unknown(rng)
-            unknowns.append(pts)
-
-        return unknowns
-
-    def _generate_geometric_unknown(self, rng: np.random.Generator,
-                                     shape_idx: int | None = None) -> np.ndarray:
-        if shape_idx is None:
-            shape_idx = int(rng.integers(0, len(UNKNOWN_SHAPES)))
+        if len(all_unknown_items) > n_unknown:
+            indices = rng.choice(len(all_unknown_items), n_unknown, replace=False)
+            self.unknown_items = [all_unknown_items[i] for i in indices]
         else:
-            shape_idx = shape_idx % len(UNKNOWN_SHAPES)
-        _, size_xyz = UNKNOWN_SHAPES[shape_idx]
-        n_pts = int(rng.integers(50, 513))
-        pts = rng.uniform(-0.5, 0.5, size=(n_pts, 3)).astype(np.float32)
-        pts *= np.array(size_xyz, dtype=np.float32)
-        pts += rng.normal(0, 0.02, size=pts.shape).astype(np.float32)
-        return pts
+            self.unknown_items = all_unknown_items
 
-    def _generate_cropped_partial(self, rng: np.random.Generator) -> np.ndarray | None:
-        """Load a vehicle mesh, surface-sample, then axis-aligned half-crop."""
-        if not self.vehicle_items:
-            return None
-        idx = int(rng.integers(0, len(self.vehicle_items)))
-        obj_path, synset_id = self.vehicle_items[idx]
-        scale_m = self.config["category_scale_m"][synset_id]
-        mesh = self._load_and_scale(obj_path, scale_m)
-        if mesh is None or mesh.get_surface_area() < 1e-6:
-            return None
-        try:
-            pts = self._sample_mesh_surface(mesh, 1024, rng)
-        except Exception:
-            return None
-        axis = int(rng.integers(0, 3))
-        median = float(np.median(pts[:, axis]))
-        mask = pts[:, axis] > median if rng.random() < 0.5 else pts[:, axis] < median
-        pts = pts[mask]
-        if len(pts) < 20:
-            return None
-        pts -= pts.mean(axis=0)
-        return pts
+        self.total_len = len(self.vehicle_items) + len(self.unknown_items)
+        print(f"  [{split}] Unknown pool: {len(all_unknown_items)} models "
+              f"from {len(set(s for _, s in all_unknown_items))} categories, "
+              f"sampled {len(self.unknown_items)}")
 
-    def _generate_noisy_subset(self, rng: np.random.Generator) -> np.ndarray | None:
-        """Load a vehicle mesh, surface-sample, subsample 30-60%, add heavy noise."""
-        if not self.vehicle_items:
-            return None
-        idx = int(rng.integers(0, len(self.vehicle_items)))
-        obj_path, synset_id = self.vehicle_items[idx]
-        scale_m = self.config["category_scale_m"][synset_id]
-        mesh = self._load_and_scale(obj_path, scale_m)
-        if mesh is None or mesh.get_surface_area() < 1e-6:
-            return None
-        try:
-            pts = self._sample_mesh_surface(mesh, 512, rng)
-        except Exception:
-            return None
-        keep_frac = float(rng.uniform(0.3, 0.6))
-        n_keep = max(int(len(pts) * keep_frac), 20)
-        keep_idx = rng.choice(len(pts), n_keep, replace=False)
-        pts = pts[keep_idx]
-        pts += rng.normal(0, 0.1, size=pts.shape).astype(np.float32)
-        pts -= pts.mean(axis=0)
-        return pts
+    @staticmethod
+    def _discover_category(synset_id: str, split: str,
+                           config: dict) -> list[tuple[str, str]]:
+        cat_dir = os.path.join(config["shapenet_root"], synset_id)
+        if not os.path.isdir(cat_dir):
+            return []
+        model_dirs = sorted(os.listdir(cat_dir))
+        rng = np.random.default_rng(config["split_seed"])
+        rng.shuffle(model_dirs)
+        n_val = int(len(model_dirs) * config["val_fraction"])
+        n_train = len(model_dirs) - n_val
+        if split == "train":
+            model_dirs = model_dirs[:n_train]
+        else:
+            model_dirs = model_dirs[n_train:]
+        items = []
+        for md in model_dirs:
+            obj_path = os.path.join(cat_dir, md, "models", "model_normalized.obj")
+            if os.path.isfile(obj_path):
+                items.append((obj_path, synset_id))
+        return items
 
     def __len__(self) -> int:
         return self.total_len
@@ -245,9 +177,8 @@ class ShapeNetClassificationDataset(data.Dataset):
             return self._get_vehicle_raw(idx, rng=rng)
         else:
             unk_idx = idx - len(self.vehicle_items)
-            pts = self.unknown_points[unk_idx]
-            bbox_feats = extract_bbox_features(pts)
-            return pts, bbox_feats, CLASS_TO_IDX["unknown"]
+            rng = np.random.default_rng(self.config["split_seed"] + idx)
+            return self._get_unknown_raw(unk_idx, rng=rng)
 
     def _get_vehicle_raw(self, idx: int,
                          rng: np.random.Generator | None = None,
@@ -278,6 +209,37 @@ class ShapeNetClassificationDataset(data.Dataset):
 
         raise RuntimeError(
             f"Failed to load vehicle sample after {max_retries} retries (idx={idx})")
+
+    def _get_unknown_raw(self, unk_idx: int,
+                         rng: np.random.Generator | None = None,
+                         ) -> tuple[np.ndarray, np.ndarray, int]:
+        """Load a non-vehicle ShapeNet partial with random scale."""
+        if rng is None:
+            rng = np.random.default_rng()
+        scale_lo, scale_hi = self.config["unknown_scale_range"]
+        max_retries = 10
+        for attempt in range(max_retries):
+            try_idx = unk_idx if attempt == 0 else int(
+                rng.integers(0, len(self.unknown_items)))
+            obj_path, synset_id = self.unknown_items[try_idx]
+            scale_m = float(rng.uniform(scale_lo, scale_hi))
+
+            mesh = self._load_and_scale(obj_path, scale_m)
+            if mesh is None or mesh.get_surface_area() < 1e-6:
+                continue
+
+            pts = self._render_partial(mesh, scale_m, rng=rng)
+            if pts is None:
+                continue
+
+            centroid = pts.mean(axis=0)
+            pts = pts - centroid
+            bbox_feats = extract_bbox_features(pts)
+            return pts, bbox_feats, CLASS_TO_IDX["unknown"]
+
+        raise RuntimeError(
+            f"Failed to load unknown sample after {max_retries} retries "
+            f"(unk_idx={unk_idx})")
 
     def __getitem__(self, idx: int) -> dict:
         pts_metric, bbox_feats, label = self.get_raw_sample(idx)
@@ -562,10 +524,10 @@ def main():
     val_ds = ShapeNetClassificationDataset(config, split="val")
     print(f"Train: {len(train_ds)} samples "
           f"({len(train_ds.vehicle_items)} vehicles + "
-          f"{len(train_ds.unknown_points)} unknowns)")
+          f"{len(train_ds.unknown_items)} unknowns)")
     print(f"Val:   {len(val_ds)} samples "
           f"({len(val_ds.vehicle_items)} vehicles + "
-          f"{len(val_ds.unknown_points)} unknowns)")
+          f"{len(val_ds.unknown_items)} unknowns)")
 
     # Bbox stats: load from checkpoint if resuming, else compute fresh
     ckpt = None
@@ -649,7 +611,7 @@ def main():
             optimizer.load_state_dict(ckpt["optimizer_state_dict"])
             scheduler.load_state_dict(ckpt["scheduler_state_dict"])
             start_epoch = ckpt.get("epoch", 0) + 1
-            best_macro_f1 = ckpt.get("metrics", {}).get("val_macro_f1", 0.0)
+            best_macro_f1 = ckpt.get("metrics", {}).get("val_macro_f1_thresh", 0.0)
         print(f"Resumed from {args.resume} (epoch {start_epoch})")
 
     # Eval only
@@ -738,12 +700,12 @@ def main():
             "metrics": metrics,
         }
 
-        # Best
-        if metrics["val_macro_f1"] > best_macro_f1:
-            best_macro_f1 = metrics["val_macro_f1"]
+        # Best — select on thresholded F1 since pipeline uses thresholding
+        if metrics["val_macro_f1_thresh"] > best_macro_f1:
+            best_macro_f1 = metrics["val_macro_f1_thresh"]
             torch.save(ckpt_data, os.path.join(
                 config["checkpoint_dir"], "classifier_best.pth"))
-            print(f"  -> New best macro F1: {best_macro_f1:.4f}")
+            print(f"  -> New best macro F1 (thresh): {best_macro_f1:.4f}")
 
         # Last
         torch.save(ckpt_data, os.path.join(
@@ -755,7 +717,7 @@ def main():
                 config["checkpoint_dir"], f"classifier_epoch{epoch+1}.pth"))
 
     # Final report
-    print(f"\nTraining complete. Best macro F1: {best_macro_f1:.4f}")
+    print(f"\nTraining complete. Best macro F1 (thresh): {best_macro_f1:.4f}")
     print(f"Majority-class baseline: {baseline_f1:.4f}")
 
     # Print final confusion matrix
@@ -767,9 +729,9 @@ def main():
         print(f"  {cls:12s}  P={r.get('precision', 0):.3f}  "
               f"R={r.get('recall', 0):.3f}  F1={r.get('f1-score', 0):.3f}")
     print(f"\nConfusion matrix:\n{final['confusion_matrix']}")
-    print("\nNote: unknown-class metrics are based on synthetic unknowns only. "
-          "Real-world rejection quality requires evaluation on real LiDAR "
-          "negatives (Stage B).")
+    print("\nNote: unknown-class metrics are based on non-vehicle ShapeNet "
+          "categories. Real-world rejection quality requires evaluation on "
+          "real LiDAR negatives (Stage B).")
 
 
 if __name__ == "__main__":

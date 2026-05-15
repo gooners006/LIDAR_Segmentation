@@ -434,3 +434,46 @@ Modified:  docs/project_state.md (precision-first plan update)
 Modified:  src/pipeline.py (3 filter changes in PIPELINE_CONFIG + filter_clusters)
 New:       src/analyze_fp.py
 ```
+
+---
+
+# Session Summary — 2026-05-15
+
+## What was done
+
+### 1. Reviewed completed training results
+- Classifier Stage A: 50 epochs, val_acc 99.93%, val_macro_f1 99.95% (on synthetic data).
+- PCN: 2×100 epochs, val_cd_fine 0.066, val_fscore 99.37%.
+
+### 2. Replaced synthetic unknowns with real ShapeNet categories
+- Created `src/download_shapenet.py` to download all 55 ShapeNetCore categories from HuggingFace (~51K models).
+- Rewrote unknown generation in `src/train_classifier.py`: removed 8 geometric primitives, replaced with 52 non-vehicle ShapeNet categories (38,170 models). Rendered via same partial-view pipeline as vehicles.
+- Fixed checkpoint selection: `val_macro_f1` → `val_macro_f1_thresh` to match thresholded pipeline behavior.
+- New dataset: 3,835 vehicle + 1,643 unknown = 5,478 samples. Estimated ~10-11 hours for 50 epochs.
+- Classifier retraining started by user (running in background).
+
+### 3. Built Stage B mining script (`src/mine_stage_b.py`)
+- Mines real LiDAR clusters from SemanticKITTI sequences using pipeline stages 1-5.
+- Propagates GT semantic labels via KD-tree nearest-neighbor after voxel downsampling.
+- Classifies clusters by purity threshold (default 0.75), saves centroid-centered `.npy` files organized by class.
+- Outputs `metadata_{split}.json` with config, class counts, per-cluster stats (purity, raw_sem_purity, histogram).
+- Applied robustness fixes: bin/label assertion, cluster alignment assertion, empty-frame guards, discard tracking.
+- Sanity check (seq 00, 100 frames): 1,979 clusters, 17 discarded. car 1,246 / unknown 684 / motorcycle 32 / bus 0.
+
+### 4. Full mining run started
+- Train: `--seq 00 01 02 03 04 05 06 07 09 10 --frames 5000 --split train` (~6-7 hours)
+- Val: `--seq 08 --frames 5000 --split val` (~70 min)
+
+### 5. CLAUDE.md improvements
+- Fixed activation command for Windows.
+- Added training/mining commands, key files section, Stage A/B strategy docs.
+
+### 6. Finding #6 recorded
+- Stage B mining class distribution from seq 00 sanity check. Confirms Stage A+B strategy necessity.
+
+## Files changed
+
+```
+Modified: CLAUDE.md, docs/findings.md, src/train_classifier.py
+New:      src/download_shapenet.py, src/mine_stage_b.py
+```
