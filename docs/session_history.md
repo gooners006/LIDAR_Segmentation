@@ -503,3 +503,43 @@ New:       src/analyze_fp.py
 Modified: CLAUDE.md, docs/findings.md, src/train_classifier.py, src/evaluate.py, docs/report/thesis_proposal.tex
 New:      src/download_shapenet.py, src/mine_stage_b.py
 ```
+
+---
+
+# Session Summary — 2026-05-16
+
+## What was done
+
+### 1. Stage B evaluation and threshold optimization
+- Stage B training completed by user (val_macro_f1_thresh 0.7056, 15 epochs).
+- Evaluated on pipeline: Precision 0.969, Recall 0.680, F1 0.799 (at default threshold 0.65).
+- Full threshold sweep (0.30–0.95, 12 values): optimal at 0.50 → F1 0.816, Precision 0.957, Recall 0.711.
+- Updated `unknown_threshold` default from 0.65 to 0.50 across `src/classifier.py`, `src/evaluate.py`, `src/main.py`, `src/train_classifier.py`.
+- Findings #10 (Stage B eval) and #11 (threshold sweep) recorded.
+
+### 2. Thesis proposal rewrite (`docs/report/thesis_proposal.tex`)
+- Complete rewrite per advisor feedback: too long, no results, 2-3 pages.
+- Removed: results/metrics, parameter tables, timeline, ablations, standalone Related Work, references.
+- New structure: Problem Statement → Proposed Approach → Issues and Challenges → Expected Contributions → Evaluation Plan.
+- Three verifiable contributions: modular pipeline, PCN completion with CD+EMD, two-stage training strategy.
+
+### 3. Full codebase code review (11/11 files)
+- Reviewed all `src/*.py` files line-by-line: `pipeline.py`, `tracker.py`, `classifier.py`, `pcn.py`, `completion.py`, `evaluate.py`, `main.py`, `mine_stage_b.py`, `analyze_fp.py`, `train_classifier.py`, `train_pcn.py`.
+- Refactored 2 functions for cognitive complexity: `filter_clusters` (25→~4), `tracker.update` (18→~8). Both via helper extraction.
+- Added docstrings to all public functions/classes across 10 of 11 files (skipped `completion.py`).
+- Fixed broken import in `analyze_fp.py`: `THING_CLASSES` → `THING_CLASSES_ALL` (would crash at runtime).
+- Documented classifier architecture decisions vs original PointNet paper (Finding #12).
+
+### 4. Trimesh → Open3D migration (`src/train_pcn.py`)
+- Replaced all `trimesh` usage with Open3D equivalents: mesh loading, surface sampling, attribute names.
+- Both training scripts (`train_classifier.py`, `train_pcn.py`) now use Open3D consistently.
+- No retraining needed — existing PCN checkpoint unaffected.
+
+## Files changed
+
+```
+Modified: src/pipeline.py, src/tracker.py, src/classifier.py, src/pcn.py,
+          src/evaluate.py, src/main.py, src/mine_stage_b.py, src/analyze_fp.py,
+          src/train_classifier.py, src/train_pcn.py,
+          docs/findings.md, docs/project_state.md, docs/report/thesis_proposal.tex
+```

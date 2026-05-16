@@ -32,6 +32,7 @@ NUM_CLASSES = len(CLASS_LABELS)
 
 @dataclass
 class ClassificationResult:
+    """Output of a classifier — a predicted label and its confidence score."""
     label: str
     confidence: float
 
@@ -42,7 +43,19 @@ class ClassificationResult:
 
 
 def compute_cluster_extent(points: np.ndarray) -> np.ndarray:
-    """Compute OBB extents if enough points, else AABB. Returns (3,) unsorted."""
+    """Compute bounding-box extents for a point cluster.
+
+    Uses an oriented bounding box (OBB) when the cluster has at least
+    ``MIN_POINTS_FOR_OBB`` points.  Falls back to an axis-aligned
+    bounding box (AABB) if the OBB computation fails or the cluster is
+    too small.
+
+    Args:
+        points: (N, 3) array of cluster points.
+
+    Returns:
+        (3,) float32 array of unsorted extents, each >= ``MIN_EXTENT``.
+    """
     if len(points) >= MIN_POINTS_FOR_OBB:
         try:
             pcd = o3d.geometry.PointCloud()
@@ -59,7 +72,18 @@ def compute_cluster_extent(points: np.ndarray) -> np.ndarray:
 
 
 def extract_bbox_features(points: np.ndarray) -> np.ndarray:
-    """8-dim metric-scale feature vector from raw cluster points."""
+    """Build an 8-dimensional metric-scale feature vector for the bbox branch.
+
+    Features (in order): sorted extents (min, med, max), volume,
+    aspect ratio max/min, aspect ratio med/min, log(1 + point_count),
+    and vertical height span.
+
+    Args:
+        points: (N, 3) array of raw cluster points in metres.
+
+    Returns:
+        (8,) float32 feature vector.
+    """
     extent = compute_cluster_extent(points)
     min_d, med_d, max_d = np.sort(extent)
 
@@ -80,7 +104,22 @@ def extract_bbox_features(points: np.ndarray) -> np.ndarray:
 
 def sample_or_pad(points: np.ndarray, num_points: int,
                   rng: np.random.Generator | None = None) -> np.ndarray:
-    """Subsample or pad to exactly num_points."""
+    """Subsample or pad a point cloud to exactly *num_points*.
+
+    If the cluster has more points than needed, a random subset is
+    selected without replacement.  If fewer, all points are kept and
+    the remainder is filled by random duplication.
+
+    Args:
+        points: (N, 3) array of cluster points.
+        num_points: Target number of points.
+        rng: NumPy random generator.  Defaults to a deterministic seed
+            for reproducible inference; pass a seeded generator for
+            training augmentation.
+
+    Returns:
+        (num_points, 3) float32 array.
+    """
     n = len(points)
     if n == 0:
         return np.zeros((num_points, 3), dtype=np.float32)
@@ -95,7 +134,20 @@ def sample_or_pad(points: np.ndarray, num_points: int,
 
 
 def normalize_unit_sphere(points: np.ndarray, eps: float = 1e-6) -> np.ndarray:
-    """Center on centroid, scale to unit sphere."""
+    """Normalize points to fit within a unit sphere.
+
+    Centers on the centroid, then scales so the farthest point is at
+    distance 1.  This makes the point branch scale-invariant; absolute
+    size is captured separately by the bbox features.
+
+    Args:
+        points: (N, 3) array of cluster points.
+        eps: Minimum scale to avoid division by zero.
+
+    Returns:
+        (N, 3) float32 array of normalized points, or zeros if the
+        cluster is degenerate.
+    """
     center = points.mean(axis=0, keepdims=True)
     points = points - center
     scale = np.linalg.norm(points, axis=1).max()
@@ -111,7 +163,19 @@ def normalize_unit_sphere(points: np.ndarray, eps: float = 1e-6) -> np.ndarray:
 
 def classify_bbox_heuristic(extent: np.ndarray,
                             center: np.ndarray) -> ClassificationResult:
-    """Heuristic classification from OBB dimensions and center position."""
+    """Rule-based fallback classifier using OBB dimensions.
+
+    Applies hardcoded size ranges for car, bus, and unknown.  Not used
+    when a learned model is loaded; kept as a fallback for runs without
+    a checkpoint.
+
+    Args:
+        extent: (3,) OBB extents in metres (unsorted).
+        center: (3,) OBB centre position.
+
+    Returns:
+        ClassificationResult with predicted label and confidence.
+    """
     min_d, med_d, max_d = np.sort(extent)
 
     if min_d < 0.15 and max_d < 3.0 and center[2] > 0.5:
@@ -133,7 +197,17 @@ def classify_bbox_heuristic(extent: np.ndarray,
 
 
 class PointNetClassifier(nn.Module):
-    """Dual-branch: point geometry (PointNet) + metric bbox features."""
+    """Dual-branch PointNet classifier (point geometry + metric bbox features).
+
+    The point branch processes unit-sphere-normalized coordinates through
+    Conv1d layers and max-pools into a 256-d shape descriptor.  The bbox
+    branch maps 8 metric features to 32-d.  The concatenated 288-d
+    vector is classified into ``num_classes`` categories.
+
+    Args:
+        bbox_feat_dim: Dimension of the bounding-box feature vector.
+        num_classes: Number of output classes.
+    """
 
     def __init__(self, bbox_feat_dim: int = BBOX_FEAT_DIM,
                  num_classes: int = NUM_CLASSES):
@@ -186,16 +260,26 @@ def classify_cluster(
     model: PointNetClassifier,
     device: torch.device,
     bbox_stats: dict,
-    unknown_threshold: float = 0.65,
+    unknown_threshold: float = 0.50,
 ) -> ClassificationResult:
     """Classify a single cluster using the learned model.
 
+    Preprocesses the raw cluster (filter non-finite points, extract
+    bbox features with z-score normalization, sample/pad to
+    ``NUM_POINTS``, normalize to unit sphere), runs inference, and
+    applies the unknown-threshold rejection.
+
     Args:
         points: (N, 3) raw cluster points in metric scale.
-        model: loaded PointNetClassifier (already in eval mode).
-        device: torch device.
-        bbox_stats: {"mean": ndarray(8,), "std": ndarray(8,)}.
-        unknown_threshold: reject if max softmax < this.
+        model: Loaded PointNetClassifier (already in eval mode).
+        device: Torch device for inference.
+        bbox_stats: Dict with ``"mean"`` and ``"std"`` arrays of shape
+            (8,) from training-set feature statistics.
+        unknown_threshold: If the maximum softmax probability is below
+            this value, the cluster is labeled ``"unknown"``.
+
+    Returns:
+        ClassificationResult with the predicted label and confidence.
     """
     points = np.asarray(points, dtype=np.float32)
     finite_mask = np.isfinite(points).all(axis=1)
@@ -231,9 +315,25 @@ def classify_cluster(
 
 
 def load_classifier(ckpt_path: str, device: torch.device):
-    """Load classifier model and bbox stats from checkpoint.
+    """Load a classifier model and bbox normalization stats from a checkpoint.
 
-    Returns (model, bbox_stats) or (None, None) if file missing.
+    Validates that the checkpoint's metadata (class labels, bbox
+    feature dimension, number of input points) matches the runtime
+    constants defined in this module.
+
+    Args:
+        ckpt_path: Path to the ``.pth`` checkpoint file.
+        device: Torch device to load the model onto.
+
+    Returns:
+        Tuple of ``(model, bbox_stats)`` where *model* is a
+        :class:`PointNetClassifier` in eval mode and *bbox_stats* is a
+        dict with ``"mean"`` and ``"std"`` arrays.  Returns
+        ``(None, None)`` if the file does not exist.
+
+    Raises:
+        ValueError: If checkpoint metadata is inconsistent with runtime
+            constants.
     """
     if not os.path.isfile(ckpt_path):
         return None, None

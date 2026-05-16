@@ -25,6 +25,13 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def parse_args():
+    """Parse command-line arguments for the pipeline runner.
+
+    Returns:
+        Namespace with fields: seq, frames, save_output, no_gui,
+        classifier_ckpt, classifier_unknown_threshold,
+        no_learned_classifier.
+    """
     parser = argparse.ArgumentParser(description="LiDAR segmentation pipeline")
     parser.add_argument("--seq", default="00", help="Sequence ID")
     parser.add_argument("--frames", type=int, default=100, help="Max frames to process")
@@ -42,7 +49,7 @@ def parse_args():
         help="Path to learned classifier checkpoint",
     )
     parser.add_argument(
-        "--classifier-unknown-threshold", type=float, default=0.65,
+        "--classifier-unknown-threshold", type=float, default=0.50,
         help="Softmax threshold below which clusters are labeled unknown",
     )
     parser.add_argument(
@@ -53,6 +60,14 @@ def parse_args():
 
 
 def main():
+    """Run the full LiDAR segmentation and tracking pipeline.
+
+    Processes a KITTI sequence frame-by-frame through: preprocessing,
+    ground removal, HDBSCAN clustering, geometric filtering,
+    classification, and centroid tracking.  Optionally visualizes
+    results in Open3D and/or saves per-track PLY files with a
+    ``tracks.json`` manifest.
+    """
     args = parse_args()
 
     # --- File paths ---

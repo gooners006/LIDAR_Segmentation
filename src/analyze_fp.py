@@ -17,7 +17,7 @@ import numpy as np
 import open3d as o3d
 from scipy.spatial import cKDTree
 
-from evaluate import THING_CLASSES, compute_iou
+from evaluate import THING_CLASSES_ALL, compute_iou
 from pipeline import (
     PIPELINE_CONFIG,
     cluster_objects,
@@ -66,6 +66,22 @@ CSV_COLUMNS = [
 
 def analyze_frame(bin_path: str, label_path: str, frame_idx: int,
                   iou_threshold: float) -> list[dict]:
+    """Run the pipeline on one frame and extract per-cluster diagnostic features.
+
+    Replicates stages 1–5 with GT label propagation, matches detections
+    to GT instances via greedy IoU, then computes geometric features for
+    each detected cluster (TP and FP alike).
+
+    Args:
+        bin_path: Path to the Velodyne ``.bin`` file.
+        label_path: Path to the SemanticKITTI ``.label`` file.
+        frame_idx: Frame number (stored in output rows).
+        iou_threshold: Minimum IoU for a detection–GT match.
+
+    Returns:
+        List of dicts (one per detected cluster) with columns defined
+        by ``CSV_COLUMNS``.
+    """
     cfg = PIPELINE_CONFIG
 
     points = np.fromfile(bin_path, dtype=np.float32).reshape(-1, 4)
@@ -114,7 +130,7 @@ def analyze_frame(bin_path: str, label_path: str, frame_idx: int,
     obj_points = np.asarray(objects_pcd.points)
 
     # Build GT masks
-    thing_mask = np.isin(sem_obj, list(THING_CLASSES))
+    thing_mask = np.isin(sem_obj, list(THING_CLASSES_ALL))
     gt_instances = np.unique(inst_obj[thing_mask])
     gt_instances = gt_instances[gt_instances > 0]
     gt_masks = {}
@@ -235,6 +251,12 @@ def analyze_frame(bin_path: str, label_path: str, frame_idx: int,
 
 
 def main():
+    """Run FP analysis across a sequence and write a diagnostic CSV.
+
+    For each frame, extracts per-cluster features and match status,
+    then prints a summary of TP/FP distributions by semantic class and
+    geometric properties.
+    """
     parser = argparse.ArgumentParser(description="False-positive analysis")
     parser.add_argument("--seq", default="00", help="Sequence ID")
     parser.add_argument("--frames", type=int, default=100, help="Max frames")

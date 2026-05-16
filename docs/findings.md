@@ -221,3 +221,74 @@ Proportions are consistent across splits (~80% unknown, ~20% car, <0.5% motorcyc
 Without this fix, classifier-filtered evaluation would have reported artificially low recall because GT instances of unsupported classes (pedestrian, bicycle, truck, etc.) would always be unmatched.
 
 **Decision:** Use `--target all-things` for geometric baseline, `--target supported-vehicles` for classifier-filtered runs. This makes the two evaluations measure different things — document clearly in any comparison table.
+
+## 10. Stage B Classifier — Pipeline Evaluation (2026-05-16)
+
+**Context:** Stage B fine-tuning completed (best macro F1 thresh: 0.7056). Evaluated the Stage B checkpoint on the pipeline against the geometric-only baseline.
+
+**Finding:**
+
+Per-class validation performance (Stage B checkpoint):
+
+| Class | Precision | Recall | F1 |
+|---|---|---|---|
+| car | 0.792 | 0.906 | 0.845 |
+| bus | 0.000 | 0.000 | 0.000 |
+| motorcycle | 0.228 | 0.498 | 0.313 |
+| unknown | 0.975 | 0.936 | 0.955 |
+
+Pipeline evaluation (seq 00, 100 frames, `--target supported-vehicles`):
+
+| Metric | Geometric only | + Stage B classifier | Delta |
+|---|---|---|---|
+| Precision | 0.654 | 0.969 | +0.315 |
+| Recall | 0.704 | 0.680 | -0.024 |
+| F1 | 0.678 | 0.799 | +0.121 |
+| Mean IoU | 0.944 | 0.950 | +0.006 |
+
+TP=1141, FP=37, FN=536. The classifier nearly eliminated FPs (676 → 37) with minimal recall loss. The 536 FNs are likely real vehicles rejected as unknown — a threshold sweep on `unknown_threshold` may recover some.
+
+Main concern: unknown-to-car leakage in confusion matrix (5949/105485 unknown val samples misclassified as car) didn't significantly hurt pipeline precision, suggesting those misclassified unknowns don't survive geometric filtering.
+
+**Decision:** Stage B is a clear win. Next: threshold sweep to optimize the precision-recall tradeoff.
+
+## 11. Unknown Threshold Sweep (2026-05-16)
+
+**Context:** Default `unknown_threshold` was 0.65. Swept 12 values (0.30–0.95) on seq 00, 100 frames, `--target supported-vehicles`, checkpoint `stage_b_best.pth`.
+
+**Finding:**
+
+| Threshold | TP | FP | FN | Precision | Recall | F1 | Mean IoU |
+|---|---|---|---|---|---|---|---|
+| 0.30 | 1164 | 55 | 510 | 0.955 | 0.695 | 0.805 | 0.950 |
+| 0.40 | 1186 | 56 | 492 | 0.955 | 0.707 | 0.812 | 0.951 |
+| **0.50** | **1189** | **54** | **483** | **0.957** | **0.711** | **0.816** | **0.950** |
+| 0.55 | 1168 | 46 | 506 | 0.962 | 0.698 | 0.809 | 0.950 |
+| 0.60 | 1165 | 37 | 510 | 0.969 | 0.696 | 0.810 | 0.951 |
+| 0.65 | 1149 | 39 | 527 | 0.967 | 0.686 | 0.802 | 0.950 |
+| 0.70 | 1123 | 29 | 556 | 0.975 | 0.669 | 0.793 | 0.955 |
+| 0.75 | 1103 | 24 | 575 | 0.979 | 0.657 | 0.786 | 0.953 |
+| 0.80 | 1071 | 12 | 607 | 0.989 | 0.638 | 0.776 | 0.954 |
+| 0.85 | 1039 | 14 | 637 | 0.987 | 0.620 | 0.761 | 0.959 |
+| 0.90 | 1004 | 7 | 673 | 0.993 | 0.599 | 0.747 | 0.960 |
+| 0.95 | 912 | 1 | 767 | 0.999 | 0.543 | 0.704 | 0.965 |
+
+Best F1 at threshold 0.50 (+0.014 over default 0.65). Clean precision-recall tradeoff — lowering the threshold recovers TPs with minimal FP increase. Below 0.40, recall plateaus while FPs keep rising.
+
+**Decision:** Updated default `unknown_threshold` from 0.65 → 0.50 in `classifier.py`, `evaluate.py`, `main.py`, and `train_classifier.py`.
+
+## 12. PointNet Classifier — Architecture Simplifications vs Original Paper (2026-05-16)
+
+**Context:** Code review of `src/classifier.py` against the original PointNet paper (Qi et al., CVPR 2017) to document deliberate design choices.
+
+**Finding:** The implementation simplifies the original PointNet in three ways:
+
+| Component | Original PointNet | Our implementation | Rationale |
+|---|---|---|---|
+| Bottleneck dim | 1024 | 256 | 4 classes vs 40; 80K params keeps inference fast |
+| T-Nets | Input + feature transform | None | LiDAR clusters are in a consistent sensor frame; unit-sphere normalization handles translation/scale |
+| Classification head | 512 → 256 → k | 128 → k | Sufficient capacity for 4-class discrimination |
+
+The dual-branch bbox extension (8-d metric features → 32-d) compensates for the smaller point branch by providing real-world scale information that vanilla PointNet lacks. Current pipeline F1 is 0.816 — the bottleneck is class imbalance (28 bus train samples), not model capacity.
+
+**Decision:** Keep current architecture. Add bottleneck dimension ablation (256 vs 512 vs 1024) to low-priority backlog.

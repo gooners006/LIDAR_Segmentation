@@ -9,7 +9,6 @@ Usage:
 
 import argparse
 import csv
-import logging
 import os
 import sys
 import time
@@ -18,14 +17,11 @@ import numpy as np
 import open3d as o3d
 import torch
 import torch.utils.data as data
-import trimesh
 from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(__file__))
 from completion import f_score
 from pcn import PCN, pcn_loss
-
-logging.getLogger("trimesh").setLevel(logging.ERROR)
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -74,6 +70,12 @@ class ShapeNetCompletionDataset(data.Dataset):
     """ShapeNet meshes → (partial, gt, gt_coarse) via depth-image back-projection."""
 
     def __init__(self, config: dict, split: str = "train"):
+        """Discover ShapeNet models and prepare train/val split.
+
+        Args:
+            config: Training config with paths, point counts, and split params.
+            split: Either ``"train"`` or ``"val"``.
+        """
         self.config = config
         self.split = split
         self.items: list[tuple[str, str]] = []  # (obj_path, synset_id)
@@ -101,6 +103,7 @@ class ShapeNetCompletionDataset(data.Dataset):
         return len(self.items)
 
     def __getitem__(self, idx: int) -> dict:
+        """Load one sample: partial render, full GT, and coarse GT subsample."""
         max_retries = 10
         for attempt in range(max_retries):
             try_idx = idx if attempt == 0 else np.random.randint(0, len(self))
@@ -108,7 +111,7 @@ class ShapeNetCompletionDataset(data.Dataset):
             scale_m = self.config["category_scale_m"][synset_id]
 
             mesh = self._load_and_scale(obj_path, scale_m)
-            if mesh is None or mesh.area < 1e-6:
+            if mesh is None or mesh.get_surface_area() < 1e-6:
                 continue
 
             gt_pts = self._sample_gt(mesh)
@@ -150,30 +153,46 @@ class ShapeNetCompletionDataset(data.Dataset):
 
     @staticmethod
     def _load_and_scale(obj_path: str, scale_m: float):
+        """Load mesh via Open3D and rescale so max extent equals *scale_m* metres."""
         try:
-            mesh = trimesh.load(
-                obj_path, force="mesh", process=False, skip_materials=True
-            )
+            mesh = o3d.io.read_triangle_mesh(obj_path, enable_post_processing=True)
         except Exception:
             return None
-        extents = mesh.bounding_box.extents
+        if not mesh.has_vertices() or not mesh.has_triangles():
+            return None
+        verts = np.asarray(mesh.vertices)
+        extents = verts.max(axis=0) - verts.min(axis=0)
         max_extent = extents.max()
         if max_extent < 1e-6:
             return None
-        mesh.apply_scale(scale_m / max_extent)
-        mesh.vertices -= mesh.centroid
+        scale = scale_m / max_extent
+        centroid = verts.mean(axis=0)
+        mesh.vertices = o3d.utility.Vector3dVector((verts - centroid) * scale)
         return mesh
 
     def _sample_gt(self, mesh) -> np.ndarray:
-        pts, _ = trimesh.sample.sample_surface(mesh, self.config["gt_n_points"])
-        return np.array(pts, dtype=np.float32)
+        """Uniformly sample ``gt_n_points`` from the mesh surface via area-weighted triangle sampling."""
+        n_points = self.config["gt_n_points"]
+        verts = np.asarray(mesh.vertices, dtype=np.float64)
+        tris = np.asarray(mesh.triangles)
+        v0, v1, v2 = verts[tris[:, 0]], verts[tris[:, 1]], verts[tris[:, 2]]
+        areas = 0.5 * np.linalg.norm(np.cross(v1 - v0, v2 - v0), axis=1)
+        probs = areas / areas.sum()
+        tri_idx = np.random.choice(len(tris), size=n_points, p=probs)
+        r1 = np.random.random(n_points)
+        r2 = np.random.random(n_points)
+        sqrt_r1 = np.sqrt(r1)
+        pts = ((1 - sqrt_r1)[:, None] * v0[tri_idx]
+               + (sqrt_r1 * (1 - r2))[:, None] * v1[tri_idx]
+               + (sqrt_r1 * r2)[:, None] * v2[tri_idx])
+        return pts.astype(np.float32)
 
     def _render_partial(
         self, mesh, scale_m: float, max_retries: int = 5
     ) -> np.ndarray | None:
         """Render depth from a random viewpoint and back-project to 3D."""
-        vertices = np.array(mesh.vertices, dtype=np.float32)
-        faces = np.array(mesh.faces, dtype=np.int32)
+        vertices = np.asarray(mesh.vertices, dtype=np.float32)
+        faces = np.asarray(mesh.triangles, dtype=np.int32)
 
         # Build raycasting scene
         scene = o3d.t.geometry.RaycastingScene()
@@ -258,6 +277,7 @@ class ShapeNetCompletionDataset(data.Dataset):
 
     @staticmethod
     def _fix_size(pts: np.ndarray, n: int) -> np.ndarray:
+        """Subsample or pad (by duplication) to exactly *n* points."""
         if len(pts) == n:
             return pts
         if len(pts) > n:
@@ -269,6 +289,7 @@ class ShapeNetCompletionDataset(data.Dataset):
 
     @staticmethod
     def _augment_rotation(gt: np.ndarray, partial: np.ndarray):
+        """Apply a random Z-axis rotation to both GT and partial consistently."""
         angle = np.random.uniform(0, 2 * np.pi)
         c, s = np.cos(angle), np.sin(angle)
         R = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]], dtype=np.float32)
@@ -281,6 +302,7 @@ class ShapeNetCompletionDataset(data.Dataset):
 
 
 def train_one_epoch(model, loader, optimizer, device, config, epoch):
+    """Run one training epoch. Returns dict with avg train_loss, train_cd_coarse, train_cd_fine."""
     model.train()
     total_loss = 0.0
     total_cd_c = 0.0
@@ -321,6 +343,7 @@ def train_one_epoch(model, loader, optimizer, device, config, epoch):
 
 @torch.no_grad()
 def evaluate(model, loader, device, config, compute_fscore: bool = False):
+    """Evaluate on validation set. Returns dict with val_loss, val_cd_coarse, val_cd_fine, and optionally val_fscore."""
     model.eval()
     total_loss = 0.0
     total_cd_c = 0.0
@@ -357,6 +380,7 @@ def evaluate(model, loader, device, config, compute_fscore: bool = False):
 
 
 def save_checkpoint(model, optimizer, scheduler, epoch, metrics, path):
+    """Save model, optimizer, scheduler, and metrics to a checkpoint file."""
     torch.save(
         {
             "epoch": epoch,
@@ -376,6 +400,11 @@ def save_checkpoint(model, optimizer, scheduler, epoch, metrics, path):
 
 
 def main():
+    """Train or evaluate PCN on ShapeNet partial→complete pairs.
+
+    Handles dataset creation, model setup, checkpoint resume, training
+    loop with CSV logging, and best/last/periodic checkpoint saving.
+    """
     parser = argparse.ArgumentParser(description="Train PCN on ShapeNet")
     parser.add_argument("--epochs", type=int, default=TRAIN_CONFIG["epochs"])
     parser.add_argument("--batch-size", type=int, default=TRAIN_CONFIG["batch_size"])

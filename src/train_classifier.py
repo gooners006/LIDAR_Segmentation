@@ -89,7 +89,7 @@ TRAIN_CONFIG = {
     "checkpoint_dir": os.path.join(PROJECT_ROOT, "checkpoints"),
     "checkpoint_every": 10,
     "log_every": 50,
-    "unknown_threshold": 0.65,
+    "unknown_threshold": 0.50,
 }
 
 STAGE_B_CONFIG = {
@@ -107,7 +107,7 @@ STAGE_B_CONFIG = {
     "checkpoint_dir": os.path.join(PROJECT_ROOT, "checkpoints"),
     "checkpoint_every": 5,
     "log_every": 50,
-    "unknown_threshold": 0.65,
+    "unknown_threshold": 0.50,
     "stage_a_ckpt": os.path.join(PROJECT_ROOT, "checkpoints", "classifier_best.pth"),
 }
 
@@ -124,6 +124,13 @@ class StageBDataset(data.Dataset):
     """
 
     def __init__(self, root: str, split: str, config: dict):
+        """Load real mined cluster paths from disk.
+
+        Args:
+            root: Root directory containing train/val splits.
+            split: Either ``"train"`` or ``"val"``.
+            config: Stage B config dict with ``num_points``, ``jitter_std``.
+        """
         self.config = config
         self.split = split
         self.bbox_mean: np.ndarray | None = None
@@ -150,6 +157,7 @@ class StageBDataset(data.Dataset):
         return len(self.items)
 
     def get_raw_sample(self, idx: int) -> tuple[np.ndarray, np.ndarray, int]:
+        """Load raw (unaugmented) sample: centroid-centered points, bbox features, label."""
         path, label = self.items[idx]
         points = np.load(path).astype(np.float32)
         bbox_feats = extract_bbox_features(points)
@@ -198,6 +206,13 @@ class ShapeNetClassificationDataset(data.Dataset):
     """
 
     def __init__(self, config: dict, split: str = "train"):
+        """Discover ShapeNet meshes and prepare vehicle/unknown splits.
+
+        Args:
+            config: Stage A training config with ShapeNet paths, viewpoint
+                parameters, and unknown fraction settings.
+            split: Either ``"train"`` or ``"val"``.
+        """
         self.config = config
         self.split = split
         self.bbox_mean: np.ndarray | None = None
@@ -242,6 +257,7 @@ class ShapeNetClassificationDataset(data.Dataset):
     @staticmethod
     def _discover_category(synset_id: str, split: str,
                            config: dict) -> list[tuple[str, str]]:
+        """Find all .obj model paths for a ShapeNet category in the given split."""
         cat_dir = os.path.join(config["shapenet_root"], synset_id)
         if not os.path.isdir(cat_dir):
             return []
@@ -392,6 +408,7 @@ class ShapeNetClassificationDataset(data.Dataset):
 
     @staticmethod
     def _load_and_scale(obj_path: str, scale_m: float):
+        """Load mesh from .obj and rescale so its max extent equals *scale_m* metres."""
         try:
             mesh = o3d.io.read_triangle_mesh(obj_path, enable_post_processing=True)
         except Exception:
@@ -411,6 +428,11 @@ class ShapeNetClassificationDataset(data.Dataset):
     def _render_partial(self, mesh, scale_m: float,
                         rng: np.random.Generator | None = None,
                         max_retries: int = 5) -> np.ndarray | None:
+        """Render a partial point cloud via raycasting from a random viewpoint.
+
+        Returns (N, 3) hit points in world coordinates, or None if all
+        viewpoints produce fewer than 50 hits.
+        """
         vertices = np.asarray(mesh.vertices, dtype=np.float32)
         faces = np.asarray(mesh.triangles, dtype=np.int32)
 
@@ -448,6 +470,7 @@ class ShapeNetClassificationDataset(data.Dataset):
 
     def _random_extrinsic(self, scale_m: float,
                           rng: np.random.Generator | None = None) -> np.ndarray:
+        """Generate a random camera extrinsic looking at the origin."""
         if rng is None:
             rng = np.random.default_rng()
         elev_min, elev_max = self.config["viewpoint_elev_range"]
@@ -529,6 +552,7 @@ def compute_bbox_stats(dataset, max_samples: int = 0):
 
 
 def train_one_epoch(model, loader, optimizer, criterion, device, config):
+    """Run one training epoch. Returns (avg_loss, accuracy)."""
     model.train()
     total_loss = 0.0
     total_correct = 0
@@ -555,6 +579,12 @@ def train_one_epoch(model, loader, optimizer, criterion, device, config):
 
 @torch.no_grad()
 def validate(model, loader, criterion, device, config):
+    """Evaluate model on validation set with both raw and thresholded metrics.
+
+    Returns a dict with val_loss, val_acc, val_macro_f1,
+    val_macro_f1_thresh, val_unknown_rate_thresh, per_class report,
+    and confusion_matrix.
+    """
     model.eval()
     total_loss = 0.0
     all_preds = []
@@ -614,6 +644,12 @@ def validate(model, loader, criterion, device, config):
 
 
 def main():
+    """Train or evaluate the PointNet classifier (Stage A or Stage B).
+
+    Handles dataset creation, bbox stats computation, class weighting,
+    checkpoint resume logic, training loop with CSV logging, and
+    periodic/best checkpoint saving.
+    """
     parser = argparse.ArgumentParser(description="Train PointNet classifier")
     parser.add_argument("--epochs", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=None)

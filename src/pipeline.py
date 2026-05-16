@@ -4,16 +4,21 @@ import hdbscan
 from typing import List, Tuple
 
 PIPELINE_CONFIG = {
+    # preprocessing
     "z_threshold": -2.0,
     "voxel_size": 0.05,
+    # denoising
     "denoise_nb_neighbors": 20,
     "denoise_std_ratio": 2.0,
+    # ransac ground fitting
     "ransac_distance_threshold": 0.2,
     "ransac_n": 3,
     "ransac_iterations": 1000,
     "ransac_min_normal_z": 0.5,
+    # clustering
     "hdbscan_min_cluster_size": 10,
     "hdbscan_min_samples": 5,
+    # filtering
     "min_points_in_cluster": 15,
     "min_volume": 0.5,
     "max_volume": 100.0,
@@ -23,12 +28,22 @@ PIPELINE_CONFIG = {
     "max_center_height_above_ground": 1.5,
     "max_height_span": 1.8,
     "max_aspect_max_min": 6.0,
+    # tracking
     "tracker_max_distance": 2.0,
     "tracker_max_disappeared": 5,
 }
 
 
 def load_calib(path: str) -> dict:
+    """Parse a KITTI calibration file into 4x4 homogeneous matrices.
+
+    Args:
+        path: Path to the calibration file (e.g. ``calib.txt``).
+
+    Returns:
+        Dict mapping key names (e.g. ``"Tr"``) to 4x4 numpy arrays.
+        Only entries with exactly 12 values (3x4 matrix) are included.
+    """
     data = {}
     with open(path, "r") as f:
         for line in f:
@@ -43,6 +58,15 @@ def load_calib(path: str) -> dict:
 
 
 def load_poses(path: str) -> list:
+    """Load per-frame camera poses from a KITTI pose file.
+
+    Args:
+        path: Path to the pose file (one 3x4 matrix per line, 12 floats).
+
+    Returns:
+        List of 4x4 numpy arrays, one per frame, representing the
+        camera-to-world transformation.
+    """
     poses = []
     with open(path, "r") as f:
         for line in f:
@@ -56,7 +80,18 @@ def load_poses(path: str) -> list:
 def preprocess_frame(
     xyz: np.ndarray, config: dict = PIPELINE_CONFIG
 ) -> o3d.geometry.PointCloud:
-    """Steps 1-2: Z-filter, statistical outlier removal, voxel downsample."""
+    """Preprocess a raw LiDAR frame (Steps 1--2).
+
+    Applies a minimum-height z-filter, removes statistical outliers, and
+    voxel-downsamples the result.
+
+    Args:
+        xyz: Raw point cloud as an (N, 3) array.
+        config: Pipeline parameters dict.
+
+    Returns:
+        Cleaned and downsampled Open3D point cloud.
+    """
     mask = xyz[:, 2] > config["z_threshold"]
     xyz_filtered = xyz[mask]
 
@@ -72,12 +107,22 @@ def preprocess_frame(
 def remove_ground(
     pcd: o3d.geometry.PointCloud, config: dict = PIPELINE_CONFIG
 ) -> tuple:
-    """Step 3: RANSAC ground removal with normal check.
+    """Separate ground points from objects via RANSAC plane fitting (Step 3).
+
+    Fits a plane using RANSAC and checks that its normal is approximately
+    vertical (z-component above ``ransac_min_normal_z``). If the check
+    fails, the plane is rejected and all points are returned as objects.
+
+    Args:
+        pcd: Preprocessed point cloud.
+        config: Pipeline parameters dict.
 
     Returns:
-        (ground_pcd, objects_pcd, plane_model, inlier_indices) where plane_model
-        is (a, b, c, d) for ax+by+cz+d=0 (or None if rejected), and
-        inlier_indices is the list of ground point indices into the input cloud.
+        Tuple of (ground_pcd, objects_pcd, plane_model, inlier_indices).
+        ``plane_model`` is ``(a, b, c, d)`` for the equation
+        ``ax + by + cz + d = 0``, or ``None`` if the fitted plane was
+        rejected.  ``inlier_indices`` lists ground-point indices into
+        the input cloud.
     """
     plane_model, inliers = pcd.segment_plane(
         distance_threshold=config["ransac_distance_threshold"],
@@ -98,7 +143,16 @@ def remove_ground(
 def cluster_objects(
     objects_pcd: o3d.geometry.PointCloud, config: dict = PIPELINE_CONFIG
 ) -> np.ndarray:
-    """Step 4: HDBSCAN clustering (density-adaptive). Returns label array (-1 = noise)."""
+    """Cluster non-ground points into object candidates using HDBSCAN (Step 4).
+
+    Args:
+        objects_pcd: Non-ground point cloud from :func:`remove_ground`.
+        config: Pipeline parameters dict.
+
+    Returns:
+        Integer label array aligned with ``objects_pcd`` points.
+        Each element is a cluster ID (>= 0) or -1 for noise.
+    """
     points = np.asarray(objects_pcd.points)
     if len(points) == 0:
         return np.array([], dtype=np.int32)
@@ -110,60 +164,106 @@ def cluster_objects(
     return clusterer.fit_predict(points)
 
 
+def _center_height_above_ground(center: np.ndarray, ground_plane) -> float:
+    """Compute signed distance from a point to the fitted ground plane.
+
+    Falls back to the raw z-coordinate when no ground plane is available.
+
+    Args:
+        center: 3D point as a numpy array.
+        ground_plane: ``(a, b, c, d)`` plane coefficients, or ``None``.
+
+    Returns:
+        Height above the ground plane in metres.
+    """
+    if ground_plane is None:
+        return float(center[2])
+    a, b, c, d = ground_plane
+    norm = np.sqrt(a**2 + b**2 + c**2)
+    return float((a * center[0] + b * center[1] + c * center[2] + d) / norm)
+
+
+def _passes_geometric_filter(
+    cluster_pcd: o3d.geometry.PointCloud,
+    ground_plane,
+    config: dict,
+) -> o3d.geometry.OrientedBoundingBox | None:
+    """Apply geometric filter checks to a single cluster.
+
+    Checks (in order): minimum point count, OBB volume, dimension
+    bounds, center height above ground, vertical span, and aspect ratio.
+
+    Args:
+        cluster_pcd: Point cloud of one cluster.
+        ground_plane: ``(a, b, c, d)`` plane coefficients, or ``None``.
+        config: Pipeline parameters dict.
+
+    Returns:
+        The cluster's oriented bounding box if all checks pass,
+        otherwise ``None``.
+    """
+    if len(cluster_pcd.points) < config["min_points_in_cluster"]:
+        return None
+
+    bbox = cluster_pcd.get_oriented_bounding_box()
+
+    volume = bbox.volume()
+    if volume < config["min_volume"] or volume > config["max_volume"]:
+        return None
+
+    min_dim, med_dim, max_dim = np.sort(bbox.extent)
+
+    if max_dim > config["max_dim_length"]:
+        return None
+    if max_dim < config["min_max_dim"] or med_dim < config["min_med_dim"]:
+        return None
+
+    height = _center_height_above_ground(bbox.get_center(), ground_plane)
+    if height > config["max_center_height_above_ground"]:
+        return None
+
+    cluster_pts = np.asarray(cluster_pcd.points)
+    height_span = cluster_pts[:, 2].max() - cluster_pts[:, 2].min()
+    if height_span > config["max_height_span"]:
+        return None
+
+    aspect_max_min = max_dim / min_dim if min_dim > 1e-6 else float("inf")
+    if aspect_max_min > config["max_aspect_max_min"]:
+        return None
+
+    return bbox
+
+
 def filter_clusters(
     objects_pcd: o3d.geometry.PointCloud,
     labels: np.ndarray,
     ground_plane=None,
     config: dict = PIPELINE_CONFIG,
 ) -> List[Tuple[o3d.geometry.OrientedBoundingBox, int]]:
-    """Step 5: OBB extraction + geometric filtering. Returns [(bbox, cluster_label), ...]."""
-    if ground_plane is not None:
-        gp_a, gp_b, gp_c, gp_d = ground_plane
-        gp_norm = np.sqrt(gp_a**2 + gp_b**2 + gp_c**2)
+    """Filter HDBSCAN clusters by oriented-bounding-box geometry (Step 5).
 
+    Iterates over unique cluster labels, computes an OBB for each, and
+    applies geometric checks via :func:`_passes_geometric_filter`.
+
+    Args:
+        objects_pcd: Non-ground point cloud (same as passed to
+            :func:`cluster_objects`).
+        labels: Cluster label array from :func:`cluster_objects`.
+        ground_plane: ``(a, b, c, d)`` plane coefficients from
+            :func:`remove_ground`, or ``None``.
+        config: Pipeline parameters dict.
+
+    Returns:
+        List of ``(bbox, cluster_label)`` tuples for clusters that
+        survive all filters.
+    """
     results = []
     for label in np.unique(labels):
         if label == -1:
             continue
-
-        cluster_indices = np.asarray(labels == label).nonzero()[0]
+        cluster_indices = np.where(labels == label)[0]
         cluster_pcd = objects_pcd.select_by_index(cluster_indices)
-
-        if len(cluster_pcd.points) < config["min_points_in_cluster"]:
-            continue
-
-        bbox = cluster_pcd.get_oriented_bounding_box()
-
-        volume = bbox.volume()
-        if volume < config["min_volume"] or volume > config["max_volume"]:
-            continue
-
-        sorted_ext = np.sort(bbox.extent)
-        min_dim, med_dim, max_dim = sorted_ext[0], sorted_ext[1], sorted_ext[2]
-
-        if max_dim > config["max_dim_length"]:
-            continue
-        if max_dim < config["min_max_dim"] or med_dim < config["min_med_dim"]:
-            continue
-
-        center = bbox.get_center()
-        if ground_plane is not None:
-            height = (gp_a * center[0] + gp_b * center[1] + gp_c * center[2] + gp_d) / gp_norm
-        else:
-            height = center[2]
-
-        if height > config["max_center_height_above_ground"]:
-            continue
-
-        cluster_pts = np.asarray(cluster_pcd.points)
-        height_span = cluster_pts[:, 2].max() - cluster_pts[:, 2].min()
-        if height_span > config["max_height_span"]:
-            continue
-
-        aspect_max_min = max_dim / min_dim if min_dim > 1e-6 else float("inf")
-        if aspect_max_min > config["max_aspect_max_min"]:
-            continue
-
-        results.append((bbox, int(label)))
-
+        bbox = _passes_geometric_filter(cluster_pcd, ground_plane, config)
+        if bbox is not None:
+            results.append((bbox, int(label)))
     return results

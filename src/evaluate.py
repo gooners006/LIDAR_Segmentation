@@ -38,13 +38,38 @@ TARGET_MODES = {
 
 
 def compute_iou(mask_a: np.ndarray, mask_b: np.ndarray) -> float:
+    """Compute Intersection-over-Union between two boolean masks.
+
+    Args:
+        mask_a: Boolean array of points belonging to detection/instance A.
+        mask_b: Boolean array of points belonging to detection/instance B.
+
+    Returns:
+        IoU value in [0, 1]. Returns 0 if the union is empty.
+    """
     intersection = (mask_a & mask_b).sum()
     union = (mask_a | mask_b).sum()
     return intersection / union if union > 0 else 0.0
 
 
 def match_detections_to_gt(det_masks: dict, gt_masks: dict, iou_thresh: float):
-    """Greedy IoU matching. Returns: tp, fp, fn, list of match IoUs."""
+    """Greedy bipartite matching between detections and GT instances by IoU.
+
+    All (detection, GT) pairs exceeding ``iou_thresh`` are sorted by
+    descending IoU and greedily assigned — once a detection or GT
+    instance is matched it cannot be reused.
+
+    Args:
+        det_masks: Dict mapping detection ID to a boolean point mask.
+        gt_masks: Dict mapping GT instance ID to a boolean point mask.
+        iou_thresh: Minimum IoU for a valid match.
+
+    Returns:
+        Tuple of (tp, fp, fn, match_ious) where *tp* is the number of
+        matched pairs, *fp* is unmatched detections, *fn* is unmatched
+        GT instances, and *match_ious* is the list of IoU values for
+        each accepted match.
+    """
     matched_gt: set = set()
     matched_det: set = set()
     match_ious: list[float] = []
@@ -74,9 +99,31 @@ def match_detections_to_gt(det_masks: dict, gt_masks: dict, iou_thresh: float):
 
 def evaluate_frame(bin_path: str, label_path: str, iou_threshold: float,
                    cls_model=None, cls_device=None, cls_bbox_stats=None,
-                   unknown_threshold: float = 0.65,
+                   unknown_threshold: float = 0.50,
                    thing_classes: set | None = None):
-    """Run the detection pipeline on one frame and compare to GT."""
+    """Run the full detection pipeline on one frame and evaluate against GT.
+
+    Replicates the pipeline stages (preprocess, ground removal, clustering,
+    geometric filtering, optional classification) while propagating GT
+    semantic and instance labels alongside.  Detected clusters are matched
+    to GT instances via point-level IoU.
+
+    Args:
+        bin_path: Path to the Velodyne ``.bin`` point cloud file.
+        label_path: Path to the SemanticKITTI ``.label`` file (semantic +
+            instance encoded as uint32).
+        iou_threshold: Minimum IoU for a detection–GT match.
+        cls_model: Optional loaded PointNetClassifier for filtering.
+        cls_device: Torch device for classifier inference.
+        cls_bbox_stats: Bbox normalization stats dict (mean/std).
+        unknown_threshold: Confidence threshold below which the classifier
+            rejects a cluster as unknown.
+        thing_classes: Set of SemanticKITTI class IDs to treat as valid GT
+            objects.  Defaults to ``THING_CLASSES_ALL``.
+
+    Returns:
+        Tuple of (tp, fp, fn, match_ious) from greedy IoU matching.
+    """
     if thing_classes is None:
         thing_classes = THING_CLASSES_ALL
     cfg = PIPELINE_CONFIG
@@ -172,7 +219,7 @@ if __name__ == "__main__":
         help="Path to classifier checkpoint",
     )
     parser.add_argument(
-        "--classifier-unknown-threshold", type=float, default=0.65,
+        "--classifier-unknown-threshold", type=float, default=0.50,
         help="Unknown class probability threshold",
     )
     parser.add_argument(

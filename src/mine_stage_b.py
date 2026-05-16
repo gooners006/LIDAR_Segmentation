@@ -53,10 +53,25 @@ SEMKITTI_NAMES = {
 
 def classify_cluster(sem_labels: np.ndarray, purity_threshold: float
                      ) -> tuple[str | None, float, float, dict]:
-    """Determine classifier class from semantic label histogram.
+    """Determine classifier class from a cluster's GT semantic labels.
 
-    Returns (class_name, purity, raw_sem_purity, histogram_dict).
-    class_name is None if purity is below threshold.
+    Maps each SemanticKITTI label to one of the 4 classifier classes
+    (car, bus, motorcycle, unknown) and votes by point count.  The
+    cluster is accepted if the majority class exceeds the purity
+    threshold.
+
+    Args:
+        sem_labels: (N,) array of SemanticKITTI semantic label IDs for
+            the cluster's points.
+        purity_threshold: Minimum fraction of points that must belong to
+            the majority classifier class to accept this cluster.
+
+    Returns:
+        Tuple of (class_name, purity, raw_sem_purity, histogram).
+        *class_name* is ``None`` if purity is below threshold (cluster
+        too mixed for training).  *raw_sem_purity* is the fraction of
+        points with the single most common semantic label.  *histogram*
+        maps human-readable label names to point counts.
     """
     unique, counts = np.unique(sem_labels, return_counts=True)
     total = counts.sum()
@@ -81,9 +96,22 @@ def classify_cluster(sem_labels: np.ndarray, purity_threshold: float
 
 
 def mine_frame(bin_path: str, label_path: str, purity_threshold: float):
-    """Run pipeline on one frame, return list of (points_centered, class, metadata).
+    """Run the pipeline on one frame and extract labeled clusters.
 
-    Returns (results, n_discarded) where n_discarded counts clusters below purity.
+    Replicates stages 1–5 (z-filter, denoise, downsample, ground
+    removal, clustering, geometric filtering) while propagating GT
+    semantic labels via KD-tree.  Each filtered cluster is classified
+    by label purity and centroid-centered for saving.
+
+    Args:
+        bin_path: Path to the Velodyne ``.bin`` point cloud file.
+        label_path: Path to the SemanticKITTI ``.label`` file.
+        purity_threshold: Minimum purity to accept a cluster.
+
+    Returns:
+        Tuple of (results, n_discarded).  *results* is a list of
+        ``(points_centered, class_name, metadata)`` tuples for accepted
+        clusters.  *n_discarded* counts clusters rejected for low purity.
     """
     cfg = PIPELINE_CONFIG
 
@@ -175,6 +203,13 @@ def mine_frame(bin_path: str, label_path: str, purity_threshold: float):
 
 
 def main():
+    """Mine real LiDAR clusters from SemanticKITTI for Stage B training.
+
+    Iterates over frames in the specified sequences, extracts clusters
+    that pass the purity threshold, and saves centroid-centered point
+    clouds as ``.npy`` files organized by class.  Writes a comprehensive
+    metadata JSON for reproducibility.
+    """
     parser = argparse.ArgumentParser(
         description="Mine real LiDAR clusters for Stage B training")
     parser.add_argument("--seq", nargs="+", default=["00"],

@@ -10,11 +10,17 @@ import torch.nn as nn
 
 
 class PCNEncoder(nn.Module):
-    """Stacked PointNet encoder.
+    """Two-stage stacked PointNet encoder.
 
-    Stage 1: per-point MLP → max pool → global feature g1
-    Concat g1 back to per-point features (local + global mixing)
-    Stage 2: per-point MLP → max pool → global feature g2 (final)
+    Stage 1 applies per-point Conv1d layers (3→128→256) and max-pools
+    to a 256-d global feature.  This global feature is broadcast back
+    and concatenated to each point's local features (local + global
+    mixing).  Stage 2 applies Conv1d layers (512→512→feat_dim) on the
+    enriched per-point features and max-pools to the final global
+    descriptor.
+
+    Args:
+        feat_dim: Dimension of the output global feature vector.
     """
 
     def __init__(self, feat_dim: int = 1024):
@@ -37,7 +43,14 @@ class PCNEncoder(nn.Module):
         )
 
     def forward(self, xyz: torch.Tensor) -> torch.Tensor:
-        """(B, N, 3) → (B, feat_dim)"""
+        """Encode a partial point cloud into a global feature vector.
+
+        Args:
+            xyz: (B, N, 3) partial point cloud.
+
+        Returns:
+            (B, feat_dim) global feature vector.
+        """
         x = xyz.transpose(1, 2)  # (B, N, 3) => (B, 3, N)
         local_feat = self.stage1(x)  # (B, 3, N) => (B, 256, N)
         g1 = local_feat.max(dim=2, keepdim=True).values  # (B, 256, N) => (B, 256, 1)
@@ -48,7 +61,19 @@ class PCNEncoder(nn.Module):
 
 
 class PCNDecoder(nn.Module):
-    """Coarse-to-fine decoder with 2D grid folding."""
+    """Coarse-to-fine decoder with 2D grid folding.
+
+    First predicts ``num_coarse`` seed points via fully connected
+    layers.  Then, for each seed, a ``grid_size x grid_size`` 2D grid
+    is attached and a folding MLP predicts a 3D offset per grid point,
+    producing ``num_coarse * grid_size^2`` fine output points.
+
+    Args:
+        feat_dim: Dimension of the input global feature vector.
+        num_coarse: Number of coarse seed points to predict.
+        grid_size: Side length of the 2D folding grid.  The fine output
+            has ``num_coarse * grid_size^2`` points.
+    """
 
     def __init__(self, feat_dim: int = 1024, num_coarse: int = 1024, grid_size: int = 4):
         super().__init__()
@@ -81,7 +106,15 @@ class PCNDecoder(nn.Module):
         self.register_buffer("grid", torch.stack([grid_x, grid_y], dim=-1).reshape(-1, 2))
 
     def forward(self, feat: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """(B, feat_dim) → coarse (B, num_coarse, 3), fine (B, num_fine, 3)"""
+        """Generate coarse and fine point clouds from a global feature.
+
+        Args:
+            feat: (B, feat_dim) global feature from the encoder.
+
+        Returns:
+            Tuple of (coarse, fine).  ``coarse`` has shape
+            (B, num_coarse, 3) and ``fine`` has shape (B, num_fine, 3).
+        """
         B = feat.size(0)
         G = self.grid_size ** 2
 
@@ -107,10 +140,16 @@ class PCNDecoder(nn.Module):
 
 
 class PCN(nn.Module):
-    """Point Completion Network.
+    """Point Completion Network (Yuan et al., 2018).
 
-    Input:  (B, N, 3) partial point cloud
-    Output: coarse (B, 1024, 3), fine (B, 16384, 3)
+    Encodes a partial point cloud into a global feature, then decodes
+    it into a coarse set of seed points and a fine output via 2D grid
+    folding.
+
+    Args:
+        feat_dim: Global feature dimension (encoder output).
+        num_coarse: Number of coarse seed points.
+        grid_size: Side length of the folding grid.
     """
 
     def __init__(self, feat_dim: int = 1024, num_coarse: int = 1024, grid_size: int = 4):
@@ -119,6 +158,14 @@ class PCN(nn.Module):
         self.decoder = PCNDecoder(feat_dim, num_coarse, grid_size)
 
     def forward(self, partial: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Complete a partial point cloud.
+
+        Args:
+            partial: (B, N, 3) partial point cloud.
+
+        Returns:
+            Tuple of (coarse, fine) completed point clouds.
+        """
         feat = self.encoder(partial)
         return self.decoder(feat)
 
@@ -132,17 +179,20 @@ def chamfer_distance_chunked(
     gt: torch.Tensor,
     chunk_size: int = 2048,
 ) -> torch.Tensor:
-    """Memory-safe bidirectional Chamfer Distance (L2, not squared).
+    """Compute bidirectional Chamfer Distance (L2) with chunked memory.
 
-    Processes one sample at a time, chunking the inner dimension to control peak memory.
-    With chunk_size=2048 and M=N=16384: peak ~16384×2048×4 = 128MB per direction
-    (torch.cdist outputs scalar distances, not 3D vectors; backward may allocate more).
+    Processes one sample at a time and chunks the inner nearest-neighbor
+    search to keep peak GPU memory bounded.  With ``chunk_size=2048``
+    and M=N=16384, peak allocation is ~128 MB per direction.
 
     Args:
-        pred: (B, M, 3)
-        gt:   (B, N, 3)
+        pred: (B, M, 3) predicted point cloud.
+        gt: (B, N, 3) ground-truth point cloud.
+        chunk_size: Number of points per chunk for the inner distance
+            computation.  Smaller values use less memory but are slower.
+
     Returns:
-        Scalar mean CD over batch.
+        Scalar tensor — mean bidirectional CD averaged over the batch.
     """
     B = pred.shape[0]
     cd_sum = torch.tensor(0.0, device=pred.device)
@@ -179,20 +229,25 @@ def pcn_loss(
     alpha: float = 0.5,
     fine_gt_samples: int = 4096,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Combined coarse + fine Chamfer loss.
+    """Combined coarse + fine Chamfer Distance loss for PCN training.
 
-    Subsamples GT to `fine_gt_samples` for the fine loss to fit in 8GB VRAM.
+    Randomly subsamples both the ground truth and the fine predictions
+    to ``fine_gt_samples`` points so the fine-level CD fits in 8 GB
+    VRAM.  The stochastic subsampling acts as mild regularisation.
 
     Args:
-        coarse:    (B, num_coarse, 3)
-        fine:      (B, num_fine, 3)
-        gt:        (B, N_gt, 3) full ground truth
-        gt_coarse: (B, num_coarse, 3) subsampled ground truth for coarse loss
-        alpha:     weight for fine loss
-        fine_gt_samples: subsample GT to this many points for fine CD
+        coarse: (B, num_coarse, 3) predicted coarse point cloud.
+        fine: (B, num_fine, 3) predicted fine point cloud.
+        gt: (B, N_gt, 3) full ground-truth point cloud.
+        gt_coarse: (B, num_coarse, 3) subsampled ground truth matched
+            to the coarse resolution.
+        alpha: Weight applied to the fine-level CD term.
+        fine_gt_samples: Both GT and fine predictions are randomly
+            subsampled to this many points before computing fine CD.
 
     Returns:
-        (total_loss, cd_coarse, cd_fine)
+        Tuple of (total_loss, cd_coarse, cd_fine) where
+        ``total_loss = cd_coarse + alpha * cd_fine``.
     """
     cd_coarse = chamfer_distance_chunked(coarse, gt_coarse, chunk_size=1024)
 
