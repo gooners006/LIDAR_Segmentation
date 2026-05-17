@@ -1,50 +1,48 @@
 ---
 name: session-start
 description: >
-  Read docs/project_state.md and present a brief recap at the start of a new session.
-  Use this skill when the user says "start session", "session start", "catch me up",
-  "what's the context", "where did we leave off", "recap", "what happened last time",
-  or any variation of wanting to review previous session context before starting work.
-  Also proactively suggested at the beginning of a new conversation.
+  Read docs/project_state.md and present a brief current-state recap.
+  Use this skill when the user explicitly asks for current project state,
+  session-start context, where to resume work, or a short recap before starting.
 ---
 
 # Session Start Skill
 
-You are reading the project state and giving the user a quick recap so they can jump into work.
+You are reading the project state and giving the user a short recap so they can resume work.
 
 ## Steps
 
-1. **Read** `docs/project_state.md`.
-2. **Summarize** in a few bullet points:
+1. Read `docs/project_state.md`.
+2. Summarize only the current project state from that file.
+3. Present a short, scannable recap:
    - Current state of the pipeline and components
    - Active blockers or issues
-   - Top 3 immediate next steps
-3. **Present** the recap in a short, scannable format.
-4. **Ask** what they'd like to work on this session.
+   - Up to 3 immediate next steps listed or clearly implied by `docs/project_state.md`
+4. Ask what the user wants to work on, unless they requested only a recap.
 
 ## Output format
 
-Keep it brief. Example:
-
-```
 **Current state:**
-- Pipeline stages 1-6 + tracking working
-- Classifier: code done, not trained
-- PCN: needs retrain
+- ...
 
 **Blockers:**
-- No classifier checkpoint
+- ...
 
 **Up next:**
-1. Train classifier
-2. Retrain PCN
-3. Pipeline smoke test
+1. ...
+2. ...
+3. ...
 
 What would you like to tackle?
-```
 
 ## Guidelines
 
-- Only read `docs/project_state.md`. Do NOT read `docs/session_history.md` unless the user asks for history.
-- Don't repeat the file verbatim — distill it.
-- If `docs/project_state.md` doesn't exist, say so and offer to create it.
+- Use `docs/project_state.md` as the source of truth for the recap.
+- Do not read `docs/session_history.md` unless the user asks for historical detail.
+- Do not infer missing status from memory or prior conversation.
+- If the file appears stale, incomplete, or internally inconsistent based on its contents or metadata, mention that briefly.
+- If there are no explicit blockers, say "No explicit blockers listed."
+- If fewer than 3 next steps are available, list only those available.
+- Do not repeat the file verbatim — distill it.
+- If `docs/project_state.md` does not exist, say so and ask whether the user wants to create it.
+- Keep the recap brief: this is a session-start summary, not a report.
