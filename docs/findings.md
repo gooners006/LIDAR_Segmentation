@@ -4,7 +4,7 @@
 
 **Context:** Replaced fixed-epsilon DBSCAN with HDBSCAN for density-adaptive clustering (Step 4). Two Python implementations available: `sklearn.cluster.HDBSCAN` (bundled in scikit-learn >= 1.3) and the dedicated `hdbscan` package.
 
-**Benchmark** on SemanticKITTI seq 00 frame 0 (~45k object points after ground removal):
+**Finding:** Benchmarked on SemanticKITTI seq 00 frame 0 (~45k object points after ground removal):
 
 | Implementation | Time | Clusters found |
 |---|---|---|
@@ -14,7 +14,7 @@
 
 The dedicated `hdbscan` package is **~7.7x faster** than sklearn's implementation on this workload. Both produce comparable cluster counts.
 
-**Method:** Isolated each pipeline step with `time.time()` wall-clock measurements on a single frame. The clustering step was run on the output of steps 1–3 (z-filter, denoise, downsample, ground removal) to match real pipeline conditions. Comparison script:
+Isolated each pipeline step with `time.time()` wall-clock measurements on a single frame. The clustering step was run on the output of steps 1–3 (z-filter, denoise, downsample, ground removal) to match real pipeline conditions. Comparison script:
 
 ```python
 import time, numpy as np, open3d as o3d, hdbscan
@@ -40,15 +40,17 @@ Ran on macOS (Darwin 25.4.0), Python 3.11, sklearn 1.8.0, hdbscan 0.8.42.
 
 ## 2. Ground-Plane-Relative Height Filtering (2026-04-20)
 
-**Problem:** The original geometric filter used raw `center[2] > 0.5` (height in sensor frame). On slopes or inclines, object centroids shift in z, causing valid objects to be filtered out.
+**Context:** The original geometric filter used raw `center[2] > 0.5` (height in sensor frame). On slopes or inclines, object centroids shift in z, causing valid objects to be filtered out.
 
-**Fix:** Compute signed distance from the bbox center to the RANSAC-fitted ground plane:
+**Finding:** Replaced raw z-height with signed distance from the bbox center to the RANSAC-fitted ground plane:
 
 ```
 height = (a*cx + b*cy + c*cz + d) / sqrt(a^2 + b^2 + c^2)
 ```
 
 Falls back to raw z when no ground plane was fitted (e.g. plane normal rejected). Threshold raised from 0.5m (sensor-relative) to 3.0m (ground-relative) to match the new reference frame.
+
+**Decision:** Use ground-plane-relative height for all geometric filtering. Fallback to raw z preserves robustness when RANSAC fails.
 
 ## 3. BEV Representation as Future Research Direction (2026-05-06)
 
