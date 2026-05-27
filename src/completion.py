@@ -159,56 +159,89 @@ class KITTIObjectDataset:
 # Completion model
 # ---------------------------------------------------------------------------
 
+PCN_N_INPUT = 2048
+PCN_NUM_COARSE = 1024
+PCN_GRID_SIZE = 4
+
+
 class PointCloudCompleter:
-    def __init__(self, model_path: Optional[str] = None):
+    def __init__(self, model_path: Optional[str] = None, seed: int = 0):
         self.model_path = model_path
         self._model = None
+        self._device = None
+        self._rng = np.random.default_rng(seed)
         if model_path is not None:
             self._load_model(model_path)
 
+    @property
+    def is_loaded(self) -> bool:
+        return self._model is not None
+
     def _load_model(self, path: str):
-        raise NotImplementedError(
-            f"Completion model not yet integrated. "
-            f"Place model weights at {path} and implement _load_model."
-        )
+        import torch
+        from pcn import PCN
 
-    def complete(self, partial_xyz: np.ndarray, class_label: str) -> np.ndarray:
-        """Return a denser point cloud for the given partial input.
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        ckpt = torch.load(path, map_location=device, weights_only=False)
 
-        If no model is loaded, returns the input unchanged (passthrough).
-        """
-        if self._model is None:
-            return partial_xyz
-        raise NotImplementedError
-
-    def fine_tune(
-        self,
-        dataset: KITTIObjectDataset,
-        epochs: int = 50,
-        lr: float = 1e-4,
-        batch_size: int = 32,
-        augment: bool = True,
-    ) -> list[float]:
-        """Fine-tune a pretrained completion model on real-world data.
-
-        Requires a loaded model (_load_model must be implemented first).
-        Uses Chamfer distance as the training loss.
-
-        Returns:
-            List of per-epoch average losses.
-        """
-        if self._model is None:
-            raise RuntimeError(
-                "No model loaded. Call __init__ with a model_path first, "
-                "or implement _load_model for your architecture."
+        cfg = ckpt.get("config", {})
+        if cfg.get("coarse_n_points", PCN_NUM_COARSE) != PCN_NUM_COARSE:
+            raise ValueError(
+                f"Checkpoint coarse_n_points={cfg['coarse_n_points']} "
+                f"!= expected {PCN_NUM_COARSE}"
             )
-        raise NotImplementedError(
-            "Implement fine_tune() for your specific model architecture. "
-            "Skeleton: for each epoch, iterate dataset in batches, "
-            "optionally apply simulate_lidar_noise() to sparse inputs, "
-            "forward through model, compute chamfer_distance vs dense target, "
-            "backprop and step optimizer."
-        )
+
+        model = PCN(num_coarse=PCN_NUM_COARSE, grid_size=PCN_GRID_SIZE).to(device)
+        model.load_state_dict(ckpt["model_state_dict"])
+        model.eval()
+        self._model = model
+        self._device = device
+
+    @staticmethod
+    def _fix_size(pts: np.ndarray, n: int, rng: np.random.Generator) -> np.ndarray:
+        pts = pts.astype(np.float32)
+        if len(pts) == 0:
+            return np.zeros((n, 3), dtype=np.float32)
+        if len(pts) == n:
+            return pts
+        if len(pts) > n:
+            idx = rng.choice(len(pts), n, replace=False)
+            return pts[idx]
+        pad_idx = rng.choice(len(pts), n - len(pts), replace=True)
+        return np.vstack([pts, pts[pad_idx]])
+
+    def complete(
+        self, partial_xyz: np.ndarray, class_label: str
+    ) -> tuple[np.ndarray, Optional[str]]:
+        """Complete a partial point cloud using PCN.
+
+        Returns (output_points, skip_reason). skip_reason is None on success.
+        class_label is currently unused; reserved for future class-specific completers.
+        """
+        if self._model is None:
+            return partial_xyz.astype(np.float32), "model_not_loaded"
+
+        pts = np.asarray(partial_xyz, dtype=np.float32)
+        if len(pts) == 0:
+            return pts, "empty_input"
+
+        centroid = pts.mean(axis=0)
+        pts_centered = pts - centroid
+        radius = float(np.linalg.norm(pts_centered, axis=1).max())
+        if radius < 1e-6:
+            return pts, "degenerate_radius"
+
+        pts_norm = pts_centered / radius
+        pts_fixed = self._fix_size(pts_norm, PCN_N_INPUT, self._rng)
+
+        import torch
+        with torch.no_grad():
+            inp = torch.from_numpy(pts_fixed).unsqueeze(0).to(self._device)
+            _, fine = self._model(inp)
+            fine_np = fine.squeeze(0).cpu().numpy()
+
+        completed = (fine_np * radius + centroid).astype(np.float32)
+        return completed, None
 
 
 # ---------------------------------------------------------------------------

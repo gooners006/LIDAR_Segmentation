@@ -36,6 +36,10 @@ PIPELINE_CONFIG = {
     "track_class_vote": True,
     "min_track_known_votes": 2,
     "min_track_known_ratio": 0.5,
+    # PCN completion
+    "pcn_min_points": 64,
+    "pcn_completion_classes": ["car", "bus", "motorcycle"],
+    "pcn_sample_seed": 0,
 }
 
 

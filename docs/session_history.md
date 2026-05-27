@@ -589,3 +589,45 @@ New:      src/visualize_pcn.py
 1. Wire PCN completion into `main.py`
 2. Classifier quality reporting (confusion matrix, FP/FN breakdown)
 3. Consider PoinTr/SeedFormer if PCN visual quality is insufficient for thesis figures
+
+---
+
+# Session Summary — 2026-05-27 (cont.)
+
+## What was done
+
+### 1. PCN completion wired into pipeline
+- Implemented `PointCloudCompleter` in `src/completion.py`: `_load_model()` (lazy torch import, architecture validation), `_fix_size()` (deterministic via `np.random.default_rng`), `complete()` returning `(points, skip_reason)` tuple, `is_loaded` property.
+- Normalization bridge: centroid-subtract → unit-sphere normalize → fix to 2048 pts → PCN forward → denormalize back to world coords.
+- Added `--pcn-ckpt`, `--no-completion` CLI flags to `src/main.py`.
+- Fail-fast on missing checkpoint when completion is enabled.
+- Post-accumulation completion in output loop with explicit class filtering (`pcn_completion_classes: ["car", "bus", "motorcycle"]`), min-point guard (64), skip reason tracking.
+- Rich `tracks.json` metadata: `raw_point_count`, `point_count`, `completed`, `completion_enabled`, `completion_method`, `pcn_checkpoint`, `completion_skip_reason`.
+- Added 3 config keys to `PIPELINE_CONFIG`: `pcn_min_points`, `pcn_completion_classes`, `pcn_sample_seed`.
+
+### 2. Domain gap evaluation
+- Ran pipeline with completion on seq 00, 100 frames, Stage B classifier: 47/47 tracks completed.
+- Completed tracks show blobby, unrecognizable output — no vehicle structure.
+- Created `src/test_single_frame_pcn.py` to test single-frame clusters (no motion smear). Results identical: car (3477 pts, frame 49) and motorcycle (255 pts, frame 17) both produce shapeless blobs.
+- **Conclusion**: ShapeNet-to-LiDAR domain gap is the primary cause, not motion smear from accumulated tracks.
+
+### 3. Visualization tooling
+- Created `src/show_completion.py`: matplotlib-based side-by-side raw vs completed rendering. Supports `--all` (batch save) and `--track-id` (single track interactive).
+- Comparison images saved to `output/completion_comparison/` and `output/single_frame_pcn/`.
+
+## Files changed
+
+```
+Modified: src/completion.py, src/main.py, src/pipeline.py, docs/findings.md
+New:      src/show_completion.py, src/test_single_frame_pcn.py
+```
+
+## Results / findings
+
+- Finding #15: PCN integration complete, domain gap confirmed as primary quality issue. Fine-tuning required before completion is usable.
+
+## Next
+
+1. Classifier quality reporting (confusion matrix, FP/FN semantic breakdown)
+2. PCN domain-adaptation fine-tuning (Stage B for PCN, using `simulate_lidar_noise()`)
+3. Pipeline diagram for report

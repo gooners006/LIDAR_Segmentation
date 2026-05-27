@@ -77,6 +77,17 @@ def parse_args():
         "--no-learned-classifier", action="store_true",
         help="Use heuristic classifier instead of learned model",
     )
+    parser.add_argument(
+        "--pcn-ckpt", type=str,
+        default=os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "checkpoints", "pcn_best.pth"),
+        help="Path to PCN checkpoint for point cloud completion",
+    )
+    parser.add_argument(
+        "--no-completion", action="store_true",
+        help="Disable PCN point cloud completion",
+    )
     return parser.parse_args()
 
 
@@ -119,6 +130,23 @@ def main():
                 f"Classifier checkpoint not found: {args.classifier_ckpt}. "
                 "Falling back to heuristic classifier.")
     use_learned_classifier = cls_model is not None
+
+    # --- Point completion ---
+    from completion import PointCloudCompleter
+
+    if args.save_output and not args.no_completion:
+        if not os.path.isfile(args.pcn_ckpt):
+            raise FileNotFoundError(
+                f"PCN checkpoint not found: {args.pcn_ckpt}. "
+                "Use --no-completion to disable, or provide a valid --pcn-ckpt."
+            )
+        completer = PointCloudCompleter(
+            model_path=args.pcn_ckpt,
+            seed=PIPELINE_CONFIG["pcn_sample_seed"],
+        )
+        print(f"Loaded PCN completer from {args.pcn_ckpt}")
+    else:
+        completer = PointCloudCompleter(seed=PIPELINE_CONFIG["pcn_sample_seed"])
 
     # --- Visualization ---
     vis = None
@@ -282,6 +310,11 @@ def main():
         n_short = 0
         n_rejected_class = 0
 
+        pcn_classes = set(cfg["pcn_completion_classes"])
+        pcn_min_pts = cfg["pcn_min_points"]
+        completion_enabled = completer.is_loaded
+        n_completed = 0
+
         tracks_meta = []
         for track_id, pts_list in track_points.items():
             if len(track_frames[track_id]) < min_len:
@@ -302,24 +335,50 @@ def main():
                 continue
 
             all_pts = np.vstack(pts_list)
+
+            if not completion_enabled:
+                output_pts = all_pts
+                skip_reason = "disabled"
+            elif resolved not in pcn_classes:
+                output_pts = all_pts
+                skip_reason = "unsupported_class"
+            elif len(all_pts) < pcn_min_pts:
+                output_pts = all_pts
+                skip_reason = "too_few_points"
+            else:
+                output_pts, skip_reason = completer.complete(all_pts, resolved)
+
+            completed = skip_reason is None
+            if completed:
+                n_completed += 1
+
             pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(all_pts)
+            pcd.points = o3d.utility.Vector3dVector(output_pts)
             o3d.io.write_point_cloud(os.path.join(output_dir, f"{track_id}.ply"), pcd)
 
-            tracks_meta.append(
-                {
-                    "track_id": track_id,
-                    "class": resolved,
-                    "first_frame": min(track_frames[track_id]),
-                    "last_frame": max(track_frames[track_id]),
-                    "point_count": len(all_pts),
-                    "centroid_history": track_centroids[track_id],
-                }
-            )
+            track_entry = {
+                "track_id": track_id,
+                "class": resolved,
+                "first_frame": min(track_frames[track_id]),
+                "last_frame": max(track_frames[track_id]),
+                "point_count": int(len(output_pts)),
+                "raw_point_count": int(len(all_pts)),
+                "completed": completed,
+                "completion_enabled": completion_enabled,
+                "centroid_history": track_centroids[track_id],
+            }
+            if completion_enabled:
+                track_entry["completion_method"] = "pcn"
+                track_entry["pcn_checkpoint"] = args.pcn_ckpt
+            if skip_reason is not None:
+                track_entry["completion_skip_reason"] = skip_reason
+            tracks_meta.append(track_entry)
 
         meta = {
             "sequence": args.seq,
             "frames_processed": len(bin_paths),
+            "completion_enabled": completion_enabled,
+            "pcn_checkpoint": args.pcn_ckpt if completion_enabled else None,
             "tracks": tracks_meta,
         }
         json_path = os.path.join(PROJECT_ROOT, f"output/{args.seq}/tracks.json")
@@ -329,6 +388,8 @@ def main():
         print(f"Track-level filtering: {n_total} total, "
               f"{len(tracks_meta)} accepted, "
               f"{n_short} too short, {n_rejected_class} rejected by class")
+        if completion_enabled:
+            print(f"PCN completion: {n_completed}/{len(tracks_meta)} tracks completed")
         print(f"Saved {len(tracks_meta)} tracks to {output_dir}")
 
     if vis is not None:

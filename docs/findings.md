@@ -334,3 +334,26 @@ Full-sequence validation (seq 00, 4541 frames, `min_track_length=2`):
 The improvement is larger on the full sequence than on 100 frames (+0.039 F1 vs +0.024), confirming the 100-frame window underestimated the benefit. The track filter eliminated 2137 FPs (38% reduction) while simultaneously recovering 1798 TPs from flickering detections. Precision improved substantially at full scale (0.870 → 0.918) because the full sequence has more transient FPs that short-track filtering catches.
 
 **Decision:** Set default `min_track_length=2` in `PIPELINE_CONFIG`. Full-sequence F1: 0.801 (up from 0.762). The benefit comes from both mechanisms: majority vote recovers recall, and min-length filtering cuts transient FPs.
+
+## 15. PCN Completion — Pipeline Integration and Domain Gap (2026-05-27)
+
+**Context:** Wired the trained PCN (val_cd_fine 0.066, val_fscore 99.37% on ShapeNet) into `main.py` as a post-accumulation completion step. Tested both accumulated-track completion and single-frame completion to isolate whether motion smear or domain gap was the primary quality issue.
+
+**Finding:** Both modes produce blobby, unrecognizable output on real LiDAR data. The grid-folding decoder outputs a diffuse point cloud with no vehicle structure.
+
+Single-frame test (no motion smear):
+- Car cluster: 3,477 pts from frame 49 — completed output is a shapeless blob
+- Motorcycle cluster: 255 pts from frame 17 — same result
+
+This confirms the **ShapeNet-to-LiDAR domain gap** is the primary cause, not accumulated-track motion smear. The PCN encoder's global feature does not meaningfully encode real LiDAR partial scans.
+
+Pipeline integration is complete and correct:
+- `--pcn-ckpt`, `--no-completion` CLI flags
+- Explicit `pcn_completion_classes: ["car", "bus", "motorcycle"]` — unknown clusters are never completed
+- Fail-fast on missing checkpoint when completion is enabled
+- `tracks.json` metadata: `raw_point_count`, `point_count`, `completed`, `completion_skip_reason`, `completion_method`, `pcn_checkpoint`
+- Deterministic sampling via `pcn_sample_seed`
+
+Comparison images saved to `output/completion_comparison/` (accumulated) and `output/single_frame_pcn/` (per-frame).
+
+**Decision:** PCN integration is mechanically done but output is not usable without domain-adaptation fine-tuning. The `simulate_lidar_noise()` augmentation and `KITTIObjectDataset` in `completion.py` are ready for this. Keep completion disabled by default (`--no-completion`) until fine-tuning is done.
