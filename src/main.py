@@ -24,6 +24,27 @@ from tracker import CentroidTracker
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def resolve_track_class(votes, *, min_known_votes=2, min_known_ratio=0.5):
+    """Majority vote over non-unknown labels with evidence thresholds.
+
+    Returns the winning class name, or None if evidence is insufficient
+    (too few known votes, low known ratio, or ambiguous tie).
+    """
+    known = [v for v in votes if v != "unknown"]
+    if len(known) < min_known_votes:
+        return None
+    if len(known) / len(votes) < min_known_ratio:
+        return None
+    counts: dict[str, int] = {}
+    for v in known:
+        counts[v] = counts.get(v, 0) + 1
+    top_count = max(counts.values())
+    winners = [cls for cls, c in counts.items() if c == top_count]
+    if len(winners) > 1:
+        return None
+    return winners[0]
+
+
 def parse_args():
     """Parse command-line arguments for the pipeline runner.
 
@@ -115,7 +136,7 @@ def main():
 
     # --- Accumulation state (for --save-output) ---
     track_points: dict[int, list[np.ndarray]] = {}
-    track_classes: dict[int, str] = {}
+    track_class_votes: dict[int, list[str]] = {}
     track_frames: dict[int, list[int]] = {}
     track_centroids: dict[int, list[list[float]]] = {}
 
@@ -190,10 +211,11 @@ def main():
             if args.save_output:
                 if track_id not in track_points:
                     track_points[track_id] = []
-                    track_classes[track_id] = cluster_classes[bbox_idx]
+                    track_class_votes[track_id] = []
                     track_frames[track_id] = []
                     track_centroids[track_id] = []
 
+                track_class_votes[track_id].append(cluster_classes[bbox_idx])
                 cluster_pts = np.asarray(objects_pcd.points)[labels == cluster_label]
                 track_points[track_id].append(cluster_pts)
                 track_frames[track_id].append(frame_idx)
@@ -250,8 +272,35 @@ def main():
         output_dir = os.path.join(PROJECT_ROOT, f"output/{args.seq}/objects")
         os.makedirs(output_dir, exist_ok=True)
 
+        cfg = PIPELINE_CONFIG
+        min_len = cfg["min_track_length"]
+        use_vote = cfg["track_class_vote"]
+        min_kv = cfg["min_track_known_votes"]
+        min_kr = cfg["min_track_known_ratio"]
+
+        n_total = len(track_points)
+        n_short = 0
+        n_rejected_class = 0
+
         tracks_meta = []
         for track_id, pts_list in track_points.items():
+            if len(track_frames[track_id]) < min_len:
+                n_short += 1
+                continue
+
+            if use_vote:
+                resolved = resolve_track_class(
+                    track_class_votes[track_id],
+                    min_known_votes=min_kv,
+                    min_known_ratio=min_kr,
+                )
+            else:
+                resolved = track_class_votes[track_id][0]
+
+            if resolved is None:
+                n_rejected_class += 1
+                continue
+
             all_pts = np.vstack(pts_list)
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(all_pts)
@@ -260,7 +309,7 @@ def main():
             tracks_meta.append(
                 {
                     "track_id": track_id,
-                    "class": track_classes[track_id],
+                    "class": resolved,
                     "first_frame": min(track_frames[track_id]),
                     "last_frame": max(track_frames[track_id]),
                     "point_count": len(all_pts),
@@ -277,6 +326,9 @@ def main():
         with open(json_path, "w") as f:
             json.dump(meta, f, indent=2)
 
+        print(f"Track-level filtering: {n_total} total, "
+              f"{len(tracks_meta)} accepted, "
+              f"{n_short} too short, {n_rejected_class} rejected by class")
         print(f"Saved {len(tracks_meta)} tracks to {output_dir}")
 
     if vis is not None:

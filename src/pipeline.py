@@ -31,6 +31,11 @@ PIPELINE_CONFIG = {
     # tracking
     "tracker_max_distance": 2.0,
     "tracker_max_disappeared": 5,
+    # track-level filtering
+    "min_track_length": 2,
+    "track_class_vote": True,
+    "min_track_known_votes": 2,
+    "min_track_known_ratio": 0.5,
 }
 
 

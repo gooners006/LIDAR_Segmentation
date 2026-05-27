@@ -543,3 +543,49 @@ Modified: src/pipeline.py, src/tracker.py, src/classifier.py, src/pcn.py,
           src/train_classifier.py, src/train_pcn.py,
           docs/findings.md, docs/project_state.md, docs/report/thesis_proposal.tex
 ```
+
+---
+
+# Session Summary — 2026-05-27
+
+## What was done
+
+### 1. Track-level filtering implementation
+- Implemented two-mechanism temporal consistency filtering: (1) minimum track length, (2) majority class vote with evidence thresholds (`min_known_votes=2`, `min_known_ratio=0.5`, tie rejection).
+- Added `resolve_track_class()` to `src/main.py` and `src/evaluate.py`.
+- Converted `src/main.py` from frozen first-frame class to per-frame class vote accumulation (`track_class_votes: dict[int, list[str]]`).
+- Rewrote `src/evaluate.py` with two-pass offline tracked evaluation: extracted `get_frame_detections()`, added `_CentroidProxy` for global-frame centroid tracking, pass 1 accumulates tracks (all detections including "unknown"), pass 2 evaluates only surviving tracks.
+- Added `--no-track-filter` and `--min-track-length` CLI flags to `src/evaluate.py`.
+- Added 4 config params to `PIPELINE_CONFIG`: `min_track_length`, `track_class_vote`, `min_track_known_votes`, `min_track_known_ratio`.
+
+### 2. Track-level filtering sweep and validation
+- Swept `min_track_length` in {1, 2, 3, 5} on seq 00, 100 frames.
+- Best F1 at `min_track_length=2`: 0.834 (up from 0.810 per-frame baseline).
+- Key insight: track filtering primarily **boosted recall** (not precision as hypothesized) by recovering detections flickering between "car" and "unknown" via majority vote.
+- Full-sequence validation (4541 frames): F1 0.801 (up from 0.762), precision 0.918, recall 0.710. Improvement larger than 100-frame estimate (+0.039 vs +0.024).
+
+### 3. Qualitative PCN evaluation
+- Created `src/visualize_pcn.py`: loads PCN from checkpoint, runs inference on ShapeNet val samples (3 per category), computes CD and F-score, renders side-by-side images or interactive Open3D windows.
+- Results: mean CD_fine=0.047, mean F-score=99.23% across 9 samples (bus/car/motorcycle).
+- Visual observation: fine output shows 2D grid-folding artifacts (vertical striping). Quantitatively solid but visually distinguishable from GT.
+- Saved images to `output/pcn_qualitative/`.
+
+## Files changed
+
+```
+Modified: src/pipeline.py, src/main.py, src/evaluate.py,
+          docs/findings.md, docs/project_state.md
+New:      src/visualize_pcn.py
+```
+
+## Results / findings
+
+- Finding #13: Track-level filtering hypothesis recorded.
+- Finding #14: Full implementation results — `min_track_length=2` is optimal, F1 0.801 on full sequence (was 0.762).
+- PCN completions: quantitatively good (CD 0.047, F-score 99.2%) but grid-folding artifacts visible.
+
+## Next
+
+1. Wire PCN completion into `main.py`
+2. Classifier quality reporting (confusion matrix, FP/FN breakdown)
+3. Consider PoinTr/SeedFormer if PCN visual quality is insufficient for thesis figures

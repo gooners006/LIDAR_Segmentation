@@ -294,3 +294,43 @@ Best F1 at threshold 0.50 (+0.014 over default 0.65). Clean precision-recall tra
 The dual-branch bbox extension (8-d metric features → 32-d) compensates for the smaller point branch by providing real-world scale information that vanilla PointNet lacks. Current pipeline F1 is 0.816 — the bottleneck is class imbalance (28 bus train samples), not model capacity.
 
 **Decision:** Keep current architecture. Add bottleneck dimension ablation (256 vs 512 vs 1024) to low-priority backlog.
+
+## 13. Track-Level Filtering Hypothesis (2026-05-27)
+
+**Context:** Exploring temporal consistency as a post-classifier filtering step to further reduce false positives. Current pipeline achieves F1 0.816 with precision 0.957.
+
+**Finding:** Real objects persist across multiple frames, so short-lived or class-flickering tracks are probably FPs. Filtering by minimum track length and enforcing class consistency (majority vote) across a track's lifetime should boost precision with minimal recall impact.
+
+**Decision:** Proceed with implementation. Expected to primarily improve precision.
+
+## 14. Track-Level Filtering — Implementation and Sweep (2026-05-27)
+
+**Context:** Implemented track-level filtering as described in Finding #13. Two mechanisms: (1) minimum track length, (2) majority class vote over non-unknown labels with evidence thresholds (`min_known_votes=2`, `min_known_ratio=0.5`, ambiguous ties rejected). Evaluation uses offline/post-hoc two-pass approach: pass 1 tracks all detections (including unknown), pass 2 evaluates only detections from surviving tracks.
+
+**Finding:** Key insight — the `keep_unknown=True` path in track-level evaluation recovers detections that per-frame filtering would reject as "unknown". These flickering detections get track-level majority vote and many resolve to valid classes. This means track filtering primarily **boosted recall**, not precision as originally hypothesized.
+
+Sweep results (seq 00, 100 frames, `--target supported-vehicles`, `stage_b_best.pth`):
+
+| min_track_length | TP | FP | FN | Precision | Recall | F1 | Mean IoU |
+|---|---|---|---|---|---|---|---|
+| 0 (per-frame baseline) | 1175 | 48 | 502 | 0.961 | 0.701 | 0.810 | 0.951 |
+| 1 | 1223 | 45 | 452 | 0.965 | 0.730 | 0.831 | 0.943 |
+| **2** | **1232** | **46** | **446** | **0.964** | **0.734** | **0.834** | **0.945** |
+| 3 | 1213 | 62 | 462 | 0.951 | 0.724 | 0.822 | 0.946 |
+| 5 | 1182 | 31 | 492 | 0.974 | 0.706 | 0.819 | 0.946 |
+
+Track stats at `min_track_length=3`: 262 total tracks, 50 accepted, 130 rejected (too short), 82 rejected (class vote failed). Accepted tracks average 25.5 frames.
+
+Best F1 at `min_track_length=2` (0.834). The recall gain (+0.033) comes from recovering detections that flicker between "car" and "unknown" across frames. Precision stays essentially flat (0.964 vs 0.961). At length=5, precision peaks (0.974) but recall drops back to baseline.
+
+Full-sequence validation (seq 00, 4541 frames, `min_track_length=2`):
+
+| Config | TP | FP | FN | Precision | Recall | F1 | Mean IoU |
+|---|---|---|---|---|---|---|---|
+| Per-frame baseline | 37969 | 5669 | 18065 | 0.870 | 0.678 | 0.762 | 0.917 |
+| + Track filter (min_len=2) | 39767 | 3532 | 16249 | 0.918 | 0.710 | 0.801 | 0.912 |
+| **Delta** | **+1798** | **-2137** | **-1816** | **+0.048** | **+0.032** | **+0.039** | -0.005 |
+
+The improvement is larger on the full sequence than on 100 frames (+0.039 F1 vs +0.024), confirming the 100-frame window underestimated the benefit. The track filter eliminated 2137 FPs (38% reduction) while simultaneously recovering 1798 TPs from flickering detections. Precision improved substantially at full scale (0.870 → 0.918) because the full sequence has more transient FPs that short-track filtering catches.
+
+**Decision:** Set default `min_track_length=2` in `PIPELINE_CONFIG`. Full-sequence F1: 0.801 (up from 0.762). The benefit comes from both mechanisms: majority vote recovers recall, and min-length filtering cuts transient FPs.

@@ -2,6 +2,10 @@
 
 Compares HDBSCAN clusters against GT instance segmentation using point-level IoU.
 Prints per-frame and aggregate precision, recall, and F1.
+
+Supports optional track-level filtering (offline/post-hoc): when enabled, a
+centroid tracker links detections across frames, and only tracks meeting
+minimum length and class-consistency requirements are accepted.
 """
 
 import argparse
@@ -14,7 +18,15 @@ import torch
 from scipy.spatial import cKDTree
 
 from classifier import classify_cluster, load_classifier
-from pipeline import PIPELINE_CONFIG, cluster_objects, filter_clusters, remove_ground
+from pipeline import (
+    PIPELINE_CONFIG,
+    cluster_objects,
+    filter_clusters,
+    load_calib,
+    load_poses,
+    remove_ground,
+)
+from tracker import CentroidTracker
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -35,6 +47,27 @@ TARGET_MODES = {
     "all-things": THING_CLASSES_ALL,
     "supported-vehicles": THING_CLASSES_SUPPORTED,
 }
+
+
+def resolve_track_class(votes, *, min_known_votes=2, min_known_ratio=0.5):
+    """Majority vote over non-unknown labels with evidence thresholds.
+
+    Returns the winning class name, or None if evidence is insufficient
+    (too few known votes, low known ratio, or ambiguous tie).
+    """
+    known = [v for v in votes if v != "unknown"]
+    if len(known) < min_known_votes:
+        return None
+    if len(known) / len(votes) < min_known_ratio:
+        return None
+    counts: dict[str, int] = {}
+    for v in known:
+        counts[v] = counts.get(v, 0) + 1
+    top_count = max(counts.values())
+    winners = [cls for cls, c in counts.items() if c == top_count]
+    if len(winners) > 1:
+        return None
+    return winners[0]
 
 
 def compute_iou(mask_a: np.ndarray, mask_b: np.ndarray) -> float:
@@ -97,32 +130,37 @@ def match_detections_to_gt(det_masks: dict, gt_masks: dict, iou_thresh: float):
     return tp, fp, fn, match_ious
 
 
-def evaluate_frame(bin_path: str, label_path: str, iou_threshold: float,
-                   cls_model=None, cls_device=None, cls_bbox_stats=None,
-                   unknown_threshold: float = 0.50,
-                   thing_classes: set | None = None):
-    """Run the full detection pipeline on one frame and evaluate against GT.
+class _CentroidProxy:
+    """Minimal wrapper so CentroidTracker.update() can call get_center()."""
 
-    Replicates the pipeline stages (preprocess, ground removal, clustering,
-    geometric filtering, optional classification) while propagating GT
-    semantic and instance labels alongside.  Detected clusters are matched
-    to GT instances via point-level IoU.
+    def __init__(self, center: np.ndarray):
+        self._center = center
+
+    def get_center(self) -> np.ndarray:
+        return self._center
+
+
+def get_frame_detections(bin_path: str, label_path: str,
+                         cls_model=None, cls_device=None, cls_bbox_stats=None,
+                         unknown_threshold: float = 0.50,
+                         thing_classes: set | None = None,
+                         keep_unknown: bool = False):
+    """Run detection pipeline for one frame and return raw detections + GT.
 
     Args:
         bin_path: Path to the Velodyne ``.bin`` point cloud file.
-        label_path: Path to the SemanticKITTI ``.label`` file (semantic +
-            instance encoded as uint32).
-        iou_threshold: Minimum IoU for a detection–GT match.
-        cls_model: Optional loaded PointNetClassifier for filtering.
+        label_path: Path to the SemanticKITTI ``.label`` file.
+        cls_model: Optional loaded PointNetClassifier.
         cls_device: Torch device for classifier inference.
         cls_bbox_stats: Bbox normalization stats dict (mean/std).
-        unknown_threshold: Confidence threshold below which the classifier
-            rejects a cluster as unknown.
-        thing_classes: Set of SemanticKITTI class IDs to treat as valid GT
-            objects.  Defaults to ``THING_CLASSES_ALL``.
+        unknown_threshold: Confidence threshold for unknown rejection.
+        thing_classes: Set of SemanticKITTI class IDs for GT objects.
+        keep_unknown: If True, keep unknown-classified detections (for
+            track-level filtering). If False, filter them per-frame.
 
     Returns:
-        Tuple of (tp, fp, fn, match_ious) from greedy IoU matching.
+        Tuple of (bboxes, det_cluster_ids, det_classes, cluster_labels,
+        objects_pcd, det_masks, gt_masks).
     """
     if thing_classes is None:
         thing_classes = THING_CLASSES_ALL
@@ -174,9 +212,12 @@ def evaluate_frame(bin_path: str, label_path: str, iou_threshold: float,
     clusters = filter_clusters(objects_pcd, cluster_labels, ground_plane)
 
     # --- 6. Classification (optional) ---
+    bboxes = []
+    det_cluster_ids = []
+    det_classes = []
+
     if cls_model is not None:
         obj_points = np.asarray(objects_pcd.points)
-        filtered_clusters = []
         for bbox, cl in clusters:
             mask = cluster_labels == cl
             cluster_points = obj_points[mask]
@@ -184,13 +225,18 @@ def evaluate_frame(bin_path: str, label_path: str, iou_threshold: float,
                 cluster_points, cls_model, cls_device, cls_bbox_stats,
                 unknown_threshold=unknown_threshold,
             )
-            if result.label != "unknown":
-                filtered_clusters.append((bbox, cl))
-        clusters = filtered_clusters
+            if keep_unknown or result.label != "unknown":
+                bboxes.append(bbox)
+                det_cluster_ids.append(cl)
+                det_classes.append(result.label)
+    else:
+        for bbox, cl in clusters:
+            bboxes.append(bbox)
+            det_cluster_ids.append(cl)
+            det_classes.append("car")
 
-    # --- 6b. Prepare masks for evaluation ---
-    valid_cluster_labels = [cl for _, cl in clusters]
-    det_masks = {cl: (cluster_labels == cl) for cl in valid_cluster_labels}
+    # --- 6b. Prepare masks ---
+    det_masks = {cl: (cluster_labels == cl) for cl in det_cluster_ids}
 
     thing_mask = np.isin(sem_obj, list(thing_classes))
     gt_instances = np.unique(inst_obj[thing_mask])
@@ -202,7 +248,41 @@ def evaluate_frame(bin_path: str, label_path: str, iou_threshold: float,
         if m.sum() >= 10:
             gt_masks[gi] = m
 
-    # --- 7. Match & evaluate ---
+    return bboxes, det_cluster_ids, det_classes, cluster_labels, objects_pcd, det_masks, gt_masks
+
+
+def evaluate_frame(bin_path: str, label_path: str, iou_threshold: float,
+                   cls_model=None, cls_device=None, cls_bbox_stats=None,
+                   unknown_threshold: float = 0.50,
+                   thing_classes: set | None = None):
+    """Run the full detection pipeline on one frame and evaluate against GT.
+
+    Thin wrapper around get_frame_detections + match_detections_to_gt.
+    Used when track-level filtering is disabled.
+
+    Args:
+        bin_path: Path to the Velodyne ``.bin`` point cloud file.
+        label_path: Path to the SemanticKITTI ``.label`` file.
+        iou_threshold: Minimum IoU for a detection–GT match.
+        cls_model: Optional loaded PointNetClassifier for filtering.
+        cls_device: Torch device for classifier inference.
+        cls_bbox_stats: Bbox normalization stats dict (mean/std).
+        unknown_threshold: Confidence threshold below which the classifier
+            rejects a cluster as unknown.
+        thing_classes: Set of SemanticKITTI class IDs to treat as valid GT
+            objects.  Defaults to ``THING_CLASSES_ALL``.
+
+    Returns:
+        Tuple of (tp, fp, fn, match_ious) from greedy IoU matching.
+    """
+    _, _, _, _, _, det_masks, gt_masks = get_frame_detections(
+        bin_path, label_path,
+        cls_model=cls_model, cls_device=cls_device,
+        cls_bbox_stats=cls_bbox_stats,
+        unknown_threshold=unknown_threshold,
+        thing_classes=thing_classes,
+        keep_unknown=False,
+    )
     return match_detections_to_gt(det_masks, gt_masks, iou_threshold)
 
 
@@ -231,6 +311,14 @@ if __name__ == "__main__":
         choices=list(TARGET_MODES.keys()),
         help="GT target classes: all-things (default) or supported-vehicles "
              "(car/bus/motorcycle only — use with classifier)",
+    )
+    parser.add_argument(
+        "--no-track-filter", action="store_true",
+        help="Disable track-level filtering (per-frame evaluation only)",
+    )
+    parser.add_argument(
+        "--min-track-length", type=int, default=None,
+        help="Override min_track_length from PIPELINE_CONFIG (for sweeps)",
     )
     args = parser.parse_args()
 
@@ -262,38 +350,192 @@ if __name__ == "__main__":
             f"Mismatched velodyne/label files: {len(bin_paths)} bins, "
             f"{len(label_paths)} labels")
 
-    total_tp, total_fp, total_fn = 0, 0, 0
-    all_ious: list[float] = []
-
     num_frames = len(bin_paths)
+    cfg = PIPELINE_CONFIG
+    if args.min_track_length is not None:
+        cfg["min_track_length"] = args.min_track_length
+    use_track_filter = (
+        not args.no_track_filter
+        and cfg["min_track_length"] > 0
+        and cls_model is not None
+    )
+
     print(f"Evaluating detection on {num_frames} frames (sequence {args.seq})...")
     print(f"IoU threshold: {args.iou_threshold}")
     print(f"Target classes: {args.target}")
+    if use_track_filter:
+        print(f"Track-level filtering: ON (offline/post-hoc, "
+              f"min_length={cfg['min_track_length']}, "
+              f"min_known_votes={cfg['min_track_known_votes']}, "
+              f"min_known_ratio={cfg['min_track_known_ratio']})")
+    else:
+        print("Track-level filtering: OFF (per-frame evaluation)")
     print("-" * 80)
 
-    for i in range(num_frames):
-        tp, fp, fn, ious = evaluate_frame(
-            bin_paths[i], label_paths[i], args.iou_threshold,
-            cls_model=cls_model, cls_device=cls_device,
-            cls_bbox_stats=cls_bbox_stats,
-            unknown_threshold=args.classifier_unknown_threshold,
-            thing_classes=thing_classes,
+    if use_track_filter:
+        # ===== Two-pass evaluation with track-level filtering =====
+        poses = load_poses(os.path.join(seq_dir, "poses.txt"))
+        calib = load_calib(os.path.join(seq_dir, "calib.txt"))
+        Tr = calib["Tr"]
+
+        tracker = CentroidTracker(
+            max_distance=cfg["tracker_max_distance"],
+            max_disappeared=cfg["tracker_max_disappeared"],
         )
 
-        total_tp += tp
-        total_fp += fp
-        total_fn += fn
-        all_ious.extend(ious)
+        # Per-frame storage
+        frame_assignments: list[dict[int, int]] = []
+        frame_det_cluster_ids: list[list] = []
+        frame_det_masks: list[dict] = []
+        frame_gt_masks: list[dict] = []
 
-        prec = tp / (tp + fp) if (tp + fp) > 0 else 0
-        rec = tp / (tp + fn) if (tp + fn) > 0 else 0
-        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0
+        # Track-level accumulation
+        track_class_votes: dict[int, list[str]] = {}
+        track_frame_count: dict[int, int] = {}
 
-        iou_str = f"{np.mean(ious):.2f}" if ious else "N/A "
-        print(
-            f"Frame {i:3d}: TP={tp:2d}  FP={fp:2d}  FN={fn:2d}  "
-            f"Prec={prec:.2f}  Rec={rec:.2f}  F1={f1:.2f}  meanIoU={iou_str}"
-        )
+        # --- Pass 1: accumulate tracks ---
+        print("Pass 1: detecting and tracking...")
+        for i in range(num_frames):
+            bboxes, det_ids, det_classes, _, _, det_masks, gt_masks = \
+                get_frame_detections(
+                    bin_paths[i], label_paths[i],
+                    cls_model=cls_model, cls_device=cls_device,
+                    cls_bbox_stats=cls_bbox_stats,
+                    unknown_threshold=args.classifier_unknown_threshold,
+                    thing_classes=thing_classes,
+                    keep_unknown=True,
+                )
+
+            # Transform centroids to global frame for tracker
+            T_total = poses[i] @ Tr
+            R = T_total[:3, :3]
+            t = T_total[:3, 3]
+            global_proxies = []
+            for bbox in bboxes:
+                c = np.asarray(bbox.get_center())
+                global_c = R @ c + t
+                global_proxies.append(_CentroidProxy(global_c))
+
+            _, assignments = tracker.update(global_proxies)
+
+            # Accumulate track info
+            for det_idx, track_id in assignments.items():
+                if track_id not in track_class_votes:
+                    track_class_votes[track_id] = []
+                    track_frame_count[track_id] = 0
+                track_class_votes[track_id].append(det_classes[det_idx])
+                track_frame_count[track_id] += 1
+
+            frame_assignments.append(assignments)
+            frame_det_cluster_ids.append(det_ids)
+            frame_det_masks.append(det_masks)
+            frame_gt_masks.append(gt_masks)
+
+            if (i + 1) % 10 == 0 or i == num_frames - 1:
+                print(f"  Frame {i:3d}: {len(bboxes)} detections, "
+                      f"{len(tracker.objects)} active tracks")
+
+        # --- Determine surviving tracks ---
+        min_len = cfg["min_track_length"]
+        min_kv = cfg["min_track_known_votes"]
+        min_kr = cfg["min_track_known_ratio"]
+
+        n_total = len(track_class_votes)
+        n_short = 0
+        n_rejected_class = 0
+        valid_tracks: set[int] = set()
+        accepted_lengths: list[int] = []
+
+        for tid, votes in track_class_votes.items():
+            if track_frame_count[tid] < min_len:
+                n_short += 1
+                continue
+            resolved = resolve_track_class(
+                votes, min_known_votes=min_kv, min_known_ratio=min_kr)
+            if resolved is None:
+                n_rejected_class += 1
+                continue
+            valid_tracks.add(tid)
+            accepted_lengths.append(track_frame_count[tid])
+
+        print("-" * 80)
+        print(f"Track-level filtering (offline/post-hoc):")
+        print(f"  Total tracks: {n_total}")
+        print(f"  Accepted: {len(valid_tracks)}")
+        print(f"  Rejected (too short): {n_short}")
+        print(f"  Rejected (class vote failed): {n_rejected_class}")
+        if accepted_lengths:
+            print(f"  Mean track length (accepted): "
+                  f"{np.mean(accepted_lengths):.1f} frames")
+            print(f"  Median track length (accepted): "
+                  f"{np.median(accepted_lengths):.0f} frames")
+        print("-" * 80)
+
+        # --- Pass 2: evaluate with track filter ---
+        print("Pass 2: evaluating with track filter...")
+        total_tp, total_fp, total_fn = 0, 0, 0
+        all_ious: list[float] = []
+
+        for i in range(num_frames):
+            assignments = frame_assignments[i]
+            det_ids = frame_det_cluster_ids[i]
+            det_masks = frame_det_masks[i]
+            gt_masks = frame_gt_masks[i]
+
+            # Keep only detections belonging to valid tracks
+            filtered_det_masks = {}
+            for det_idx, track_id in assignments.items():
+                if track_id in valid_tracks:
+                    cl = det_ids[det_idx]
+                    if cl in det_masks:
+                        filtered_det_masks[cl] = det_masks[cl]
+
+            tp, fp, fn, ious = match_detections_to_gt(
+                filtered_det_masks, gt_masks, args.iou_threshold)
+
+            total_tp += tp
+            total_fp += fp
+            total_fn += fn
+            all_ious.extend(ious)
+
+            prec = tp / (tp + fp) if (tp + fp) > 0 else 0
+            rec = tp / (tp + fn) if (tp + fn) > 0 else 0
+            f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0
+            iou_str = f"{np.mean(ious):.2f}" if ious else "N/A "
+
+            print(
+                f"Frame {i:3d}: TP={tp:2d}  FP={fp:2d}  FN={fn:2d}  "
+                f"Prec={prec:.2f}  Rec={rec:.2f}  F1={f1:.2f}  meanIoU={iou_str}"
+            )
+
+    else:
+        # ===== Original per-frame evaluation (no tracking) =====
+        total_tp, total_fp, total_fn = 0, 0, 0
+        all_ious: list[float] = []
+
+        for i in range(num_frames):
+            tp, fp, fn, ious = evaluate_frame(
+                bin_paths[i], label_paths[i], args.iou_threshold,
+                cls_model=cls_model, cls_device=cls_device,
+                cls_bbox_stats=cls_bbox_stats,
+                unknown_threshold=args.classifier_unknown_threshold,
+                thing_classes=thing_classes,
+            )
+
+            total_tp += tp
+            total_fp += fp
+            total_fn += fn
+            all_ious.extend(ious)
+
+            prec = tp / (tp + fp) if (tp + fp) > 0 else 0
+            rec = tp / (tp + fn) if (tp + fn) > 0 else 0
+            f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0
+
+            iou_str = f"{np.mean(ious):.2f}" if ious else "N/A "
+            print(
+                f"Frame {i:3d}: TP={tp:2d}  FP={fp:2d}  FN={fn:2d}  "
+                f"Prec={prec:.2f}  Rec={rec:.2f}  F1={f1:.2f}  meanIoU={iou_str}"
+            )
 
     print("-" * 80)
 
