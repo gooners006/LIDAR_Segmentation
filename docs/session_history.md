@@ -631,3 +631,69 @@ New:      src/show_completion.py, src/test_single_frame_pcn.py
 1. Classifier quality reporting (confusion matrix, FP/FN semantic breakdown)
 2. PCN domain-adaptation fine-tuning (Stage B for PCN, using `simulate_lidar_noise()`)
 3. Pipeline diagram for report
+
+---
+
+# Session — 2026-05-28
+
+## What was done
+
+### 1. PCN paper analysis — domain gap root cause
+
+Read and analyzed the original PCN paper (`docs/PCN Point Completion Network.pdf`). Key findings:
+- Paper uses pinhole depth renders from 8 viewpoints for ShapeNet partial inputs — fundamentally different from LiDAR scan-line patterns.
+- Paper's KITTI evaluation uses GT bounding boxes for canonical alignment and reports proxy metrics only (no real completion quality).
+- Missing EMD loss is **not** the bottleneck — domain gap in input distribution is.
+
+### 2. PCA canonical alignment
+
+Added PCA-based canonical alignment to `PointCloudCompleter.complete()` in `src/completion.py`:
+- New `_pca_axes()` static method computes principal axes from covariance matrix.
+- Rotates input to canonical orientation before PCN, inverse-rotates output.
+- **Result**: No visible improvement — domain gap is in partiality pattern, not rotation.
+
+### 3. Fine-tuning Approach A — noise augmentation on depth renders
+
+Modified `src/train_pcn.py` to support `--finetune-lidar` flag with noise augmentation:
+- Added `simulate_lidar_noise()` + random sparsification to `__getitem__` rendering path.
+- Added `--pretrained` flag (loads weights only, fresh optimizer) vs `--resume` (full state).
+- Added dual validation (clean + lidar-augmented).
+- Ran 30 epochs: `--finetune-lidar --pretrained checkpoints/pcn_best.pth --epochs 30 --lr 1e-5`.
+- **Result**: Failed. Clean val CD 0.066→0.065, lidar val CD ~0.091. No visible improvement on real data. Adding noise to depth renders doesn't change the fundamental pinhole partiality pattern.
+
+### 4. Fine-tuning Approach B — virtual Velodyne HDL-64E ray-casting
+
+Implemented `_render_lidar_partial()` in `ShapeNetCompletionDataset`:
+- 64 beams at −24.9° to +2° elevation, 0.09° horizontal resolution.
+- Random sensor placement: 8–50m distance, 2–15° elevation above object.
+- Open3D raycasting (`o3d.t.geometry.RaycastingScene`), range-proportional noise.
+- Produces realistic point counts (360–2048 unique points).
+- Training started: `.venv\Scripts\python.exe src/train_pcn.py --finetune-lidar --pretrained checkpoints/pcn_best.pth --epochs 30 --lr 1e-5`
+- **Status**: Training in progress (~6–7 hours estimated). Awaiting evaluation.
+
+### 5. External review feedback
+
+Processed detailed code review feedback on `train_pcn.py`. Accepted `--pretrained` fix (blocking). Pushed back on: batching (research code), validation split (already separate), noise timing (after centering is correct), retry logic (4 attempts is fine).
+
+### 6. Finding #16
+
+Documented "PCN Domain Adaptation — Noise Augmentation Insufficient" in `docs/findings.md`. Covers PCA alignment (no effect), Approach A (failed), Approach B (awaiting evaluation).
+
+## Files changed
+
+```
+Modified: src/completion.py, src/train_pcn.py, src/test_single_frame_pcn.py, docs/findings.md
+```
+
+## Results / findings
+
+- PCA alignment: no visible improvement on real LiDAR completion.
+- Approach A (noise augmentation): failed — clean val CD 0.066→0.065, no improvement on real data.
+- Approach B (virtual Velodyne): training in progress, not yet evaluated.
+- Finding #16 appended to `docs/findings.md`.
+
+## Next
+
+1. Evaluate Approach B on real LiDAR data (`test_single_frame_pcn.py --pcn-ckpt checkpoints/pcn_lidar_best.pth`)
+2. Update Finding #16 with Approach B results
+3. Classifier quality reporting (confusion matrix, FP/FN semantic breakdown)

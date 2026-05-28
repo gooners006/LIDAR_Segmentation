@@ -210,6 +210,17 @@ class PointCloudCompleter:
         pad_idx = rng.choice(len(pts), n - len(pts), replace=True)
         return np.vstack([pts, pts[pad_idx]])
 
+    @staticmethod
+    def _pca_axes(pts: np.ndarray) -> np.ndarray:
+        """Principal axes as columns, sorted by descending eigenvalue (right-handed)."""
+        cov = np.cov(pts.T)
+        eigenvalues, eigenvectors = np.linalg.eigh(cov)
+        order = eigenvalues.argsort()[::-1]
+        axes = eigenvectors[:, order]
+        if np.linalg.det(axes) < 0:
+            axes[:, 2] *= -1
+        return axes
+
     def complete(
         self, partial_xyz: np.ndarray, class_label: str
     ) -> tuple[np.ndarray, Optional[str]]:
@@ -231,7 +242,11 @@ class PointCloudCompleter:
         if radius < 1e-6:
             return pts, "degenerate_radius"
 
-        pts_norm = pts_centered / radius
+        # PCA alignment: rotate longest axis to X for canonical orientation
+        axes = self._pca_axes(pts_centered)
+        pts_aligned = pts_centered @ axes
+
+        pts_norm = pts_aligned / radius
         pts_fixed = self._fix_size(pts_norm, PCN_N_INPUT, self._rng)
 
         import torch
@@ -240,7 +255,8 @@ class PointCloudCompleter:
             _, fine = self._model(inp)
             fine_np = fine.squeeze(0).cpu().numpy()
 
-        completed = (fine_np * radius + centroid).astype(np.float32)
+        # Undo: scale → undo PCA rotation → undo centering
+        completed = (fine_np * radius @ axes.T + centroid).astype(np.float32)
         return completed, None
 
 

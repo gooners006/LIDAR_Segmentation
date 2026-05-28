@@ -20,7 +20,7 @@ import torch.utils.data as data
 from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(__file__))
-from completion import f_score
+from completion import f_score, simulate_lidar_noise
 from pcn import PCN, pcn_loss
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -58,6 +58,9 @@ TRAIN_CONFIG = {
     "checkpoint_dir": os.path.join(PROJECT_ROOT, "checkpoints"),
     "checkpoint_every": 10,
     "log_every": 50,
+    "lidar_augment": False,
+    "lidar_sparse_range": (64, 1024),
+    "lidar_distance_range": (8.0, 50.0),
 }
 
 
@@ -69,15 +72,17 @@ TRAIN_CONFIG = {
 class ShapeNetCompletionDataset(data.Dataset):
     """ShapeNet meshes → (partial, gt, gt_coarse) via depth-image back-projection."""
 
-    def __init__(self, config: dict, split: str = "train"):
+    def __init__(self, config: dict, split: str = "train", lidar_augment: bool = False):
         """Discover ShapeNet models and prepare train/val split.
 
         Args:
             config: Training config with paths, point counts, and split params.
             split: Either ``"train"`` or ``"val"``.
+            lidar_augment: Apply LiDAR-like degradation to partial views.
         """
         self.config = config
         self.split = split
+        self.lidar_augment = lidar_augment
         self.items: list[tuple[str, str]] = []  # (obj_path, synset_id)
 
         for synset_id in config["categories"]:
@@ -116,7 +121,10 @@ class ShapeNetCompletionDataset(data.Dataset):
 
             gt_pts = self._sample_gt(mesh)
 
-            partial_pts = self._render_partial(mesh, scale_m)
+            if self.lidar_augment:
+                partial_pts = self._render_lidar_partial(mesh, scale_m)
+            else:
+                partial_pts = self._render_partial(mesh, scale_m)
             if partial_pts is None:
                 continue
 
@@ -124,6 +132,10 @@ class ShapeNetCompletionDataset(data.Dataset):
             centroid = gt_pts.mean(axis=0)
             gt_pts -= centroid
             partial_pts -= centroid
+
+            # Pad/subsample lidar partial to fixed size for batching
+            if self.lidar_augment:
+                partial_pts = self._fix_size(partial_pts, self.config["partial_n_points"])
 
             # Normalize to unit sphere so CD loss is scale-invariant across categories
             radius = np.linalg.norm(gt_pts, axis=1).max()
@@ -231,6 +243,86 @@ class ShapeNetCompletionDataset(data.Dataset):
             pts_3d = pts_3d.astype(np.float32)
 
             return self._fix_size(pts_3d, self.config["partial_n_points"])
+
+        return None
+
+    def _render_lidar_partial(
+        self, mesh, scale_m: float, max_retries: int = 5
+    ) -> np.ndarray | None:
+        """Simulate Velodyne HDL-64E scan on a ShapeNet mesh."""
+        vertices = np.asarray(mesh.vertices, dtype=np.float32)
+        faces = np.asarray(mesh.triangles, dtype=np.int32)
+
+        scene = o3d.t.geometry.RaycastingScene()
+        mesh_t = o3d.t.geometry.TriangleMesh()
+        mesh_t.vertex.positions = o3d.core.Tensor(vertices)
+        mesh_t.triangle.indices = o3d.core.Tensor(faces)
+        scene.add_triangles(mesh_t)
+
+        # HDL-64E parameters
+        beam_elevations = np.linspace(np.radians(-24.9), np.radians(2.0), 64)
+        h_resolution = np.radians(0.09)
+        d_min, d_max = self.config["lidar_distance_range"]
+
+        for _ in range(max_retries):
+            distance = np.random.uniform(d_min, d_max)
+            azim = np.random.uniform(0, 2 * np.pi)
+            # Sensor slightly above object (roof-mounted LiDAR looking at nearby cars)
+            sensor_elev = np.radians(np.random.uniform(2.0, 15.0))
+
+            sensor_pos = np.array([
+                distance * np.cos(sensor_elev) * np.cos(azim),
+                distance * np.cos(sensor_elev) * np.sin(azim),
+                distance * np.sin(sensor_elev),
+            ])
+
+            # Sensor coordinate frame: x=toward object, y=left, z=up
+            forward = -sensor_pos / np.linalg.norm(sensor_pos)
+            world_up = np.array([0.0, 0.0, 1.0])
+            right = np.cross(forward, world_up)
+            r_norm = np.linalg.norm(right)
+            if r_norm < 1e-6:
+                world_up = np.array([0.0, 1.0, 0.0])
+                right = np.cross(forward, world_up)
+                r_norm = np.linalg.norm(right)
+            right /= r_norm
+            up = np.cross(right, forward)
+            R = np.column_stack([forward, right, up])  # sensor-to-world rotation
+
+            # Azimuth range covering the object (with margin)
+            angular_size = 2 * np.arctan2(scale_m * 0.75, distance)
+            azim_range = max(angular_size * 1.5, np.radians(5.0))
+            n_azim = max(int(azim_range / h_resolution), 20)
+            azim_offsets = np.linspace(-azim_range / 2, azim_range / 2, n_azim)
+
+            # Vectorized ray generation
+            elev_grid, azim_grid = np.meshgrid(beam_elevations, azim_offsets, indexing="ij")
+            elev_flat = elev_grid.ravel()
+            azim_flat = azim_grid.ravel()
+            local_dirs = np.column_stack([
+                np.cos(elev_flat) * np.cos(azim_flat),
+                np.cos(elev_flat) * np.sin(azim_flat),
+                np.sin(elev_flat),
+            ])
+            world_dirs = (R @ local_dirs.T).T  # (n_rays, 3)
+
+            origins = np.broadcast_to(sensor_pos, world_dirs.shape).copy()
+            rays = np.hstack([origins, world_dirs]).astype(np.float32)
+
+            ans = scene.cast_rays(o3d.core.Tensor(rays))
+            t_hit = ans["t_hit"].numpy()
+
+            valid = np.isfinite(t_hit)
+            if valid.sum() < 16:
+                continue
+
+            pts_3d = rays[valid, :3] + t_hit[valid, np.newaxis] * rays[valid, 3:]
+
+            # Range-proportional noise
+            ranges = np.linalg.norm(pts_3d - sensor_pos, axis=1, keepdims=True)
+            pts_3d += np.random.randn(*pts_3d.shape).astype(np.float32) * (0.005 * ranges)
+
+            return pts_3d.astype(np.float32)
 
         return None
 
@@ -413,13 +505,21 @@ def main():
     parser.add_argument("--resume", type=str, default=None)
     parser.add_argument("--eval-only", action="store_true")
     parser.add_argument("--no-cuda", action="store_true")
+    parser.add_argument("--finetune-lidar", action="store_true",
+                        help="Enable LiDAR noise augmentation for domain adaptation")
+    parser.add_argument("--pretrained", type=str, default=None,
+                        help="Load model weights only (fresh optimizer/scheduler)")
     args = parser.parse_args()
+
+    if args.resume and args.pretrained:
+        parser.error("Use either --resume or --pretrained, not both.")
 
     config = TRAIN_CONFIG.copy()
     config["epochs"] = args.epochs
     config["batch_size"] = args.batch_size
     config["lr"] = args.lr
     config["num_workers"] = args.workers
+    config["lidar_augment"] = args.finetune_lidar
 
     device = torch.device(
         "cpu" if args.no_cuda or not torch.cuda.is_available() else "cuda"
@@ -430,9 +530,12 @@ def main():
     np.random.seed(config["seed"])
 
     # Datasets
-    train_ds = ShapeNetCompletionDataset(config, split="train")
+    train_ds = ShapeNetCompletionDataset(
+        config, split="train", lidar_augment=config["lidar_augment"])
     val_ds = ShapeNetCompletionDataset(config, split="val")
     print(f"Train: {len(train_ds)} samples | Val: {len(val_ds)} samples")
+    if config["lidar_augment"]:
+        print("  LiDAR augmentation enabled for training")
 
     train_loader = data.DataLoader(
         train_ds,
@@ -450,6 +553,17 @@ def main():
         pin_memory=True,
     )
 
+    val_lidar_loader = None
+    if config["lidar_augment"]:
+        val_lidar_ds = ShapeNetCompletionDataset(config, split="val", lidar_augment=True)
+        val_lidar_loader = data.DataLoader(
+            val_lidar_ds,
+            batch_size=config["batch_size"],
+            shuffle=False,
+            num_workers=config["num_workers"],
+            pin_memory=True,
+        )
+
     # Model
     model = PCN(num_coarse=config["coarse_n_points"], grid_size=4).to(device)
     n_params = sum(p.numel() for p in model.parameters())
@@ -460,10 +574,14 @@ def main():
         optimizer, step_size=config["lr_decay_step"], gamma=config["lr_decay_gamma"]
     )
 
-    # Resume
+    # Load weights
     start_epoch = 0
     best_val_loss = float("inf")
-    if args.resume and os.path.isfile(args.resume):
+    if args.pretrained and os.path.isfile(args.pretrained):
+        ckpt = torch.load(args.pretrained, map_location=device, weights_only=False)
+        model.load_state_dict(ckpt["model_state_dict"])
+        print(f"Loaded pretrained weights from {args.pretrained}")
+    elif args.resume and os.path.isfile(args.resume):
         ckpt = torch.load(args.resume, map_location=device, weights_only=False)
         model.load_state_dict(ckpt["model_state_dict"])
         optimizer.load_state_dict(ckpt["optimizer_state_dict"])
@@ -480,25 +598,20 @@ def main():
 
     # Training
     os.makedirs(config["checkpoint_dir"], exist_ok=True)
-    log_path = os.path.join(config["checkpoint_dir"], "training_log.csv")
+    ckpt_prefix = "pcn_lidar" if config["lidar_augment"] else "pcn"
+    log_path = os.path.join(config["checkpoint_dir"], f"{ckpt_prefix}_training_log.csv")
     log_exists = os.path.isfile(log_path)
     log_file = open(log_path, "a", newline="")
     log_writer = csv.writer(log_file)
     if not log_exists:
-        log_writer.writerow(
-            [
-                "epoch",
-                "train_loss",
-                "train_cd_coarse",
-                "train_cd_fine",
-                "val_loss",
-                "val_cd_coarse",
-                "val_cd_fine",
-                "val_fscore",
-                "lr",
-                "time_s",
-            ]
-        )
+        columns = [
+            "epoch", "train_loss", "train_cd_coarse", "train_cd_fine",
+            "val_loss", "val_cd_coarse", "val_cd_fine", "val_fscore",
+        ]
+        if config["lidar_augment"]:
+            columns.extend(["lidar_val_loss", "lidar_val_cd_fine", "lidar_val_fscore"])
+        columns.extend(["lr", "time_s"])
+        log_writer.writerow(columns)
 
     for epoch in range(start_epoch, config["epochs"]):
         t0 = time.time()
@@ -513,42 +626,57 @@ def main():
             model, val_loader, device, config, compute_fscore=compute_fs
         )
 
+        lidar_val_metrics = {}
+        if val_lidar_loader is not None:
+            lidar_val_metrics = evaluate(
+                model, val_lidar_loader, device, config, compute_fscore=compute_fs
+            )
+
         elapsed = time.time() - t0
         lr = scheduler.get_last_lr()[0]
 
-        print(
+        msg = (
             f"Epoch {epoch+1:3d}/{config['epochs']} | "
             f"train={train_metrics['train_loss']:.5f} | "
             f"val={val_metrics['val_loss']:.5f} | "
-            f"cd_f={val_metrics['val_cd_fine']:.5f} | "
-            f"lr={lr:.2e} | {elapsed:.0f}s"
+            f"cd_f={val_metrics['val_cd_fine']:.5f}"
         )
+        if lidar_val_metrics:
+            msg += f" | lidar_cd_f={lidar_val_metrics['val_cd_fine']:.5f}"
+        msg += f" | lr={lr:.2e} | {elapsed:.0f}s"
+        print(msg)
 
-        log_writer.writerow(
-            [
-                epoch + 1,
-                train_metrics["train_loss"],
-                train_metrics["train_cd_coarse"],
-                train_metrics["train_cd_fine"],
-                val_metrics["val_loss"],
-                val_metrics["val_cd_coarse"],
-                val_metrics["val_cd_fine"],
-                val_metrics.get("val_fscore", ""),
-                lr,
-                f"{elapsed:.1f}",
-            ]
-        )
+        row = [
+            epoch + 1,
+            train_metrics["train_loss"],
+            train_metrics["train_cd_coarse"],
+            train_metrics["train_cd_fine"],
+            val_metrics["val_loss"],
+            val_metrics["val_cd_coarse"],
+            val_metrics["val_cd_fine"],
+            val_metrics.get("val_fscore", ""),
+        ]
+        if config["lidar_augment"]:
+            row.extend([
+                lidar_val_metrics.get("val_loss", ""),
+                lidar_val_metrics.get("val_cd_fine", ""),
+                lidar_val_metrics.get("val_fscore", ""),
+            ])
+        row.extend([lr, f"{elapsed:.1f}"])
+        log_writer.writerow(row)
         log_file.flush()
 
         # Save checkpoints
         all_metrics = {**train_metrics, **val_metrics}
+        if lidar_val_metrics:
+            all_metrics.update({f"lidar_{k}": v for k, v in lidar_val_metrics.items()})
         save_checkpoint(
             model,
             optimizer,
             scheduler,
             epoch,
             all_metrics,
-            os.path.join(config["checkpoint_dir"], "pcn_last.pth"),
+            os.path.join(config["checkpoint_dir"], f"{ckpt_prefix}_last.pth"),
         )
 
         if val_metrics["val_loss"] < best_val_loss:
@@ -559,9 +687,9 @@ def main():
                 scheduler,
                 epoch,
                 all_metrics,
-                os.path.join(config["checkpoint_dir"], "pcn_best.pth"),
+                os.path.join(config["checkpoint_dir"], f"{ckpt_prefix}_best.pth"),
             )
-            print(f"  → new best (val_loss={best_val_loss:.6f})")
+            print(f"  -> new best (val_loss={best_val_loss:.6f})")
 
         if (epoch + 1) % config["checkpoint_every"] == 0:
             save_checkpoint(
@@ -570,7 +698,7 @@ def main():
                 scheduler,
                 epoch,
                 all_metrics,
-                os.path.join(config["checkpoint_dir"], f"pcn_epoch{epoch+1:03d}.pth"),
+                os.path.join(config["checkpoint_dir"], f"{ckpt_prefix}_epoch{epoch+1:03d}.pth"),
             )
 
     log_file.close()

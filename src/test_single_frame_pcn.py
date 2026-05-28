@@ -55,11 +55,20 @@ def render_comparison(partials, titles, suptitle, output_path):
 
 
 def main():
-    seq = "00"
-    n_frames = 100
-    pcn_ckpt = os.path.join(PROJECT_ROOT, "checkpoints", "pcn_best.pth")
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--pcn-ckpt", type=str,
+                        default=os.path.join(PROJECT_ROOT, "checkpoints", "pcn_best.pth"))
+    parser.add_argument("--seq", type=str, default="00")
+    parser.add_argument("--frames", type=int, default=100)
+    args = parser.parse_args()
+
+    seq = args.seq
+    n_frames = args.frames
+    pcn_ckpt = args.pcn_ckpt
     cls_ckpt = os.path.join(PROJECT_ROOT, "checkpoints", "stage_b_best.pth")
-    output_dir = os.path.join(PROJECT_ROOT, "output", "single_frame_pcn")
+    ckpt_name = os.path.splitext(os.path.basename(pcn_ckpt))[0]
+    output_dir = os.path.join(PROJECT_ROOT, "output", f"single_frame_pcn_{ckpt_name}")
     os.makedirs(output_dir, exist_ok=True)
 
     completer = PointCloudCompleter(model_path=pcn_ckpt, seed=0)

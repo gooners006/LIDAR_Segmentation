@@ -357,3 +357,17 @@ Pipeline integration is complete and correct:
 Comparison images saved to `output/completion_comparison/` (accumulated) and `output/single_frame_pcn/` (per-frame).
 
 **Decision:** PCN integration is mechanically done but output is not usable without domain-adaptation fine-tuning. The `simulate_lidar_noise()` augmentation and `KITTIObjectDataset` in `completion.py` are ready for this. Keep completion disabled by default (`--no-completion`) until fine-tuning is done.
+
+## 16. PCN Domain Adaptation — Noise Augmentation Insufficient (2026-05-28)
+
+**Context:** Finding #15 confirmed the ShapeNet-to-LiDAR domain gap produces blobby PCN output on real data. Attempted fine-tuning with LiDAR-like noise augmentation on ShapeNet depth renders. Also added PCA canonical alignment at inference (`completion.py:_pca_axes`) and `--pretrained` flag to `train_pcn.py` (loads weights only, fresh optimizer — distinct from `--resume`).
+
+**Finding:**
+
+*PCA alignment:* Added PCA rotation to `PointCloudCompleter.complete()` so the cluster's longest axis aligns to X before PCN inference. No visible effect — output still blobby. The domain gap is in the input distribution, not orientation.
+
+*Noise augmentation on depth renders:* Applied `simulate_lidar_noise()` + random sparsification (64–1024 pts) to ShapeNet pinhole-rendered partials. 30 epochs, lr=1e-5, pretrained from `pcn_best.pth`. Clean val CD barely moved (0.066 → 0.065). Real LiDAR output: still blobs, identical to the un-finetuned model. The augmentation degrades point quality but doesn't change the fundamental partiality pattern — pinhole depth renders produce dense, uniform single-viewpoint observations that look nothing like LiDAR scan lines.
+
+*Virtual Velodyne ray-casting (in progress):* Replaced `_render_partial` with `_render_lidar_partial` that casts HDL-64E-style rays (64 beams, -24.9° to +2° elevation, 0.09° horizontal resolution) at ShapeNet meshes from random distances (8–50m). Produces scan-line structure, distance-dependent sparsity (360–2048 unique pts per sample), and range-proportional noise (σ=0.005·range). Training in progress — not yet evaluated.
+
+**Decision:** Noise-only augmentation on clean depth renders is insufficient to bridge the domain gap. The partiality pattern itself must change. Virtual LiDAR ray-casting approach awaiting evaluation.
