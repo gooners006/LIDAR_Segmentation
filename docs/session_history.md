@@ -697,3 +697,122 @@ Modified: src/completion.py, src/train_pcn.py, src/test_single_frame_pcn.py, doc
 1. Evaluate Approach B on real LiDAR data (`test_single_frame_pcn.py --pcn-ckpt checkpoints/pcn_lidar_best.pth`)
 2. Update Finding #16 with Approach B results
 3. Classifier quality reporting (confusion matrix, FP/FN semantic breakdown)
+
+---
+
+# Session — 2026-05-28 (continued)
+
+## What was done
+
+### 1. Approach B evaluation — virtual Velodyne also failed
+
+Evaluated `checkpoints/pcn_lidar_best.pth` on real LiDAR data:
+- Lidar val CD: 0.134 → 0.070 (improved on simulated domain)
+- Clean val CD: 0.066 → 0.082 (regressed on original domain)
+- Real LiDAR output still blobby — no transfer to real data
+- All three synthetic domain adaptation approaches exhausted
+
+### 2. Data leak discovered and fixed
+
+Seq 00 was in both Stage B training (seq 00-07, 09-10) and evaluation — inflating reported F1.
+- Re-evaluated on held-out seq 08: F1 0.834 → 0.730
+- Updated `docs/project_state.md` with corrected metrics
+- Classifier confusion matrix on seq 08: car P=93% R=91%, motorcycle R=40%, ~6% unknown→car leakage
+
+### 3. GT-label-based mining script
+
+Created `src/mine_completion_pairs.py` — mines sparse/dense completion pairs using GT SemanticKITTI labels instead of the classifier (eliminates ~6% noise):
+- `classify_cluster_gt()` — majority vote on GT semantic labels with purity threshold
+- `process_frame()` — pipeline stages 1-5 with KD-tree label propagation through voxel downsampling
+- `mine_sequence()` — full sequence tracking + pair saving
+- CLI: `--seq`, `--frames`, `--output`, `--purity` (0.75), `--min-track-length` (3)
+- Smoke test: 20 frames → 17 tracks, 217 pairs (car: 16, motorcycle: 1)
+
+### 4. Mining infrastructure updates
+
+- `src/main.py`: added `--mine-pairs` flag (saves sparse/dense pairs using classifier-based pipeline)
+- `src/completion.py`: updated `KITTIObjectDataset` to handle new `sparse_s{seq}_{id}_f{frame}.npy` naming
+- `scripts/mine_all_pairs.ps1`: GT mining script for train (seq 00-07, 09-10) / val (seq 08) split
+
+### 5. Architecture decision
+
+PCN failed with all 3 synthetic approaches. Decision: mine real data + train stronger architecture (PoinTr, SnowflakeNet, or MSN) directly on real pairs.
+
+### 6. Findings #17 and #18
+
+- #17: PCN Domain Adaptation — Virtual Velodyne Also Insufficient
+- #18: Evaluation Data Leak — Stage B Classifier Evaluated on Training Data
+
+## Files changed
+
+```
+Modified: docs/findings.md, docs/project_state.md, src/completion.py, src/main.py
+New: src/mine_completion_pairs.py, scripts/mine_all_pairs.ps1
+```
+
+## Results / findings
+
+- Approach B confirmed failed — all synthetic domain adaptation exhausted
+- Held-out seq 08 F1: 0.730 (corrected from leaked 0.834)
+- Classifier accuracy: ~6% noise rate on mining (unknown→car leakage)
+- GT mining eliminates classifier noise entirely
+
+## Next
+
+1. Run `.\scripts\mine_all_pairs.ps1` to mine real pairs (~5 hours)
+2. Choose completion architecture (PoinTr / SnowflakeNet / MSN) and integrate
+3. Train on real pairs, evaluate CD + F-Score on seq 08
+4. Commit all uncommitted changes
+
+---
+
+# Session — 2026-06-02
+
+## What was done
+
+### 1. PCN sparse-input experiment (from prior session, carried over)
+- Trained PCN with sparse ShapeNet inputs (32-256 random points) per advisor suggestion
+- Result: completions are scattered noise on real LiDAR — domain gap is structural, not density-related
+- Findings #19 recorded
+
+### 2. GT vs Pipeline visualization tool (`src/visualize_gt.py`)
+- Created toggle visualization: SPACE switches between GT semantic labels and pipeline detections
+- Per-frame log: `Frame 005 [GT] | detected: 3 car, 12 unknown | GT: 5 car, 2 motorcycle`
+- Fixed classifier checkpoint: was using Stage A (`classifier_best.pth`), switched to Stage B (`stage_b_best.pth`)
+
+### 3. Classifier revamp — binary car/not-car
+- Analyzed seq 07/08 detection logs: all detections classified as "motorcycle", zero cars
+- Decision: simplify from 4-class to binary (car / not-car)
+- Modified 7 files: `classifier.py`, `train_classifier.py`, `mine_stage_b.py`, `evaluate.py`, `pipeline.py`, `main.py`, `test_single_frame_pcn.py`
+- `CLASS_LABELS = ["car", "not-car"]`, `NUM_CLASSES = 2`
+- Stage A: only ShapeNet car (02958343) as positive, `unknown_fraction` raised to 0.50
+- `THING_CLASSES_SUPPORTED = {10, 252}` (car + moving-car only)
+- Findings #20 recorded
+
+### 4. Occupancy Networks paper
+- User reviewing "Occupancy Networks: Learning 3D Reconstruction in Function Space" — discussion deferred to next session
+
+## Files changed
+
+```
+Modified: src/classifier.py, src/train_classifier.py, src/mine_stage_b.py,
+          src/evaluate.py, src/pipeline.py, src/main.py, src/test_single_frame_pcn.py,
+          src/completion.py, src/train_pcn.py,
+          docs/findings.md, docs/project_state.md, docs/session_history.md
+New:      src/visualize_gt.py
+```
+
+## Results / findings
+
+- PCN sparse training: failed — domain gap is structural (finding #19)
+- 4-class classifier produces false motorcycle detections on seq 08 (GT has zero motorcycles)
+- Binary car/not-car revamp complete in code, training pending
+
+## Next
+
+1. Train binary classifier Stage A: `python src/train_classifier.py --epochs 50`
+2. Re-mine Stage B data: `python src/mine_stage_b.py --seq 00 01 02 03 04 05 06 07 09 10 --frames 5000 --split train` then val on seq 08
+3. Train Stage B: `python src/train_classifier.py --stage-b --epochs 15`
+4. Evaluate on seq 08: `python src/evaluate.py --seq 08 --frames 100 --target supported-vehicles --classifier-ckpt checkpoints/stage_b_best.pth`
+5. Discuss Occupancy Networks paper and implications for completion
+6. Commit all uncommitted changes

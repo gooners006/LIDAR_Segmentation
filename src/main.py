@@ -25,12 +25,12 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def resolve_track_class(votes, *, min_known_votes=2, min_known_ratio=0.5):
-    """Majority vote over non-unknown labels with evidence thresholds.
+    """Majority vote over non-rejected labels with evidence thresholds.
 
     Returns the winning class name, or None if evidence is insufficient
     (too few known votes, low known ratio, or ambiguous tie).
     """
-    known = [v for v in votes if v != "unknown"]
+    known = [v for v in votes if v != "not-car"]
     if len(known) < min_known_votes:
         return None
     if len(known) / len(votes) < min_known_ratio:
@@ -71,7 +71,7 @@ def parse_args():
     )
     parser.add_argument(
         "--classifier-unknown-threshold", type=float, default=0.50,
-        help="Softmax threshold below which clusters are labeled unknown",
+        help="Softmax threshold below which clusters are labeled not-car",
     )
     parser.add_argument(
         "--no-learned-classifier", action="store_true",
@@ -88,6 +88,10 @@ def parse_args():
         "--no-completion", action="store_true",
         help="Disable PCN point cloud completion",
     )
+    parser.add_argument(
+        "--mine-pairs", type=str, default=None, metavar="DIR",
+        help="Mine sparse/dense completion pairs to DIR (implies --save-output --no-completion)",
+    )
     return parser.parse_args()
 
 
@@ -101,6 +105,10 @@ def main():
     ``tracks.json`` manifest.
     """
     args = parse_args()
+
+    if args.mine_pairs:
+        args.save_output = True
+        args.no_completion = True
 
     # --- File paths ---
     seq_dir = os.path.join(PROJECT_ROOT, f"dataset/sequences/{args.seq}")
@@ -391,6 +399,34 @@ def main():
         if completion_enabled:
             print(f"PCN completion: {n_completed}/{len(tracks_meta)} tracks completed")
         print(f"Saved {len(tracks_meta)} tracks to {output_dir}")
+
+        # --- Mine sparse/dense completion pairs ---
+        if args.mine_pairs:
+            pairs_dir = args.mine_pairs
+            n_pairs = 0
+            accepted_ids = {t["track_id"] for t in tracks_meta}
+            for track_id, pts_list in track_points.items():
+                if track_id not in accepted_ids:
+                    continue
+                entry = next(t for t in tracks_meta if t["track_id"] == track_id)
+                cls = entry["class"]
+                cls_dir = os.path.join(pairs_dir, cls)
+                os.makedirs(cls_dir, exist_ok=True)
+
+                dense = np.vstack(pts_list).astype(np.float32)
+                tag = f"s{args.seq}_{track_id:04d}"
+                np.save(os.path.join(cls_dir, f"dense_{tag}.npy"), dense)
+
+                frames = track_frames[track_id]
+                for i, (frame_pts, fidx) in enumerate(zip(pts_list, frames)):
+                    sparse = frame_pts.astype(np.float32)
+                    np.save(
+                        os.path.join(cls_dir, f"sparse_{tag}_f{fidx:04d}.npy"),
+                        sparse,
+                    )
+                    n_pairs += 1
+
+            print(f"Mined {n_pairs} sparse/dense pairs to {pairs_dir}")
 
     if vis is not None:
         vis.run()

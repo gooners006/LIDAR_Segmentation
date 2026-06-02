@@ -71,12 +71,12 @@ def simulate_lidar_noise(
 class KITTIObjectDataset:
     """Load sparse/dense point cloud pairs for completion training.
 
-    Expected directory layout::
+    Expected directory layout (from ``--mine-pairs``)::
 
-        root/<class>/sparse_XXXX.npy   # partial single-frame observation (N, 3)
-        root/<class>/dense_XXXX.npy    # accumulated multi-frame ground truth (M, 3)
+        root/<class>/dense_s00_0003.npy            # accumulated track (M, 3)
+        root/<class>/sparse_s00_0003_f0005.npy     # per-frame observation (N, 3)
 
-    Use ``extract_pairs_from_sequence`` to build this from pipeline tracking output.
+    Each sparse file is paired with the dense file sharing its track tag.
     """
 
     def __init__(self, root: str, classes: Optional[list] = None, max_points: int = 2048):
@@ -89,11 +89,16 @@ class KITTIObjectDataset:
             cls_dir = os.path.join(root, cls)
             if not os.path.isdir(cls_dir):
                 continue
-            sparse_files = sorted(glob.glob(os.path.join(cls_dir, "sparse_*.npy")))
-            for sp in sparse_files:
-                dp = sp.replace("sparse_", "dense_")
-                if os.path.exists(dp):
-                    self.pairs.append((sp, dp, cls))
+            dense_by_tag = {}
+            for dp in glob.glob(os.path.join(cls_dir, "dense_*.npy")):
+                tag = os.path.basename(dp).replace("dense_", "").replace(".npy", "")
+                dense_by_tag[tag] = dp
+            for sp in sorted(glob.glob(os.path.join(cls_dir, "sparse_*.npy"))):
+                fname = os.path.basename(sp).replace("sparse_", "").replace(".npy", "")
+                parts = fname.split("_f")
+                tag = parts[0] if len(parts) >= 2 else fname
+                if tag in dense_by_tag:
+                    self.pairs.append((sp, dense_by_tag[tag], cls))
 
     def __len__(self) -> int:
         return len(self.pairs)
@@ -159,9 +164,9 @@ class KITTIObjectDataset:
 # Completion model
 # ---------------------------------------------------------------------------
 
-PCN_N_INPUT = 2048
+PCN_N_INPUT = 256
 PCN_NUM_COARSE = 1024
-PCN_GRID_SIZE = 4
+PCN_GRID_SIZE = 2
 
 
 class PointCloudCompleter:

@@ -23,16 +23,12 @@ from pipeline import PIPELINE_CONFIG, cluster_objects, filter_clusters, remove_g
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# SemanticKITTI semantic label -> classifier class
-# "car" includes moving-car, "bus" includes moving-bus, etc.
+# SemanticKITTI semantic label -> classifier class (binary: car / not-car)
 SEMKITTI_TO_CLASS = {
     10: "car", 252: "car",
-    13: "bus", 257: "bus",
-    15: "motorcycle", 255: "motorcycle",
-    # Everything else that appears in a cluster is "unknown"
 }
 
-VALID_CLASSES = {"car", "bus", "motorcycle", "unknown"}
+VALID_CLASSES = {"car", "not-car"}
 
 # SemanticKITTI label names for metadata
 SEMKITTI_NAMES = {
@@ -55,10 +51,9 @@ def classify_cluster(sem_labels: np.ndarray, purity_threshold: float
                      ) -> tuple[str | None, float, float, dict]:
     """Determine classifier class from a cluster's GT semantic labels.
 
-    Maps each SemanticKITTI label to one of the 4 classifier classes
-    (car, bus, motorcycle, unknown) and votes by point count.  The
-    cluster is accepted if the majority class exceeds the purity
-    threshold.
+    Maps each SemanticKITTI label to one of 2 classifier classes
+    (car, not-car) and votes by point count.  The cluster is accepted
+    if the majority class exceeds the purity threshold.
 
     Args:
         sem_labels: (N,) array of SemanticKITTI semantic label IDs for
@@ -83,7 +78,7 @@ def classify_cluster(sem_labels: np.ndarray, purity_threshold: float
     # Map each point's semantic label to a classifier class
     class_votes = {}
     for label, count in zip(unique, counts):
-        cls = SEMKITTI_TO_CLASS.get(int(label), "unknown")
+        cls = SEMKITTI_TO_CLASS.get(int(label), "not-car")
         class_votes[cls] = class_votes.get(cls, 0) + int(count)
 
     majority_class = max(class_votes, key=class_votes.get)

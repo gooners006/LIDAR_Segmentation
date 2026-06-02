@@ -37,9 +37,11 @@ TRAIN_CONFIG = {
         "02924116": 10.0,
         "03790512": 2.2,
     },
-    "gt_n_points": 16384,
-    "partial_n_points": 2048,
+    "gt_n_points": 4096,
+    "partial_n_points": 256,
+    "partial_min_points": 32,
     "coarse_n_points": 1024,
+    "grid_size": 2,
     "depth_h": 256,
     "depth_w": 256,
     "viewpoint_elev_range": (-20.0, 30.0),
@@ -133,9 +135,15 @@ class ShapeNetCompletionDataset(data.Dataset):
             gt_pts -= centroid
             partial_pts -= centroid
 
-            # Pad/subsample lidar partial to fixed size for batching
-            if self.lidar_augment:
-                partial_pts = self._fix_size(partial_pts, self.config["partial_n_points"])
+            # Random sparsification to match real LiDAR cluster density
+            k = np.random.randint(
+                self.config["partial_min_points"],
+                self.config["partial_n_points"] + 1,
+            )
+            if len(partial_pts) > k:
+                idx = np.random.choice(len(partial_pts), k, replace=False)
+                partial_pts = partial_pts[idx]
+            partial_pts = self._fix_size(partial_pts, self.config["partial_n_points"])
 
             # Normalize to unit sphere so CD loss is scale-invariant across categories
             radius = np.linalg.norm(gt_pts, axis=1).max()
@@ -236,13 +244,11 @@ class ShapeNetCompletionDataset(data.Dataset):
             directions = rays_np[..., 3:]
 
             valid = np.isfinite(t_hit)
-            if valid.sum() < 512:
+            if valid.sum() < self.config["partial_min_points"]:
                 continue
 
             pts_3d = origins[valid] + t_hit[valid, np.newaxis] * directions[valid]
-            pts_3d = pts_3d.astype(np.float32)
-
-            return self._fix_size(pts_3d, self.config["partial_n_points"])
+            return pts_3d.astype(np.float32)
 
         return None
 
@@ -565,7 +571,7 @@ def main():
         )
 
     # Model
-    model = PCN(num_coarse=config["coarse_n_points"], grid_size=4).to(device)
+    model = PCN(num_coarse=config["coarse_n_points"], grid_size=config["grid_size"]).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     print(f"PCN parameters: {n_params:,}")
 

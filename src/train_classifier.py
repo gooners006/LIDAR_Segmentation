@@ -1,4 +1,4 @@
-"""Train PointNet classifier.
+"""Train PointNet binary classifier (car / not-car).
 
 Stage A: synthetic ShapeNet partials.
 Stage B: fine-tune on real mined LiDAR clusters (--stage-b).
@@ -52,18 +52,12 @@ TRAIN_CONFIG = {
     "shapenet_root": os.path.join(PROJECT_ROOT, "dataset", "shapenet_data"),
     "categories": {
         "02958343": "car",
-        "02924116": "bus",
-        "03790512": "motorcycle",
     },
     "category_scale_m": {
         "02958343": 4.5,
-        "02924116": 10.0,
-        "03790512": 2.2,
     },
     "category_label": {
         "02958343": CLASS_TO_IDX["car"],
-        "02924116": CLASS_TO_IDX["bus"],
-        "03790512": CLASS_TO_IDX["motorcycle"],
     },
     "num_points": NUM_POINTS,
     "bbox_feat_dim": BBOX_FEAT_DIM,
@@ -74,7 +68,7 @@ TRAIN_CONFIG = {
     "viewpoint_radius_factor_range": (1.5, 2.5),
     "val_fraction": 0.2,
     "split_seed": 42,
-    "unknown_fraction": 0.30,
+    "unknown_fraction": 0.50,
     "unknown_scale_range": (0.5, 4.0),
     "unknown_train_seed": 10042,
     "unknown_val_seed": 20042,
@@ -349,7 +343,7 @@ class ShapeNetClassificationDataset(data.Dataset):
             centroid = pts.mean(axis=0)
             pts = pts - centroid
             bbox_feats = extract_bbox_features(pts)
-            return pts, bbox_feats, CLASS_TO_IDX["unknown"]
+            return pts, bbox_feats, CLASS_TO_IDX["not-car"]
 
         raise RuntimeError(
             f"Failed to load unknown sample after {max_retries} retries "
@@ -620,10 +614,10 @@ def validate(model, loader, criterion, device, config):
     threshold = config["unknown_threshold"]
     thresh_preds = all_preds.copy()
     max_probs = all_probs.max(axis=1)
-    thresh_preds[max_probs < threshold] = CLASS_TO_IDX["unknown"]
+    thresh_preds[max_probs < threshold] = CLASS_TO_IDX["not-car"]
     macro_f1_thresh = f1_score(
         all_labels, thresh_preds, average="macro", zero_division=0)
-    unknown_rate = (thresh_preds == CLASS_TO_IDX["unknown"]).mean()
+    unknown_rate = (thresh_preds == CLASS_TO_IDX["not-car"]).mean()
 
     cm = confusion_matrix(all_labels, all_preds, labels=list(range(NUM_CLASSES)))
 

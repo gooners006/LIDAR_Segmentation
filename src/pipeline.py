@@ -38,7 +38,7 @@ PIPELINE_CONFIG = {
     "min_track_known_ratio": 0.5,
     # PCN completion
     "pcn_min_points": 64,
-    "pcn_completion_classes": ["car", "bus", "motorcycle"],
+    "pcn_completion_classes": ["car"],
     "pcn_sample_seed": 0,
 }
 

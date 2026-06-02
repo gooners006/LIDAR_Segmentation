@@ -371,3 +371,91 @@ Comparison images saved to `output/completion_comparison/` (accumulated) and `ou
 *Virtual Velodyne ray-casting (in progress):* Replaced `_render_partial` with `_render_lidar_partial` that casts HDL-64E-style rays (64 beams, -24.9° to +2° elevation, 0.09° horizontal resolution) at ShapeNet meshes from random distances (8–50m). Produces scan-line structure, distance-dependent sparsity (360–2048 unique pts per sample), and range-proportional noise (σ=0.005·range). Training in progress — not yet evaluated.
 
 **Decision:** Noise-only augmentation on clean depth renders is insufficient to bridge the domain gap. The partiality pattern itself must change. Virtual LiDAR ray-casting approach awaiting evaluation.
+
+## 17. PCN Domain Adaptation — Virtual Velodyne Also Insufficient (2026-05-28)
+
+**Context:** Finding #16 showed noise augmentation on depth renders failed. Approach B replaced the rendering with virtual Velodyne HDL-64E ray-casting on ShapeNet meshes. Trained 30 epochs (lr=1e-5, pretrained from `pcn_best.pth`). Checkpoint: `pcn_lidar_best.pth`.
+
+**Finding:**
+
+Training metrics show the model learned the simulated LiDAR domain:
+- Lidar val CD: 0.134 (epoch 1) → 0.070 (epoch 30)
+- Clean val CD regressed: 0.066 → 0.082 (expected trade-off)
+- Final f-score: clean 98.87%, lidar 99.17%
+
+Real LiDAR evaluation (`test_single_frame_pcn.py --pcn-ckpt pcn_lidar_best.pth`):
+- Car (3457 pts, frame 49): blobby output, visually identical to baseline
+- Motorcycle (234 pts, frame 17): blobby output, visually identical to baseline
+
+The model improved on simulated LiDAR partials but this does not transfer to real KITTI clusters. The simulation likely still differs from real data in: object scale/geometry, occlusion patterns, surface reflectance effects, and the distribution of cluster sizes post-segmentation.
+
+**Decision:** Neither noise augmentation (Approach A) nor virtual Velodyne ray-casting (Approach B) on ShapeNet meshes bridges the domain gap. Remaining options:
+1. **Real-data fine-tuning** — use `KITTIObjectDataset.extract_pairs_from_sequence()` to mine sparse/dense pairs from pipeline tracking output
+2. **Stronger architecture** — PoinTr or SeedFormer, which use transformer-based decoders that may generalize better
+3. **Accept PCN as a negative result** for the thesis and focus on other contributions
+
+## 18. Evaluation Data Leak — Stage B Classifier Evaluated on Training Data (2026-05-28)
+
+**Context:** All reported pipeline metrics (F1 0.834, precision 0.964) were measured on seq 00. Stage B classifier was fine-tuned on clusters mined from seq 00-07, 09-10. Seq 00 was in both the training set and the evaluation set.
+
+**Finding:**
+
+Re-evaluated on seq 08 (held-out from Stage B training):
+
+| Configuration | Seq | Precision | Recall | F1 | Mean IoU |
+|---|---|---|---|---|---|
+| Geometric only (no classifier, no track filter) | 08 | 0.205 | 0.594 | 0.305 | 0.863 |
+| + Stage B classifier + track filtering | 08 | 0.728 | 0.732 | 0.730 | 0.887 |
+| + Stage B classifier + track filtering (leaked) | 00 | 0.964 | 0.734 | 0.834 | 0.945 |
+
+Standalone classifier confusion matrix on seq 08 mined clusters (2000 sampled per class):
+
+| GT \ Pred | car | motorcycle | unknown |
+|---|---|---|---|
+| car (2000) | 1811 (91%) | 0 | 189 |
+| motorcycle (476) | 18 | 190 (40%) | 268 |
+| unknown (2000) | 114 | 6 | 1880 (94%) |
+
+Key observations:
+- Pipeline F1 drops from 0.834 (leaked) to 0.730 (clean) — a 12.5% relative decrease.
+- Car recall 91%, car precision 93% — solid but not as strong as seq 00 numbers suggested.
+- Motorcycle recall only 40% — most motorcycles are missed.
+- The geometric-only baseline is also much weaker on seq 08 (F1 0.305 vs 0.678 on seq 00), suggesting seq 08 is inherently harder (more clutter, more objects).
+
+**Decision:** All future evaluations must use seq 08 as the primary eval sequence. Updated `docs/project_state.md` with corrected metrics. Previous seq 00 numbers are retained but marked as leaked.
+
+## 19. PCN Sparse-Input Training — Domain Gap Persists (2026-06-02)
+
+**Context:** Advisor suggested simplifying ShapeNet point count to match SemanticKITTI density. Hypothesis: PCN trained on sparse inputs (32-256 random points, matching real LiDAR cluster sizes) would produce clean completions on real data.
+
+**Changes:**
+- `src/train_pcn.py`: `partial_n_points: 256` (was 2048), `partial_min_points: 32`, `gt_n_points: 4096` (was 16384), `grid_size: 2` (was 4). Random sparsification in `__getitem__`: k ~ U[32, 256], pad to 256.
+- `src/completion.py`: `PCN_N_INPUT = 256`, `PCN_GRID_SIZE = 2`.
+
+**Result:** Training converged (val CD improved over epochs). On real LiDAR clusters, completions are scattered noise — worse than the blobby output from the dense model. The domain gap is structural (single-viewpoint depth render vs multi-viewpoint accumulated LiDAR), not density.
+
+**Decision:** Confirms that all ShapeNet-based PCN approaches are exhausted. Point density was necessary but not sufficient. The fundamental mismatch is in partiality patterns.
+
+## 20. Classifier Revamp — Binary Car/Not-Car (2026-06-02)
+
+**Context:** Visualization on seq 07/08 revealed the 4-class classifier (car/bus/motorcycle/unknown) was producing false motorcycle detections (GT has zero motorcycles in seq 08) and near-zero car detections when using the wrong checkpoint. Even with the correct Stage B checkpoint, car recall was only 47% in some runs.
+
+**Observations from seq 08 `tracks.json`:**
+- All 8 detected tracks classified as "motorcycle" — zero cars detected
+- GT has mostly cars, zero motorcycles
+- Bus and motorcycle classes have insufficient training data and add noise
+
+**Decision:** Simplify to binary classification (car / not-car). Rationale:
+1. Thesis scope narrowed to car detection only
+2. Removes false motorcycle/bus classifications that harm recall
+3. Simpler model = more training signal per class
+4. Better matches the SemanticKITTI class distribution (cars dominate)
+
+**Changes (code, not yet trained):**
+- `src/classifier.py`: `CLASS_LABELS = ["car", "not-car"]`, `NUM_CLASSES = 2`
+- `src/train_classifier.py`: Stage A uses only ShapeNet car (02958343) as positive, all other categories as negative. `unknown_fraction` raised to 0.50 for balanced training.
+- `src/mine_stage_b.py`: Binary mapping — sem labels 10/252 → "car", all else → "not-car"
+- `src/evaluate.py`: `THING_CLASSES_SUPPORTED = {10, 252}` (car + moving-car only)
+- `src/pipeline.py`: `pcn_completion_classes: ["car"]`
+
+**Status:** Code changes complete. Stage A training pending.

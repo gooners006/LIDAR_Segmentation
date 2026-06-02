@@ -1,7 +1,7 @@
 """Point cloud classifier: dual-branch PointNet (shape + bbox features).
 
-Stage A: trained on ShapeNet partials + synthetic unknowns.
-Classes: car (0), bus (1), motorcycle (2), unknown (3).
+Stage A: trained on ShapeNet partials + synthetic negatives.
+Classes: car (0), not-car (1).
 """
 
 import os
@@ -25,7 +25,7 @@ BBOX_CLIP = 5.0
 NUM_POINTS = 512
 BBOX_FEAT_DIM = 8
 
-CLASS_LABELS = ["car", "bus", "motorcycle", "unknown"]
+CLASS_LABELS = ["car", "not-car"]
 CLASS_TO_IDX = {name: i for i, name in enumerate(CLASS_LABELS)}
 NUM_CLASSES = len(CLASS_LABELS)
 
@@ -165,9 +165,9 @@ def classify_bbox_heuristic(extent: np.ndarray,
                             center: np.ndarray) -> ClassificationResult:
     """Rule-based fallback classifier using OBB dimensions.
 
-    Applies hardcoded size ranges for car, bus, and unknown.  Not used
-    when a learned model is loaded; kept as a fallback for runs without
-    a checkpoint.
+    Applies hardcoded size ranges for car detection.  Not used when a
+    learned model is loaded; kept as a fallback for runs without a
+    checkpoint.
 
     Args:
         extent: (3,) OBB extents in metres (unsorted).
@@ -178,17 +178,9 @@ def classify_bbox_heuristic(extent: np.ndarray,
     """
     min_d, med_d, max_d = np.sort(extent)
 
-    if min_d < 0.15 and max_d < 3.0 and center[2] > 0.5:
-        return ClassificationResult("unknown", 0.7)
-    if max_d < 2.0 and med_d < 1.0 and min_d < 0.8:
-        return ClassificationResult("unknown", 0.8)
     if 3.0 <= max_d <= 5.5 and 1.5 <= med_d <= 2.5 and 1.0 <= min_d <= 2.0:
         return ClassificationResult("car", 0.85)
-    if max_d > 5.5 or (max_d > 4.0 and med_d > 2.0):
-        return ClassificationResult("bus", 0.75)
-    if max_d > 2.0 and min_d > 0.3 and med_d > 0.5:
-        return ClassificationResult("unknown", 0.6)
-    return ClassificationResult("unknown", 0.0)
+    return ClassificationResult("not-car", 0.6)
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +268,7 @@ def classify_cluster(
         bbox_stats: Dict with ``"mean"`` and ``"std"`` arrays of shape
             (8,) from training-set feature statistics.
         unknown_threshold: If the maximum softmax probability is below
-            this value, the cluster is labeled ``"unknown"``.
+            this value, the cluster is labeled ``"not-car"``.
 
     Returns:
         ClassificationResult with the predicted label and confidence.
@@ -286,7 +278,7 @@ def classify_cluster(
     points = points[finite_mask]
 
     if len(points) < MIN_POINTS_FOR_CLASSIFIER:
-        return ClassificationResult("unknown", 0.0)
+        return ClassificationResult("not-car", 0.0)
 
     # Bbox features from raw metric-scale points
     bbox_feats = extract_bbox_features(points)
@@ -309,7 +301,7 @@ def classify_cluster(
     pred_idx = int(probs.argmax())
 
     if confidence < unknown_threshold:
-        return ClassificationResult("unknown", confidence)
+        return ClassificationResult("not-car", confidence)
 
     return ClassificationResult(CLASS_LABELS[pred_idx], confidence)
 

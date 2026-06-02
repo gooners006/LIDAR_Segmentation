@@ -102,7 +102,7 @@ def main():
                 cluster_points, cls_model, device, cls_bbox_stats,
                 unknown_threshold=0.50,
             )
-            if result.label == "unknown":
+            if result.label == "not-car":
                 continue
 
             n_pts = len(cluster_points)

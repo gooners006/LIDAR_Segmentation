@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-05-28
+Last updated: 2026-06-02
 
 ## Current Architecture
 
@@ -8,73 +8,57 @@ Last updated: 2026-05-28
 |-------|------------|------|--------|
 | 1-3 | Z-filter, denoise, downsample | `src/pipeline.py` | Working |
 | 4 | HDBSCAN clustering | `src/pipeline.py` | Working |
-| 5 | Geometric filtering (ground-plane-relative) | `src/pipeline.py` | Tuned — F1 0.678 |
-| 6 | Classification (dual-branch PointNet, 80K params) | `src/classifier.py` | Stage B trained — F1 0.816 |
-| — | Centroid tracker + track-level filtering | `src/tracker.py`, `src/evaluate.py` | Working — F1 0.834 (100fr), 0.801 (full seq) |
-| 7 | Point completion (PCN, 6.87M params) | `src/pcn.py`, `src/completion.py` | Domain adaptation in progress (Approach B) |
+| 5 | Geometric filtering (ground-plane-relative) | `src/pipeline.py` | Tuned — F1 0.678 (seq 00, geometric only) |
+| 6 | Classification (dual-branch PointNet, binary car/not-car) | `src/classifier.py` | Revamped to binary — training pending |
+| — | Centroid tracker + track-level filtering | `src/tracker.py`, `src/evaluate.py` | Working |
+| 7 | Point completion | `src/pcn.py`, `src/completion.py` | PCN abandoned; exploring Occupancy Networks |
 
-Key files: `src/main.py` (runner), `src/evaluate.py` (metrics), `src/analyze_fp.py` (FP analysis), `src/train_classifier.py`, `src/mine_stage_b.py` (real cluster mining), `src/train_pcn.py` (PCN training + fine-tuning), `src/visualize_pcn.py` (PCN qualitative eval), `src/show_completion.py` (raw vs completed comparison), `src/test_single_frame_pcn.py` (single-frame PCN test).
+Key files: `src/main.py` (runner), `src/evaluate.py` (metrics), `src/visualize_gt.py` (GT vs pipeline toggle viz), `src/train_classifier.py`, `src/mine_stage_b.py` (real cluster mining), `src/train_pcn.py` (PCN training), `src/mine_completion_pairs.py` (GT-label pair mining).
+
+## Classifier — Binary Revamp
+
+Previous 4-class model (car/bus/motorcycle/unknown) produced false motorcycle detections and low car recall on real data. Simplified to binary (car / not-car):
+
+- `CLASS_LABELS = ["car", "not-car"]`, `NUM_CLASSES = 2`
+- Stage A: ShapeNet car (02958343) as positive, all other categories as negative, `unknown_fraction = 0.50`
+- Stage B: SemanticKITTI sem labels 10/252 → car, all else → not-car
+- Eval: `THING_CLASSES_SUPPORTED = {10, 252}` (car + moving-car)
+
+**Status:** Code changes complete. Stage A training in progress.
 
 ## Checkpoints
 
-- **PCN base** (`checkpoints/pcn_best.pth`): Trained on ShapeNet depth renders (val_cd_fine 0.066, val_fscore 99.37%). Produces blobby output on real LiDAR — domain gap confirmed (Finding #15).
-- **PCN lidar** (`checkpoints/pcn_lidar_best.pth`): Training in progress — virtual Velodyne ray-casting fine-tuning (Approach B). ETA ~6-7 hours from session start.
-- **Classifier Stage A** (`checkpoints/classifier_best.pth`): Trained (best val_macro_f1_thresh 0.9964 at epoch 37). Useless on real data — predicts everything as "unknown" (domain gap).
-- **Classifier Stage B** (`checkpoints/stage_b_best.pth`): Trained (best val_macro_f1_thresh 0.7056). Pipeline F1 0.816 with threshold 0.50.
+- **Classifier Stage B** (`checkpoints/stage_b_best.pth`): **STALE** — 4-class model, will be replaced after binary retraining
+- **PCN base** (`checkpoints/pcn_best.pth`): ShapeNet depth renders. Blobby on real LiDAR — abandoned.
+- **PCN lidar** (`checkpoints/pcn_lidar_best.pth`): Virtual Velodyne fine-tuning. Also blobby — abandoned.
 
-## Last Eval Metrics (seq 00)
+## Eval Metrics (Pre-Revamp, 4-Class Classifier)
 
-| Configuration | Precision | Recall | F1 | Mean IoU | Frames |
-|---|-----------|--------|----|----------|--------|
-| Geometric only (`all-things`) | 0.654 | 0.704 | 0.678 | 0.944 | 100 |
-| + Stage B classifier (`supported-vehicles`) | 0.961 | 0.701 | 0.810 | 0.951 | 100 |
-| + Track-level filtering (min_len=2) | 0.964 | 0.734 | 0.834 | 0.945 | 100 |
-| + Track-level filtering (min_len=2, full seq) | 0.918 | 0.710 | 0.801 | 0.912 | 4541 |
+**Held-out seq 08 (100 frames):**
 
-## PCN Domain Adaptation
+| Configuration | Precision | Recall | F1 | Mean IoU |
+|---|-----------|--------|----|----------|
+| Geometric only (no classifier) | 0.205 | 0.594 | 0.305 | 0.863 |
+| + 4-class Stage B classifier + track filtering | 0.728 | 0.732 | 0.730 | 0.887 |
 
-### What failed
-- **PCA alignment**: No visible improvement — domain gap is in partiality pattern, not rotation.
-- **Approach A** (noise augmentation on depth renders): 30 epochs, clean val CD 0.066→0.065. No improvement on real data. Adding noise doesn't change the pinhole partiality pattern.
+These metrics will be superseded after binary classifier training.
 
-### In progress
-- **Approach B** (virtual Velodyne HDL-64E ray-casting): 64-beam simulation on ShapeNet meshes, 8-50m range, 0.09° resolution. Training command:
-  ```
-  .venv\Scripts\python.exe src/train_pcn.py --finetune-lidar --pretrained checkpoints/pcn_best.pth --epochs 30 --lr 1e-5
-  ```
-- Training log: `checkpoints/pcn_lidar_training_log.csv` (rows 1-30 are from Approach A; Approach B rows append after).
+## PCN — Closed
 
-### Evaluation plan
-- Run: `python src/test_single_frame_pcn.py --pcn-ckpt checkpoints/pcn_lidar_best.pth`
-- Compare output images to `output/single_frame_pcn_pcn_best/` baseline.
-- Update Finding #16 with results.
-
-## Track-Level Filtering
-
-Config in `PIPELINE_CONFIG`: `min_track_length: 2`, `track_class_vote: True`, `min_track_known_votes: 2`, `min_track_known_ratio: 0.5`.
-
-## Code Quality
-
-Full codebase review completed. All 11 `src/*.py` files reviewed, docstrings on 10/11 files, 2 complexity refactors, 1 bug fix.
+All synthetic approaches failed (findings #15-17, #19). Sparse-input training (32-256 points) also failed — domain gap is structural. User reviewing Occupancy Networks paper as potential alternative.
 
 ## Immediate Next Steps
 
-1. **Evaluate Approach B** — once training completes, run `test_single_frame_pcn.py` with `pcn_lidar_best.pth` and compare to baseline
-2. **Update Finding #16** — add Approach B results
-3. **Classifier quality reporting** — confusion matrix on matched clusters, FP/FN semantic breakdown
+1. **Complete binary classifier training pipeline:** Stage A → mine Stage B → Stage B fine-tune → evaluate
+2. **Evaluate binary classifier** on seq 08: compare against 4-class baseline (F1 0.730)
+3. **Discuss Occupancy Networks paper** — potential replacement for PCN completion
+4. **Commit all uncommitted changes** (substantial uncommitted work spanning multiple sessions)
 
 ## Medium-Term Backlog
 
-4. Pipeline diagram for report
-5. Ablation: Stage A-only vs Stage B on real data
-6. Consider PoinTr/SeedFormer if PCN fine-tuning quality is insufficient
-
-## Low Priority
-
+5. Pipeline diagram for thesis report
+6. Ablation: Stage A-only vs Stage B on real data
 7. Benchmark HDBSCAN vs Euclidean clustering vs DBSCAN
 8. Replace global RANSAC with grid-based ground removal
-9. Add EMD loss (Sinkhorn approximation for PCN coarse output)
-10. Threshold calibration (sweep 0.3–0.95, select by pipeline F1)
-11. Tracker upgrade — IOU-based matching (SORT-style)
-12. PointNet bottleneck ablation — 256 vs 512 vs 1024 (Finding #12)
-13. Explore BEV representation as alternative/complement
+9. Threshold calibration sweep for binary classifier
+10. Tracker upgrade — IOU-based matching (SORT-style)

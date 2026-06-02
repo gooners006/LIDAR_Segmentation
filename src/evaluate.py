@@ -37,10 +37,9 @@ THING_CLASSES_ALL = {
     252, 253, 254, 255, 256, 257, 258, 259,
 }
 
-# Only classes the classifier can recognize (car, bus, motorcycle + moving variants)
+# Only classes the classifier can recognize (car + moving-car)
 THING_CLASSES_SUPPORTED = {
-    10, 13, 15,       # car, bus, motorcycle
-    252, 255, 257,    # moving-car, moving-motorcyclist, moving-bus
+    10, 252,          # car, moving-car
 }
 
 TARGET_MODES = {
@@ -55,7 +54,7 @@ def resolve_track_class(votes, *, min_known_votes=2, min_known_ratio=0.5):
     Returns the winning class name, or None if evidence is insufficient
     (too few known votes, low known ratio, or ambiguous tie).
     """
-    known = [v for v in votes if v != "unknown"]
+    known = [v for v in votes if v != "not-car"]
     if len(known) < min_known_votes:
         return None
     if len(known) / len(votes) < min_known_ratio:
@@ -225,7 +224,7 @@ def get_frame_detections(bin_path: str, label_path: str,
                 cluster_points, cls_model, cls_device, cls_bbox_stats,
                 unknown_threshold=unknown_threshold,
             )
-            if keep_unknown or result.label != "unknown":
+            if keep_unknown or result.label != "not-car":
                 bboxes.append(bbox)
                 det_cluster_ids.append(cl)
                 det_classes.append(result.label)
