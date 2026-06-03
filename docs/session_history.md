@@ -816,3 +816,69 @@ New:      src/visualize_gt.py
 4. Evaluate on seq 08: `python src/evaluate.py --seq 08 --frames 100 --target supported-vehicles --classifier-ckpt checkpoints/stage_b_best.pth`
 5. Discuss Occupancy Networks paper and implications for completion
 6. Commit all uncommitted changes
+
+---
+
+# Session — 2026-06-02 (continued)
+
+## What was done
+
+### 1. Binary classifier training pipeline — complete
+- Stage A: already trained (F1 0.9986 from prior session part)
+- Mined Stage B train data: seqs 00-07,09-10, 5000 frames, purity 0.75
+  - Result: 420,333 clusters (88,600 car / 331,733 not-car), 2,866 discarded
+- Mined Stage B val data: seq 08, 5000 frames, purity 0.75
+  - Result: 130,394 clusters (24,968 car / 105,426 not-car), 958 discarded
+- Trained Stage B: 15 epochs, best epoch 13, macro F1 0.9225
+  - car: P=0.837 R=0.900 F1=0.868 | not-car: P=0.976 R=0.959 F1=0.967
+  - Checkpoint: `checkpoints/stage_b_best.pth`
+
+### 2. End-to-end evaluation
+- Baseline (seq 08, 100 frames): P=0.963 R=0.708 F1=0.816 MeanIoU=0.888
+- Compared to old 4-class: P=0.728 R=0.732 F1=0.730 → binary is substantially better
+
+### 3. Parameter sweep for recall improvement
+- Track filter sweep (min_track_length, min_known_votes, min_known_ratio): relaxing votes/ratio hurt precision without meaningful recall gain
+- Geometric filter sweep (min_points_in_cluster, hdbscan_min_cluster_size): no improvement
+- Classifier threshold sweep (unknown_threshold 0.30, 0.40): no improvement
+- Tracker sweep (max_distance 3.0/4.0, max_disappeared 8/10): all hurt F1
+- RANSAC sweep (ransac_distance_threshold 0.15, 0.25): 0.15 showed slight recall gain but within noise
+- Added CLI sweep flags to `src/evaluate.py`: `--min-known-votes`, `--min-known-ratio`, `--min-points`, `--hdbscan-min-cluster-size`, `--tracker-max-distance`, `--tracker-max-disappeared`, `--ransac-distance-threshold`
+
+### 4. RANSAC variance measurement
+- 3 identical baseline runs: F1 range 0.804–0.828, recall range 0.692–0.724
+- True baseline: F1 ~0.819 ± 0.024, Recall ~0.713 ± 0.032
+- Conclusion: RANSAC randomness dominates — parameter tuning differences were within noise
+
+### 5. Completion architecture review
+- Read Occupancy Networks paper — ruled out (user wants point cloud output, not mesh)
+- Read PoinTr and SnowflakeNet papers — detailed comparison delivered
+- Recommendation: PoinTr (KITTI-proven, established codebase, transformer architecture)
+
+### 6. Mining code audit
+- Reviewed `src/mine_stage_b.py` for bugs — no critical issues found
+- Minor: misleading variable name `pcd_cluster` (actually a bbox), voxel label propagation is an approximation
+
+## Files changed
+
+```
+Modified: src/evaluate.py (added 7 CLI sweep flags for parameter tuning)
+          src/pipeline.py (min_track_length temporarily changed to 1, reverted to 2)
+```
+
+Note: Stage B data mined to `dataset/stage_b/{train,val}/`, checkpoint saved to `checkpoints/stage_b_best.pth` — these are generated artifacts, not tracked in git.
+
+## Results / findings
+
+- Binary classifier end-to-end: F1 ~0.819 ± 0.024 (mean of 3 runs), up from 4-class F1 0.730
+- Precision dramatically improved: ~0.961 vs old 0.728
+- Recall ceiling ~0.71 is set by single-frame HDBSCAN clustering, not post-processing
+- All parameter sweeps within RANSAC noise — no tuning gains found
+- RANSAC seed should be fixed for reproducible experiments
+
+## Next
+
+1. Fix RANSAC seed for reproducible evaluation
+2. Explore temporal point aggregation (multi-frame clustering) to break recall ceiling
+3. Decide on PoinTr implementation for completion (user leaning toward it)
+4. Commit current changes

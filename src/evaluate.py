@@ -319,6 +319,34 @@ if __name__ == "__main__":
         "--min-track-length", type=int, default=None,
         help="Override min_track_length from PIPELINE_CONFIG (for sweeps)",
     )
+    parser.add_argument(
+        "--min-known-votes", type=int, default=None,
+        help="Override min_track_known_votes (for sweeps)",
+    )
+    parser.add_argument(
+        "--min-known-ratio", type=float, default=None,
+        help="Override min_track_known_ratio (for sweeps)",
+    )
+    parser.add_argument(
+        "--min-points", type=int, default=None,
+        help="Override min_points_in_cluster (for sweeps)",
+    )
+    parser.add_argument(
+        "--hdbscan-min-cluster-size", type=int, default=None,
+        help="Override hdbscan_min_cluster_size (for sweeps)",
+    )
+    parser.add_argument(
+        "--tracker-max-distance", type=float, default=None,
+        help="Override tracker_max_distance (for sweeps)",
+    )
+    parser.add_argument(
+        "--tracker-max-disappeared", type=int, default=None,
+        help="Override tracker_max_disappeared (for sweeps)",
+    )
+    parser.add_argument(
+        "--ransac-distance-threshold", type=float, default=None,
+        help="Override ransac_distance_threshold (for sweeps)",
+    )
     args = parser.parse_args()
 
     thing_classes = TARGET_MODES[args.target]
@@ -353,6 +381,20 @@ if __name__ == "__main__":
     cfg = PIPELINE_CONFIG
     if args.min_track_length is not None:
         cfg["min_track_length"] = args.min_track_length
+    if args.min_known_votes is not None:
+        cfg["min_track_known_votes"] = args.min_known_votes
+    if args.min_known_ratio is not None:
+        cfg["min_track_known_ratio"] = args.min_known_ratio
+    if args.min_points is not None:
+        cfg["min_points_in_cluster"] = args.min_points
+    if args.hdbscan_min_cluster_size is not None:
+        cfg["hdbscan_min_cluster_size"] = args.hdbscan_min_cluster_size
+    if args.tracker_max_distance is not None:
+        cfg["tracker_max_distance"] = args.tracker_max_distance
+    if args.tracker_max_disappeared is not None:
+        cfg["tracker_max_disappeared"] = args.tracker_max_disappeared
+    if args.ransac_distance_threshold is not None:
+        cfg["ransac_distance_threshold"] = args.ransac_distance_threshold
     use_track_filter = (
         not args.no_track_filter
         and cfg["min_track_length"] > 0
