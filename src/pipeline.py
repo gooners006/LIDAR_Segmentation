@@ -21,10 +21,10 @@ PIPELINE_CONFIG = {
     # filtering
     "min_points_in_cluster": 15,
     "min_volume": 0.5,
-    "max_volume": 100.0,
-    "max_dim_length": 8.0,
+    "max_volume": 50.0,
+    "max_dim_length": 6.0,
     "min_max_dim": 0.5,
-    "min_med_dim": 0.2,
+    "min_med_dim": 0.4,
     "max_center_height_above_ground": 1.5,
     "max_height_span": 1.8,
     "max_aspect_max_min": 6.0,
@@ -133,20 +133,46 @@ def remove_ground(
         rejected.  ``inlier_indices`` lists ground-point indices into
         the input cloud.
     """
-    plane_model, inliers = pcd.segment_plane(
-        distance_threshold=config["ransac_distance_threshold"],
-        ransac_n=config["ransac_n"],
-        num_iterations=config["ransac_iterations"],
-    )
-    a, b, c, d = plane_model
-    normal_len = np.sqrt(a**2 + b**2 + c**2)
-
-    if abs(c) / normal_len < config["ransac_min_normal_z"]:
+    points = np.asarray(pcd.points)
+    n_pts = len(points)
+    if n_pts < config["ransac_n"]:
         return o3d.geometry.PointCloud(), pcd, None, []
 
-    ground_pcd = pcd.select_by_index(inliers)
-    objects_pcd = pcd.select_by_index(inliers, invert=True)
-    return ground_pcd, objects_pcd, tuple(plane_model), inliers
+    rng = np.random.default_rng(42)
+    dist_thresh = config["ransac_distance_threshold"]
+    n_sample = config["ransac_n"]
+    n_iter = config["ransac_iterations"]
+    min_normal_z = config["ransac_min_normal_z"]
+
+    best_inliers = []
+    best_plane = None
+    for _ in range(n_iter):
+        idx = rng.choice(n_pts, size=n_sample, replace=False)
+        p0, p1, p2 = points[idx[0]], points[idx[1]], points[idx[2]]
+        normal = np.cross(p1 - p0, p2 - p0)
+        norm_len = np.linalg.norm(normal)
+        if norm_len < 1e-10:
+            continue
+        normal /= norm_len
+        d = -normal.dot(p0)
+        dists = np.abs(points @ normal + d)
+        inlier_mask = dists < dist_thresh
+        n_inliers = inlier_mask.sum()
+        if n_inliers > len(best_inliers):
+            best_inliers = np.where(inlier_mask)[0].tolist()
+            best_plane = (normal[0], normal[1], normal[2], d)
+
+    if best_plane is None:
+        return o3d.geometry.PointCloud(), pcd, None, []
+
+    a, b, c, d = best_plane
+    normal_len = np.sqrt(a**2 + b**2 + c**2)
+    if abs(c) / normal_len < min_normal_z:
+        return o3d.geometry.PointCloud(), pcd, None, []
+
+    ground_pcd = pcd.select_by_index(best_inliers)
+    objects_pcd = pcd.select_by_index(best_inliers, invert=True)
+    return ground_pcd, objects_pcd, best_plane, best_inliers
 
 
 def cluster_objects(

@@ -294,7 +294,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--classifier-ckpt", type=str,
-        default=os.path.join(PROJECT_ROOT, "checkpoints", "classifier_best.pth"),
+        default=os.path.join(PROJECT_ROOT, "checkpoints", "stage_b_best.pth"),
         help="Path to classifier checkpoint",
     )
     parser.add_argument(
@@ -306,7 +306,7 @@ if __name__ == "__main__":
         help="Disable learned classifier (geometric filters only)",
     )
     parser.add_argument(
-        "--target", type=str, default="all-things",
+        "--target", type=str, default="supported-vehicles",
         choices=list(TARGET_MODES.keys()),
         help="GT target classes: all-things (default) or supported-vehicles "
              "(car/bus/motorcycle only — use with classifier)",
