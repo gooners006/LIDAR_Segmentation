@@ -882,3 +882,113 @@ Note: Stage B data mined to `dataset/stage_b/{train,val}/`, checkpoint saved to 
 2. Explore temporal point aggregation (multi-frame clustering) to break recall ceiling
 3. Decide on PoinTr implementation for completion (user leaning toward it)
 4. Commit current changes
+
+---
+
+# Session — 2026-06-04
+
+## What was done
+
+### 1. Pipeline feedback review (`docs/pipeline_feedback.md`)
+- Assessed all 5 feedback points against current pipeline state
+- Already addressed: HDBSCAN (not DBSCAN), ground-plane-relative height filter, learned PointNet classifier (not heuristics), PCN abandoned
+- Still relevant: single-plane RANSAC on slopes (Patchwork++), centroid tracker ID-switching (SORT), occlusion splitting
+- Confirmed current PointNet classifier is sufficient for binary car/not-car (F1 0.92); PointNet++ upgrade not justified until multi-class
+
+### 2. Temporal point aggregation — implemented and abandoned
+- **Hypothesis:** Accumulate object points from N consecutive frames before HDBSCAN clustering to break recall ceiling (~0.74) by making sparse distant cars denser
+- **Implementation:** Added `temporal_window` config param, temporal buffer (deque) in `main.py` and `evaluate.py`, global-frame accumulation, ground plane transformation, current-frame-only cluster attribution
+- **Result with temporal_window=3:** F1 collapsed from 0.844 to 0.073 (Recall 0.039)
+  - Track filter accepted only 7/518 tracks (was 47/459 at baseline)
+  - Root cause: HDBSCAN on 3x more points creates fundamentally different cluster boundaries, not just denser versions of existing clusters. With 134k accumulated points, HDBSCAN produced 645+ clusters vs ~240 single-frame, but fewer passed geometric filters (17 vs 34)
+  - Fix attempt: classify using current-frame points only → no improvement (problem is upstream in clustering, not classification)
+- **Diagnostic:** Single-frame HDBSCAN on ~45k points → ~230 clusters, 30-45 pass filters. Accumulated 3-frame → ~650 clusters, 17-22 pass. The clustering landscape is completely reshaped.
+- **Decision:** Reverted all temporal aggregation code. Naive "cluster the union" approach is fundamentally flawed for density-based clustering.
+
+### 3. Option 2 — lower cluster size thresholds
+- **Hypothesis:** Lower `hdbscan_min_cluster_size` (10→5) and `min_points_in_cluster` (15→8 or 5) to capture sparse car clusters, trust classifier + track filter to reject noise
+- **Result:** Zero change in metrics (TP=1205, FP=20, FN=426 identical to baseline)
+- **Root cause analysis:** GT car point count distribution shows 96.7% of cars have >10 points, 94.3% have >15. The 426 missed cars aren't failing due to cluster size — they fail because HDBSCAN doesn't form clean clusters for them (merging with adjacent objects, splitting across clusters, or geometric filter rejection)
+
+### 4. Recall bottleneck analysis
+- Analyzed GT car point counts across 100 frames of seq 00:
+  - 1680 total GT car instances (1631 eval-eligible with ≥10 points)
+  - Distribution: min=1, median=189, mean=458, max=3506
+  - >5 pts: 98.5%, >10 pts: 96.7%, >15 pts: 94.3%, >50 pts: 76.4%
+- **Conclusion:** Recall ceiling (~0.74) is NOT from point sparsity or cluster size thresholds. It's from HDBSCAN cluster quality: merging adjacent cars, splitting single cars, and geometric filter rejection of valid but oddly-shaped clusters.
+- **Next investigation needed:** Which geometric filter rejects the most real cars? What is the HDBSCAN merge/split rate on GT cars?
+
+## Files changed
+
+No file changes detected (all temporal aggregation code was implemented and fully reverted within the session).
+
+## Results / findings
+
+- **Baseline (deterministic, from prior session):** P=0.984, R=0.739, F1=0.844, mIoU=0.943 (seq 00, 100 frames, track filter ON)
+- Temporal aggregation (naive union clustering) is not viable — HDBSCAN produces completely different cluster structure on accumulated points
+- Lowering cluster size thresholds has no effect — the binding constraint is cluster quality, not quantity
+- 96.7% of GT cars have >10 object points, ruling out point sparsity as the recall bottleneck
+- Recall bottleneck is cluster quality (merge/split/filter), not cluster formation
+
+## Next
+
+1. Investigate which geometric filter rejects the most valid car clusters (ablation)
+2. Investigate HDBSCAN merge/split rate on GT car instances
+3. PoinTr implementation for point completion (improves mIoU on matched cars)
+
+---
+
+# Session — 2026-06-23/24
+
+## What was done
+
+### 1. BEV clustering implementation and evaluation (Finding #21)
+- Implemented BEV clustering from Lim & Park (IEEE Access 2025) paper on long-range LiDAR vehicle detection for autonomous racing
+- Added `_cluster_bev()` in `src/pipeline.py` using scipy.ndimage connected-component labeling with morphological opening
+- Added `--clustering-method`, `--bev-resolution`, `--bev-morph-kernel` CLI flags to `src/evaluate.py`
+- Tested across resolutions (0.10-0.30m) and morphology kernels (0-3)
+- **Result: negative.** Best BEV config (res=0.30, no morph) achieved F1=0.779 vs HDBSCAN F1=0.844. 2D projection merges objects overlapping in x-y; morphological erosion destroys sparse distant clusters.
+
+### 2. Geometric filter ablation (Finding #22)
+- Created `src/analyze_clustering.py` with `diagnose_geometric_rejection()` — identifies first failing filter per cluster
+- Ran on seq 00 (100 frames) and seq 08 (100 frames)
+- **Result:** `min_volume` kills 68% of GT-matching rejected clusters, `min_points` kills 26%. But these are sub-fragments from split cars, not independent detections.
+
+### 3. HDBSCAN merge/split analysis (Finding #23)
+- Extended `src/analyze_clustering.py` with per-GT-instance cluster assignment analysis
+- **Result:** Splitting is the dominant failure mode (31-37% of GT cars), not merging (0-0.5%). Large/close cars split more (median 724 pts vs 100 pts for clean). Recoverable ceiling 63-68% matches actual recall.
+
+### 4. Recall improvement strategies — both negative (Finding #24)
+- Created `src/explore_merge_strategies.py` to gather data on fragment distances, inter-car distances, range distributions, and MCS sweep
+- Implemented `_merge_nearby_clusters()` in `src/pipeline.py` — merges small clusters into nearby larger ones within centroid distance and z-gap thresholds
+- Implemented `_cluster_adaptive_hdbscan()` in `src/pipeline.py` — runs HDBSCAN with different `min_cluster_size` per distance ring
+- Added `--merge-fragments`, `--merge-max-dist`, `--merge-small-threshold`, `--adaptive-hdbscan` CLI flags to `src/evaluate.py`
+- Swept: MCS 10-40 globally, merge distances 1.0-2.0m, thresholds 30-50pts, adaptive rings, and combinations
+- **Result: both negative.** MCS=20 appeared best on seq 00 (F1=0.852) but hurt seq 08 (F1=0.801 vs baseline 0.829). Fragment merge also hurt (precision drops outweigh recall gains). The ~0.74 recall ceiling is a hard limit.
+
+## Files changed
+
+- `src/pipeline.py` — added BEV clustering, adaptive HDBSCAN, fragment merge (all disabled by default); config params for all three
+- `src/evaluate.py` — added CLI flags for BEV, merge, and adaptive HDBSCAN
+- `src/analyze_clustering.py` — **new** — geometric filter ablation and merge/split analysis
+- `src/explore_merge_strategies.py` — **new** — fragment distance and MCS sweep exploration
+- `docs/findings.md` — appended findings #21-24
+
+## Results / findings
+
+Baseline (unchanged): P=0.984, R=0.739, F1=0.844, mIoU=0.943 (seq 00, 100 frames)
+
+| Strategy | Seq 00 F1 | Seq 08 F1 | Verdict |
+|---|---|---|---|
+| BEV clustering (best) | 0.779 | — | Negative |
+| MCS=20 | 0.852 | 0.801 | Overfits seq 00 |
+| Merge (1.5m, 30pt) | 0.834 | 0.815 | Negative |
+| Adaptive HDBSCAN | 0.831 | — | Negative |
+
+The ~0.74 recall ceiling is confirmed as a hard limit of density-based clustering on voxelized LiDAR without learned object priors.
+
+## Next
+
+1. PoinTr implementation for point completion (improves mIoU on matched cars)
+2. Accept recall ceiling; focus on thesis writing and remaining ablations
+3. Pipeline diagram for thesis report

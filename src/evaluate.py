@@ -347,6 +347,35 @@ if __name__ == "__main__":
         "--ransac-distance-threshold", type=float, default=None,
         help="Override ransac_distance_threshold (for sweeps)",
     )
+    parser.add_argument(
+        "--clustering-method", type=str, default=None,
+        choices=["hdbscan", "bev"],
+        help="Override clustering method (hdbscan or bev)",
+    )
+    parser.add_argument(
+        "--bev-resolution", type=float, default=None,
+        help="Override bev_resolution (for sweeps)",
+    )
+    parser.add_argument(
+        "--bev-morph-kernel", type=int, default=None,
+        help="Override bev_morph_kernel (for sweeps)",
+    )
+    parser.add_argument(
+        "--merge-fragments", action="store_true",
+        help="Enable post-clustering fragment merge",
+    )
+    parser.add_argument(
+        "--merge-max-dist", type=float, default=None,
+        help="Override merge_max_centroid_dist (for sweeps)",
+    )
+    parser.add_argument(
+        "--merge-small-threshold", type=int, default=None,
+        help="Override merge_small_threshold (for sweeps)",
+    )
+    parser.add_argument(
+        "--adaptive-hdbscan", action="store_true",
+        help="Enable distance-adaptive HDBSCAN min_cluster_size",
+    )
     args = parser.parse_args()
 
     thing_classes = TARGET_MODES[args.target]
@@ -395,6 +424,20 @@ if __name__ == "__main__":
         cfg["tracker_max_disappeared"] = args.tracker_max_disappeared
     if args.ransac_distance_threshold is not None:
         cfg["ransac_distance_threshold"] = args.ransac_distance_threshold
+    if args.clustering_method is not None:
+        cfg["clustering_method"] = args.clustering_method
+    if args.bev_resolution is not None:
+        cfg["bev_resolution"] = args.bev_resolution
+    if args.bev_morph_kernel is not None:
+        cfg["bev_morph_kernel"] = args.bev_morph_kernel
+    if args.merge_fragments:
+        cfg["merge_fragments"] = True
+    if args.merge_max_dist is not None:
+        cfg["merge_max_centroid_dist"] = args.merge_max_dist
+    if args.merge_small_threshold is not None:
+        cfg["merge_small_threshold"] = args.merge_small_threshold
+    if args.adaptive_hdbscan:
+        cfg["adaptive_hdbscan"] = True
     use_track_filter = (
         not args.no_track_filter
         and cfg["min_track_length"] > 0

@@ -1,6 +1,7 @@
 import numpy as np
 import open3d as o3d
 import hdbscan
+from scipy.ndimage import binary_dilation, binary_erosion, label as ndimage_label
 from typing import List, Tuple
 
 PIPELINE_CONFIG = {
@@ -16,8 +17,20 @@ PIPELINE_CONFIG = {
     "ransac_iterations": 1000,
     "ransac_min_normal_z": 0.5,
     # clustering
+    "clustering_method": "hdbscan",
     "hdbscan_min_cluster_size": 10,
     "hdbscan_min_samples": 5,
+    "bev_resolution": 0.2,
+    "bev_morph_kernel": 3,
+    # post-clustering fragment merge
+    "merge_fragments": False,
+    "merge_max_centroid_dist": 2.0,
+    "merge_max_z_gap": 1.0,
+    "merge_small_threshold": 50,
+    # distance-adaptive HDBSCAN
+    "adaptive_hdbscan": False,
+    "adaptive_ranges": [0, 15, 30, 80],
+    "adaptive_min_cluster_sizes": [30, 15, 10],
     # filtering
     "min_points_in_cluster": 15,
     "min_volume": 0.5,
@@ -175,10 +188,137 @@ def remove_ground(
     return ground_pcd, objects_pcd, best_plane, best_inliers
 
 
+def _cluster_hdbscan(points: np.ndarray, config: dict) -> np.ndarray:
+    clusterer = hdbscan.HDBSCAN(
+        min_cluster_size=config["hdbscan_min_cluster_size"],
+        min_samples=config["hdbscan_min_samples"],
+    )
+    return clusterer.fit_predict(points)
+
+
+def _cluster_adaptive_hdbscan(points: np.ndarray, config: dict) -> np.ndarray:
+    """Run HDBSCAN with different min_cluster_size per distance ring."""
+    ranges = config["adaptive_ranges"]
+    mcs_list = config["adaptive_min_cluster_sizes"]
+    min_samples = config["hdbscan_min_samples"]
+
+    xy_range = np.linalg.norm(points[:, :2], axis=1)
+    labels = np.full(len(points), -1, dtype=np.int32)
+    next_label = 0
+
+    for i in range(len(ranges) - 1):
+        ring_mask = (xy_range >= ranges[i]) & (xy_range < ranges[i + 1])
+        ring_pts = points[ring_mask]
+        if len(ring_pts) < mcs_list[i]:
+            continue
+
+        clusterer = hdbscan.HDBSCAN(
+            min_cluster_size=mcs_list[i],
+            min_samples=min_samples,
+        )
+        ring_labels = clusterer.fit_predict(ring_pts)
+
+        valid = ring_labels >= 0
+        ring_labels[valid] += next_label
+        labels[ring_mask] = ring_labels
+        if valid.any():
+            next_label = ring_labels[valid].max() + 1
+
+    return labels
+
+
+def _merge_nearby_clusters(points: np.ndarray, labels: np.ndarray, config: dict) -> np.ndarray:
+    """Merge small clusters into nearby larger ones to recover split objects."""
+    max_dist = config["merge_max_centroid_dist"]
+    max_z_gap = config["merge_max_z_gap"]
+    small_thresh = config["merge_small_threshold"]
+
+    unique_labels = [l for l in np.unique(labels) if l >= 0]
+    if len(unique_labels) < 2:
+        return labels
+
+    cluster_info = {}
+    for cl in unique_labels:
+        mask = labels == cl
+        pts = points[mask]
+        cluster_info[cl] = {
+            "centroid": pts.mean(axis=0),
+            "n_pts": len(pts),
+            "z_min": pts[:, 2].min(),
+            "z_max": pts[:, 2].max(),
+        }
+
+    small_cls = [cl for cl in unique_labels if cluster_info[cl]["n_pts"] <= small_thresh]
+    large_cls = [cl for cl in unique_labels if cluster_info[cl]["n_pts"] > small_thresh]
+
+    if not small_cls or not large_cls:
+        return labels
+
+    large_centroids = np.array([cluster_info[cl]["centroid"] for cl in large_cls])
+
+    labels = labels.copy()
+    for scl in small_cls:
+        s_info = cluster_info[scl]
+        dists = np.linalg.norm(large_centroids - s_info["centroid"], axis=1)
+        order = np.argsort(dists)
+
+        for idx in order:
+            if dists[idx] > max_dist:
+                break
+            lcl = large_cls[idx]
+            l_info = cluster_info[lcl]
+            z_gap = max(s_info["z_min"] - l_info["z_max"], l_info["z_min"] - s_info["z_max"], 0)
+            if z_gap <= max_z_gap:
+                labels[labels == scl] = lcl
+                cluster_info[lcl]["n_pts"] += s_info["n_pts"]
+                all_pts = points[labels == lcl]
+                cluster_info[lcl]["centroid"] = all_pts.mean(axis=0)
+                cluster_info[lcl]["z_min"] = all_pts[:, 2].min()
+                cluster_info[lcl]["z_max"] = all_pts[:, 2].max()
+                break
+
+    return labels
+
+
+def _cluster_bev(points: np.ndarray, config: dict) -> np.ndarray:
+    """BEV grid clustering via connected-component labeling.
+
+    Projects points onto a 2D x-y grid, applies morphological opening
+    (erosion then dilation) to break thin bridges between adjacent
+    objects, then labels connected components.
+    """
+    res = config["bev_resolution"]
+    kernel_size = config["bev_morph_kernel"]
+
+    xy = points[:, :2]
+    xy_min = xy.min(axis=0)
+    ij = ((xy - xy_min) / res).astype(np.int32)
+    h = ij[:, 0].max() + 1
+    w = ij[:, 1].max() + 1
+
+    grid = np.zeros((h, w), dtype=np.uint8)
+    grid[ij[:, 0], ij[:, 1]] = 1
+
+    if kernel_size > 0:
+        struct = np.ones((kernel_size, kernel_size), dtype=bool)
+        opened = binary_erosion(grid, structure=struct)
+        opened = binary_dilation(opened, structure=struct).astype(np.uint8)
+    else:
+        opened = grid
+
+    labeled_grid, _ = ndimage_label(opened)
+
+    labels = labeled_grid[ij[:, 0], ij[:, 1]] - 1
+    return labels.astype(np.int32)
+
+
 def cluster_objects(
     objects_pcd: o3d.geometry.PointCloud, config: dict = PIPELINE_CONFIG
 ) -> np.ndarray:
-    """Cluster non-ground points into object candidates using HDBSCAN (Step 4).
+    """Cluster non-ground points into object candidates (Step 4).
+
+    Dispatches to HDBSCAN or BEV clustering based on
+    ``config["clustering_method"]``.
 
     Args:
         objects_pcd: Non-ground point cloud from :func:`remove_ground`.
@@ -192,11 +332,18 @@ def cluster_objects(
     if len(points) == 0:
         return np.array([], dtype=np.int32)
 
-    clusterer = hdbscan.HDBSCAN(
-        min_cluster_size=config["hdbscan_min_cluster_size"],
-        min_samples=config["hdbscan_min_samples"],
-    )
-    return clusterer.fit_predict(points)
+    method = config.get("clustering_method", "hdbscan")
+    if method == "bev":
+        labels = _cluster_bev(points, config)
+    elif config.get("adaptive_hdbscan", False):
+        labels = _cluster_adaptive_hdbscan(points, config)
+    else:
+        labels = _cluster_hdbscan(points, config)
+
+    if config.get("merge_fragments", False):
+        labels = _merge_nearby_clusters(points, labels, config)
+
+    return labels
 
 
 def _center_height_above_ground(center: np.ndarray, ground_plane) -> float:

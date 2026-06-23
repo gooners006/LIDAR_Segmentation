@@ -459,3 +459,116 @@ Key observations:
 - `src/pipeline.py`: `pcn_completion_classes: ["car"]`
 
 **Status:** Code changes complete. Stage A training pending.
+
+## 21. BEV Clustering — Negative Result (2026-06-23)
+
+**Context:** Paper "Long-Range LiDAR Vehicle Detection Through Clustering and Classification for Autonomous Racing" (Lim & Park, IEEE Access 2025) proposes 2D BEV clustering with connected-component labeling and morphological operations as a faster alternative to HDBSCAN. Implemented and evaluated as a potential fix for the recall bottleneck.
+
+**Finding:**
+
+Single-frame comparison (seq 00, frame 0, 44k object points):
+- HDBSCAN: 227 clusters, 1858 noise points, 1.36s
+- BEV (res=0.3, no morph): 226 clusters, 0 noise, 0.015s (~90x faster)
+- BEV (res=0.2, morph k=3): 71 clusters, 24903 noise (erosion too aggressive)
+
+Pipeline evaluation (seq 00, 100 frames, with classifier + track filter):
+
+| Method | Res | Kernel | Precision | Recall | F1 | mIoU |
+|--------|-----|--------|-----------|--------|----|------|
+| HDBSCAN (baseline) | — | — | 0.984 | 0.739 | 0.844 | 0.943 |
+| BEV | 0.30 | 0 | 0.993 | 0.640 | 0.779 | 0.964 |
+| BEV | 0.15 | 0 | 0.991 | 0.632 | 0.772 | 0.936 |
+| BEV | 0.10 | 0 | 0.979 | 0.548 | 0.703 | 0.884 |
+
+BEV projection merges objects that overlap in x-y (walls, poles, cars at different z-heights), creating oversized clusters that fail geometric filters. Morphological erosion destroys sparse distant clusters. The paper's racing environment (flat track, few objects, wide spacing) doesn't transfer to KITTI urban scenes.
+
+**Decision:** BEV clustering is not viable for KITTI urban. HDBSCAN remains the better choice. Code kept in `pipeline.py` for reference.
+
+## 22. Geometric Filter Ablation (2026-06-23)
+
+**Context:** 26% of GT cars are missed (recall ~0.74). Need to determine whether geometric filters are rejecting valid car clusters.
+
+**Method:** `src/analyze_clustering.py` — for each HDBSCAN cluster rejected by geometric filters, identify which filter is the first to reject it AND whether the cluster overlaps with a GT car instance (≥5 shared points).
+
+**Finding (seq 00, 100 frames):**
+
+Total HDBSCAN clusters: 16,454. Passed geometric filters: 2,651 (16.1%). HDBSCAN noise: only 2.3% of points.
+
+GT-matching clusters rejected by filter:
+
+| Filter | All rejected | GT-matching rejected | % of GT killed |
+|--------|-------------|---------------------|----------------|
+| min_volume (<0.5) | 7,070 | 1,240 | 67.9% |
+| min_points (<15) | 2,589 | 482 | 26.4% |
+| max_aspect (>6.0) | 303 | 52 | 2.8% |
+| max_dim_length (>6.0) | 542 | 19 | 1.0% |
+| max_height_span (>1.8) | 1,434 | 18 | 1.0% |
+| max_volume (>50) | 396 | 12 | 0.7% |
+| max_center_height (>1.5) | 1,468 | 4 | 0.2% |
+
+Seq 08 (held-out) shows same pattern: min_volume kills 66.5%, min_points kills 28.0%.
+
+1,827 GT-matching clusters are killed, but these are mostly sub-clusters from split GT cars — the smaller fragments fail min_volume or min_points while the dominant fragment passes.
+
+## 23. HDBSCAN Merge/Split Analysis (2026-06-23)
+
+**Context:** Need to quantify how GT cars distribute across HDBSCAN clusters to understand the recall ceiling.
+
+**Method:** For each GT car instance (≥10 object-layer points), check which HDBSCAN clusters its points belong to. Classify as: ok (single cluster, <30% noise), split (points in 2+ clusters), merged (shares dominant cluster with another GT car), all_noise.
+
+**Finding:**
+
+Seq 00 (100 frames, 1,631 GT instances):
+
+| Status | Count | % |
+|--------|-------|---|
+| ok (single cluster) | 1,117 | 68.5% |
+| split (2+ clusters) | 514 | 31.5% |
+| merged | 8 | 0.5% |
+| all_noise | 0 | 0.0% |
+
+Split: mean 4.0 clusters/car, median dominant fraction 0.92. Split cars median 724 pts vs ok cars 100 pts.
+
+Seq 08 (held-out, 811 GT instances):
+
+| Status | Count | % |
+|--------|-------|---|
+| ok | 509 | 62.8% |
+| split | 301 | 37.1% |
+| merged | 0 | 0.0% |
+
+Split: mean 3.1 clusters/car, median dominant fraction 0.77.
+
+Key insights:
+1. **Splitting, not merging** is the dominant failure mode (31-37% of GT cars split). Merging is negligible (0-0.5%).
+2. **Large/close cars split more** — HDBSCAN finds internal density gaps in larger point clouds.
+3. **Most splits preserve a large dominant fragment** (median 0.77-0.92 of points), so the car is usually still detected via its biggest piece.
+4. **Recoverable ceiling ~63-68%** closely matches actual recall (0.64-0.74), confirming the pipeline already recovers nearly all "clean" GT instances.
+
+**Decision:** The recall ceiling is fundamentally limited by HDBSCAN splitting large cars. Potential mitigations: post-clustering merge of nearby fragments, adaptive HDBSCAN parameters by distance, or accept the ceiling and focus thesis on other contributions.
+
+## 24. Recall Improvement Strategies — Both Negative (2026-06-24)
+
+**Context:** Finding #23 identified HDBSCAN splitting as the recall bottleneck (~0.74 ceiling). Explored two mitigation strategies: (1) post-clustering fragment merge, (2) distance-adaptive HDBSCAN `min_cluster_size`.
+
+**Finding:**
+
+Exploration data (seq 00, 100 frames):
+- Fragment centroid distance: median 1.70m (P75: 2.54m). Inter-car distance P5: 2.79m — narrow but usable merge window.
+- Split rate by range: 66% at 0-10m, 40% at 10-20m, 19% at 20-30m, 4% at 30-50m. Close cars split most.
+- Global MCS sweep: MCS 30 maximizes "ok" GT count (81.7%) vs MCS 10 (68.5%), but MCS 50+ starts losing distant cars.
+
+Full pipeline evaluation (with classifier + track filter):
+
+| Strategy | Seq 00 P | Seq 00 R | Seq 00 F1 | Seq 08 P | Seq 08 R | Seq 08 F1 |
+|---|---|---|---|---|---|---|
+| **Baseline (MCS=10)** | **0.984** | 0.739 | **0.844** | **0.956** | **0.731** | **0.829** |
+| MCS=15 | 0.969 | 0.752 | 0.847 | 0.932 | 0.723 | 0.814 |
+| MCS=20 | 0.976 | 0.755 | 0.852 | 0.916 | 0.711 | 0.801 |
+| Merge (1.5m, 30pt) | 0.931 | 0.755 | 0.834 | 0.923 | 0.729 | 0.815 |
+| Adaptive HDBSCAN (30/15/10) | 0.935 | 0.748 | 0.831 | — | — | — |
+| MCS=20 + Merge | 0.962 | 0.731 | 0.831 | — | — | — |
+
+MCS=20 appeared best on seq 00 (F1 0.852), but **does not generalize** — F1 drops from 0.829 to 0.801 on held-out seq 08. All variants trade precision for recall, with net-negative F1 on the held-out set. Fragment merge absorbs nearby non-car clusters (walls, poles). Higher MCS loses distant sparse cars.
+
+**Decision:** Neither strategy improves the pipeline reliably. The ~0.74 recall ceiling is a hard limit of density-based clustering on voxelized LiDAR without learned object priors. Code for both strategies kept in `pipeline.py` (disabled by default, CLI-toggleable via `--merge-fragments`, `--adaptive-hdbscan`). Recommend accepting this ceiling and focusing thesis effort elsewhere.

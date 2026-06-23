@@ -1,19 +1,19 @@
 # Project State
 
-Last updated: 2026-06-03
+Last updated: 2026-06-24
 
 ## Current Architecture
 
 | Stage | Description | File | Status |
 |-------|------------|------|--------|
 | 1-3 | Z-filter, denoise, downsample | `src/pipeline.py` | Working |
-| 4 | HDBSCAN clustering | `src/pipeline.py` | Working |
+| 4 | HDBSCAN clustering | `src/pipeline.py` | Working (recall ceiling confirmed) |
 | 5 | Geometric filtering (ground-plane-relative) | `src/pipeline.py` | Tuned |
 | 6 | Classification (dual-branch PointNet, binary car/not-car) | `src/classifier.py` | Binary Stage B trained |
 | — | Centroid tracker + track-level filtering | `src/tracker.py`, `src/evaluate.py` | Working |
 | 7 | Point completion | `src/pcn.py`, `src/completion.py` | PCN abandoned; PoinTr recommended |
 
-Key files: `src/main.py` (runner), `src/evaluate.py` (metrics + sweep flags), `src/visualize_gt.py` (GT vs pipeline toggle viz), `src/train_classifier.py`, `src/mine_stage_b.py`, `src/mine_completion_pairs.py`.
+Key files: `src/main.py` (runner), `src/evaluate.py` (metrics + sweep flags), `src/visualize_gt.py` (GT vs pipeline toggle viz), `src/train_classifier.py`, `src/mine_stage_b.py`, `src/analyze_clustering.py` (filter ablation + merge/split), `src/explore_merge_strategies.py` (recall strategy exploration).
 
 ## Classifier — Binary (Complete)
 
@@ -25,53 +25,66 @@ Key files: `src/main.py` (runner), `src/evaluate.py` (metrics + sweep flags), `s
 - Stage B best: epoch 13/15, macro F1 0.9225 (car P=0.837 R=0.900)
 - Checkpoint: `checkpoints/stage_b_best.pth`
 
-## Eval Metrics (Binary Classifier, seq 08, 100 frames)
+## Eval Metrics (Deterministic, seq 00, 100 frames)
 
-| Run | Precision | Recall | F1 | Mean IoU |
-|-----|-----------|--------|----|----------|
-| 1 | 0.967 | 0.724 | 0.828 | 0.897 |
-| 2 | 0.956 | 0.724 | 0.824 | 0.882 |
-| 3 | 0.959 | 0.692 | 0.804 | 0.881 |
-| **Mean** | **0.961** | **0.713** | **0.819** | **0.887** |
+| Metric | Value |
+|--------|-------|
+| Precision | 0.984 |
+| Recall | 0.739 |
+| F1 | 0.844 |
+| Mean IoU | 0.943 |
 
-RANSAC variance: F1 ± 0.024, Recall ± 0.032. Previous 4-class baseline: F1 0.730.
+RANSAC is deterministic (`np.random.default_rng(42)`). Results reproducible across runs.
 
-## Parameter Sweep — No Gains
+## Recall Bottleneck — Fully Characterized
 
-Exhaustive sweep of post-processing and pipeline parameters (all within RANSAC noise):
-- Track filter: min_track_length, min_known_votes, min_known_ratio
-- Geometric: min_points_in_cluster, hdbscan_min_cluster_size
-- Classifier: unknown_threshold (0.30, 0.40)
-- Tracker: max_distance (3.0, 4.0), max_disappeared (8, 10)
-- RANSAC: distance_threshold (0.15, 0.25)
+The ~0.74 recall ceiling is a **hard limit of density-based clustering** on voxelized LiDAR. Extensively investigated across two sessions:
 
-Recall ceiling (~0.71) is from single-frame clustering — distant/sparse cars never form clusters.
+### Root cause: HDBSCAN splitting (Finding #23)
+- 31-37% of GT cars are split across multiple HDBSCAN clusters
+- Large/close cars split most (66% split rate at 0-10m, 4% at 30-50m)
+- Merging is negligible (0-0.5%)
+- Recoverable ceiling (single-cluster GT cars): 63-68%, matching actual recall
+
+### Geometric filter ablation (Finding #22)
+- `min_volume` kills 68% of GT-matching rejected clusters, `min_points` kills 26%
+- But these are sub-fragments from split cars, not independent missed detections
+
+### Strategies attempted — all negative (Findings #21, #24)
+- **BEV clustering:** F1 0.779 (vs 0.844 baseline). 2D projection merges overlapping objects.
+- **Higher min_cluster_size:** MCS=20 → F1 0.852 on seq 00 but 0.801 on seq 08 (overfits).
+- **Post-clustering fragment merge:** precision drops outweigh recall gains on held-out data.
+- **Distance-adaptive HDBSCAN:** ring boundary artifacts; worse than global.
+- **Temporal aggregation (prior session):** HDBSCAN on accumulated points → F1 collapsed to 0.073.
+- **Lower cluster thresholds:** zero TP change.
+
+**Conclusion:** All clustering-level interventions exhausted. Accept ~0.74 recall and focus on other thesis contributions.
+
+## Alternative clustering implementations in `pipeline.py`
+
+All disabled by default, CLI-toggleable for documentation:
+- `--clustering-method bev` — BEV connected-component clustering
+- `--merge-fragments` — post-clustering fragment merge
+- `--adaptive-hdbscan` — distance-ring HDBSCAN with per-ring MCS
 
 ## Completion — PoinTr Recommended
 
-PCN abandoned (findings #15-19). Reviewed three alternatives:
-- Occupancy Networks — ruled out (mesh output, not point cloud)
-- PoinTr — recommended: KITTI-proven, transformer architecture, open-source
-- SnowflakeNet — better CD numbers but no KITTI evaluation
+PCN abandoned (findings #15-19). PoinTr recommended: KITTI-proven, transformer architecture, open-source.
 
 ## Checkpoints
 
 - `checkpoints/stage_b_best.pth` — binary Stage B classifier (current best)
 - `checkpoints/classifier_best.pth` — binary Stage A classifier
-- `checkpoints/pcn_best.pth` — abandoned
-- `checkpoints/pcn_lidar_best.pth` — abandoned
 
 ## Immediate Next Steps
 
-1. **Fix RANSAC seed** for reproducible evaluation (currently non-deterministic)
-2. **Temporal point aggregation** — accumulate multi-frame points before clustering to break recall ceiling
-3. **PoinTr implementation** — replace PCN for point completion
-4. **Commit current changes** (evaluate.py sweep flags)
+1. **PoinTr implementation** — replace PCN for point completion (improves mIoU)
+2. **Thesis writing** — pipeline description, experiment results, discussion of recall ceiling
+3. **Pipeline diagram** for thesis report
 
 ## Medium-Term Backlog
 
-5. Pipeline diagram for thesis report
-6. Ablation: Stage A-only vs Stage B on real data
-7. Benchmark HDBSCAN vs Euclidean clustering vs DBSCAN
-8. Replace global RANSAC with grid-based ground removal
-9. Tracker upgrade — IOU-based matching (SORT-style)
+4. Ablation: Stage A-only vs Stage B on real data
+5. Benchmark HDBSCAN vs Euclidean clustering vs DBSCAN
+6. Replace global RANSAC with grid-based ground removal (Patchwork++)
+7. Tracker upgrade — IOU-based matching (SORT-style)
