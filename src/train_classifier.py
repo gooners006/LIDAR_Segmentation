@@ -652,6 +652,14 @@ def main():
     parser.add_argument("--eval-only", action="store_true")
     parser.add_argument("--stage-b", action="store_true",
                         help="Fine-tune on real mined clusters (Stage B)")
+    parser.add_argument("--no-pretrain", action="store_true",
+                        help="Stage B only: train from random init "
+                             "(skip Stage A checkpoint) — for ablation")
+    parser.add_argument("--tag", type=str, default=None,
+                        help="Override checkpoint/log filename prefix "
+                             "(avoids overwriting existing runs)")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Random seed for reproducibility")
     args = parser.parse_args()
 
     if args.eval_only and args.resume is None:
@@ -659,10 +667,21 @@ def main():
 
     is_stage_b = args.stage_b
 
+    if args.seed is not None:
+        import random
+        random.seed(args.seed)
+        np.random.seed(args.seed)
+        torch.manual_seed(args.seed)
+        torch.cuda.manual_seed_all(args.seed)
+        print(f"Seed: {args.seed}")
+
     if is_stage_b:
         config = STAGE_B_CONFIG.copy()
         # Auto-resume from Stage A checkpoint if no explicit --resume
-        if args.resume is None and os.path.isfile(config["stage_a_ckpt"]):
+        if args.no_pretrain:
+            print("Stage B: --no-pretrain set, training from random init "
+                  "(no Stage A checkpoint)")
+        elif args.resume is None and os.path.isfile(config["stage_a_ckpt"]):
             args.resume = config["stage_a_ckpt"]
             print(f"Stage B: auto-loading Stage A checkpoint: {args.resume}")
     else:
@@ -801,7 +820,7 @@ def main():
 
     # CSV log
     os.makedirs(config["checkpoint_dir"], exist_ok=True)
-    prefix = "stage_b" if is_stage_b else "classifier"
+    prefix = args.tag if args.tag else ("stage_b" if is_stage_b else "classifier")
     csv_path = os.path.join(config["checkpoint_dir"],
                             f"{prefix}_training_log.csv")
     csv_fields = [

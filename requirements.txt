@@ -1,5 +1,12 @@
+# PyTorch CUDA 12.4 wheels (GPU build). Without this index, pip pulls CPU-only torch.
+--extra-index-url https://download.pytorch.org/whl/cu124
+
 numpy
-open3d
+scipy
 matplotlib
 scikit-learn
-scipy
+open3d
+hdbscan
+torch==2.6.0+cu124
+tqdm
+markitdown[all]

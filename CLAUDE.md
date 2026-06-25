@@ -25,6 +25,12 @@ Important docs:
 
 ## Common Commands
 
+**Always use `.venv` to run any Python script.** Either activate the environment
+first, or invoke the venv interpreter directly (e.g.
+`.venv\Scripts\python.exe src/main.py` on Windows,
+`.venv/bin/python src/main.py` on Linux/macOS). Do not run scripts with a bare
+system `python`/`python3`.
+
 Activate the environment:
 
 ```bash

@@ -63,6 +63,18 @@ TRAIN_CONFIG = {
     "lidar_augment": False,
     "lidar_sparse_range": (64, 1024),
     "lidar_distance_range": (8.0, 50.0),
+    # KITTI-like single-view partial generation (see docs/pcn/kitti_like_partial.md).
+    # Replicates the real pipeline transform: single Velodyne viewpoint -> per-frame
+    # voxel downsample -> ground removal, so synthetic partials match the real
+    # single-frame clusters the completer sees at inference. Validated in the
+    # scratchpad derisk against seq-08 single-frame clusters.
+    "kitti_like_partial": False,
+    "kitti_distance_range": (8.0, 30.0),
+    "kitti_sensor_height": 1.73,    # HDL-64E mount height above ground (m)
+    "kitti_ground_cut": 0.30,       # drop points within this height of the ground (m)
+    "kitti_noise_sigma": 0.015,     # absolute range noise (m), ~real Velodyne
+    "kitti_h_res_deg": 0.09,        # HDL-64E horizontal angular resolution (deg)
+    "kitti_voxel_size": 0.05,       # must match PIPELINE_CONFIG["voxel_size"]
 }
 
 
@@ -123,7 +135,9 @@ class ShapeNetCompletionDataset(data.Dataset):
 
             gt_pts = self._sample_gt(mesh)
 
-            if self.lidar_augment:
+            if self.config.get("kitti_like_partial"):
+                partial_pts = self._render_kitti_like(mesh, scale_m)
+            elif self.lidar_augment:
                 partial_pts = self._render_lidar_partial(mesh, scale_m)
             else:
                 partial_pts = self._render_partial(mesh, scale_m)
@@ -332,6 +346,94 @@ class ShapeNetCompletionDataset(data.Dataset):
 
         return None
 
+    def _render_kitti_like(
+        self, mesh, scale_m: float, max_retries: int = 5
+    ) -> np.ndarray | None:
+        """Single Velodyne viewpoint matched to real seq-08 single-frame clusters.
+
+        Replicates the real pipeline transform applied before completion: a single
+        HDL-64E scan from one ego viewpoint, per-frame voxel downsample, and ground
+        removal. The mesh is centred at the origin (from ``_load_and_scale``); the
+        ground plane is its lowest point. Returned points are in the mesh-centred
+        frame so they align with the GT sample. Validated against real single-frame
+        clusters in the scratchpad derisk (NN spacing, extents, scan banding).
+        """
+        verts_orig = np.asarray(mesh.vertices, dtype=np.float32)
+        faces = np.asarray(mesh.triangles, dtype=np.int32)
+
+        # ShapeNet cars are not Z-up: the vertical (height) axis is the smallest
+        # extent. Permute so the up-axis becomes Z, raycast in a Z-up world, then
+        # permute hit points back so they stay aligned with the GT sample.
+        ext = verts_orig.max(0) - verts_orig.min(0)
+        up = int(np.argmin(ext))
+        order = [a for a in range(3) if a != up] + [up]  # up-axis -> Z
+        inv_order = np.argsort(order)
+        verts = verts_orig[:, order]
+
+        z_ground = float(verts[:, 2].min())
+        z_top = float(verts[:, 2].max())
+        obj_r = 0.5 * float(np.linalg.norm(verts[:, :2].max(0) - verts[:, :2].min(0)))
+
+        scene = o3d.t.geometry.RaycastingScene()
+        mesh_t = o3d.t.geometry.TriangleMesh()
+        mesh_t.vertex.positions = o3d.core.Tensor(np.ascontiguousarray(verts))
+        mesh_t.triangle.indices = o3d.core.Tensor(faces)
+        scene.add_triangles(mesh_t)
+
+        beam_elev = np.linspace(np.radians(-24.9), np.radians(2.0), 64)
+        h_res = np.radians(self.config["kitti_h_res_deg"])
+        d_min, d_max = self.config["kitti_distance_range"]
+        sensor_h = self.config["kitti_sensor_height"]
+        target = np.array([0.0, 0.0, 0.5 * (z_ground + z_top)], dtype=np.float32)
+
+        for _ in range(max_retries):
+            az = np.random.uniform(0, 2 * np.pi)
+            d = np.random.uniform(d_min, d_max)
+            sensor = np.array(
+                [d * np.cos(az), d * np.sin(az), z_ground + sensor_h], dtype=np.float32
+            )
+
+            d_xy = float(np.hypot(sensor[0] - target[0], sensor[1] - target[1]))
+            az_center = np.arctan2(target[1] - sensor[1], target[0] - sensor[0])
+            half_w = np.arctan2(obj_r * 1.3, max(d_xy, 1e-3))
+            n_az = max(int(2 * half_w / h_res), 8)
+            azim = az_center + np.linspace(-half_w, half_w, n_az)
+
+            elev_g, azim_g = np.meshgrid(beam_elev, azim, indexing="ij")
+            e = elev_g.ravel()
+            a = azim_g.ravel()
+            dirs = np.column_stack(
+                [np.cos(e) * np.cos(a), np.cos(e) * np.sin(a), np.sin(e)]
+            )
+            origins = np.broadcast_to(sensor, dirs.shape).copy()
+            rays = np.hstack([origins, dirs]).astype(np.float32)
+
+            ans = scene.cast_rays(o3d.core.Tensor(rays))
+            t_hit = ans["t_hit"].numpy()
+            valid = np.isfinite(t_hit)
+            if valid.sum() < self.config["partial_min_points"]:
+                continue
+
+            pts = rays[valid, :3] + t_hit[valid, np.newaxis] * rays[valid, 3:]
+            pts = pts + np.random.randn(*pts.shape).astype(np.float32) * self.config[
+                "kitti_noise_sigma"
+            ]
+
+            # Per-frame voxel downsample (matches the real pipeline)
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(pts)
+            pcd = pcd.voxel_down_sample(self.config["kitti_voxel_size"])
+            pts = np.asarray(pcd.points, dtype=np.float32)
+
+            # Ground removal: drop points near the ground plane
+            pts = pts[pts[:, 2] > z_ground + self.config["kitti_ground_cut"]]
+            if len(pts) < self.config["partial_min_points"]:
+                continue
+            # Permute axes back so points align with the original mesh / GT frame
+            return pts[:, inv_order].astype(np.float32)
+
+        return None
+
     def _random_extrinsic(self, scale_m: float) -> np.ndarray:
         """Sample a random viewpoint and return the world-to-camera 4×4 matrix."""
         elev_min, elev_max = self.config["viewpoint_elev_range"]
@@ -515,6 +617,12 @@ def main():
                         help="Enable LiDAR noise augmentation for domain adaptation")
     parser.add_argument("--pretrained", type=str, default=None,
                         help="Load model weights only (fresh optimizer/scheduler)")
+    parser.add_argument("--kitti-like", action="store_true",
+                        help="Use KITTI-like single-view partials (matches real "
+                             "single-frame clusters; see docs/pcn/kitti_like_partial.md)")
+    parser.add_argument("--tag", type=str, default=None,
+                        help="Override checkpoint/log filename prefix "
+                             "(avoids overwriting existing runs)")
     args = parser.parse_args()
 
     if args.resume and args.pretrained:
@@ -526,6 +634,9 @@ def main():
     config["lr"] = args.lr
     config["num_workers"] = args.workers
     config["lidar_augment"] = args.finetune_lidar
+    config["kitti_like_partial"] = args.kitti_like
+    if args.kitti_like:
+        print("KITTI-like single-view partial generation enabled")
 
     device = torch.device(
         "cpu" if args.no_cuda or not torch.cuda.is_available() else "cuda"
@@ -604,7 +715,14 @@ def main():
 
     # Training
     os.makedirs(config["checkpoint_dir"], exist_ok=True)
-    ckpt_prefix = "pcn_lidar" if config["lidar_augment"] else "pcn"
+    if args.tag:
+        ckpt_prefix = args.tag
+    elif config["kitti_like_partial"]:
+        ckpt_prefix = "pcn_kitti"
+    elif config["lidar_augment"]:
+        ckpt_prefix = "pcn_lidar"
+    else:
+        ckpt_prefix = "pcn"
     log_path = os.path.join(config["checkpoint_dir"], f"{ckpt_prefix}_training_log.csv")
     log_exists = os.path.isfile(log_path)
     log_file = open(log_path, "a", newline="")

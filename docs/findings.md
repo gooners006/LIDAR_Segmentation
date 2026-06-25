@@ -572,3 +572,33 @@ Full pipeline evaluation (with classifier + track filter):
 MCS=20 appeared best on seq 00 (F1 0.852), but **does not generalize** — F1 drops from 0.829 to 0.801 on held-out seq 08. All variants trade precision for recall, with net-negative F1 on the held-out set. Fragment merge absorbs nearby non-car clusters (walls, poles). Higher MCS loses distant sparse cars.
 
 **Decision:** Neither strategy improves the pipeline reliably. The ~0.74 recall ceiling is a hard limit of density-based clustering on voxelized LiDAR without learned object priors. Code for both strategies kept in `pipeline.py` (disabled by default, CLI-toggleable via `--merge-fragments`, `--adaptive-hdbscan`). Recommend accepting this ceiling and focusing thesis effort elsewhere.
+
+## 25. Stage A Pretraining Ablation — Synthetic Prior Is Redundant (2026-06-25)
+
+**Context:** Advisor raised that the ShapeNet Stage A data is "too perfect" and may not match real SemanticKITTI (confirmed mechanism in `stage_a.md`: dense pinhole renders vs Velodyne scan-ring sparsity). Experiment A tests whether Stage A pretraining still contributes anything once Stage B fine-tunes on 420k real mined clusters. Trained Stage B from random init (`--no-pretrain --tag stage_b_scratch --seed 0 --epochs 15`) and compared against the production pretrained checkpoint (`stage_b_best.pth`).
+
+**Hypothesis:** If the synthetic prior helps, from-scratch should be clearly worse. If real fine-tuning dominates, the two should match.
+
+**Classifier-level (seq 08 val clusters, eval-only reload):**
+
+| Init | car P | car R | car F1 | not-car F1 | macro F1 |
+|---|---|---|---|---|---|
+| Stage A → B (pretrained, baseline) | 0.874 | 0.875 | 0.875 | 0.970 | **0.9225** |
+| Random init (no-pretrain) | 0.878 | 0.892 | 0.885 | 0.972 | **0.9285** |
+
+From-scratch best epoch was 14 (0.9285); it also hit exactly 0.9225 at epoch 13 — the two are statistically tied, with from-scratch marginally ahead. **Stage A pretraining gives no classifier-level benefit.**
+
+**Pipeline-level (seq 08, 100 frames, classifier + track filter):**
+
+| Init | P | R | F1 | mIoU | FP |
+|---|---|---|---|---|---|
+| Pretrained (`stage_b_best`) | **0.956** | 0.731 | **0.829** | 0.888 | 27 |
+| Scratch (`stage_b_scratch_best`) | 0.905 | 0.726 | 0.806 | 0.891 | 62 |
+
+At the pipeline level the pretrained checkpoint keeps a precision edge (fewer false positives: 27 vs 62), yielding higher F1. Recall is unchanged (clustering-bound, Finding #24).
+
+**Caveat:** Not a fully controlled comparison — the production `stage_b_best.pth` was trained earlier under slightly different conditions (seed/code), so the pipeline precision gap is weak evidence, especially given the classifier-level result reverses it.
+
+**Conclusion (validates advisor's concern):** The "too perfect" synthetic Stage A data is **not hurting, but also not meaningfully helping** — real-data fine-tuning on 420k clusters does essentially all the work. The synthetic prior is redundant given the size of the real training set. Stage A could be dropped without classifier-quality loss; the only possible value is the pipeline-level precision margin, which is unconfirmed.
+
+**Decision:** Keep `stage_b_best.pth` as production for now (precision matters for the pipeline). Do not invest further in improving Stage A realism (would not move the needle). Artifacts kept: `checkpoints/stage_b_scratch_*`. If a clean claim is needed for the thesis, retrain the pretrained variant under identical seed/code/epochs to control the pipeline comparison.

@@ -992,3 +992,64 @@ The ~0.74 recall ceiling is confirmed as a hard limit of density-based clusterin
 1. PoinTr implementation for point completion (improves mIoU on matched cars)
 2. Accept recall ceiling; focus on thesis writing and remaining ablations
 3. Pipeline diagram for thesis report
+
+---
+# Session — 2026-06-26
+
+## What was done
+
+### Completion: KITTI-like single-view PCN training
+- Wired the KITTI-like single-view partial generator into `src/train_pcn.py`
+  behind `--kitti-like` (+ `--tag`), gated so existing behavior is unchanged.
+  `_render_kitti_like`: orient ShapeNet mesh to gravity (up = smallest-extent
+  axis), single HDL-64E viewpoint raycast (64 beams -24.9°…+2.0°, 0.09° h-res,
+  sensor 1.73 m, range 8-30 m), +0.015 m Gaussian noise, voxel 0.05 m, ground
+  cut 0.30 m. New TRAIN_CONFIG keys documented in `docs/pcn/kitti_like_partial.md`.
+- Trained PCN on KITTI-like partials: `.venv/Scripts/python.exe src/train_pcn.py
+  --kitti-like --tag pcn_kitti --epochs 80`. Best val loss 0.1246 (cd_f ~0.066).
+  Converged/plateaued from ~epoch 55-60; last 20 epochs added ~nothing. No
+  overfitting (val tracked train). Checkpoint: `checkpoints/pcn_kitti_best.pth`
+  (existing `pcn_best.pth` untouched). Per-10-epoch checkpoints + training log saved.
+
+### Quick real-data sanity check (inconclusive)
+- `src/test_single_frame_pcn.py --seq 08 --frames 100` on both `pcn_kitti_best.pth`
+  and `pcn_best.pth`. Both selected the same densest car cluster (2864 pts,
+  frame 43). Both produced a diffuse ~4096-pt blob (~4×6×3 m, oversized vs a real
+  ~4×1.8×1.5 m car); KITTI output slightly more elongated, neither a crisp car.
+- Test is weak: it targets the *densest* cluster (needs completion least, not the
+  sparse regime the KITTI-like data targets), renders a single oblique view, and
+  gives no quantitative metric. Not a verdict — yellow flag only.
+
+### Housekeeping
+- `CLAUDE.md`: added directive to always run Python via `.venv` (activate or call
+  the venv interpreter directly; no bare system python).
+- `requirements.txt`: added missing `torch`, `hdbscan`, `tqdm` and `markitdown[all]`;
+  pinned `torch==2.6.0+cu124` with `--extra-index-url .../cu124` for the GPU build.
+- Diagnosed broken venv launchers: `.venv` was created at `d:\LIDAR_Segmentation`
+  and moved to `D:\Code\LIDAR_Segmentation`; Windows venvs aren't relocatable, so
+  `pip.exe` and all Scripts launchers have a stale embedded python path
+  (`python -m pip` works as a bypass). Permanent fix = recreate venv in place
+  (Python 3.10.11) after no training is running. Backup freeze of the 97-package
+  env saved to scratchpad (`env_freeze_backup.txt`).
+
+## Files changed
+- Modified: `CLAUDE.md`, `requirements.txt`, `src/train_pcn.py`,
+  `src/train_classifier.py`, `docs/findings.md`, `docs/project_state.md`
+- New: `docs/pcn/kitti_like_partial.md`, `docs/classifier/` (stage_a.md, stage_b.md)
+- New checkpoints (untracked): `checkpoints/pcn_kitti_*.pth`,
+  `checkpoints/pcn_kitti_training_log.csv`
+- (Note: `src/train_classifier.py`, `docs/findings.md` #25, `docs/classifier/`
+  were from earlier in this continued session.)
+
+## Results / findings
+- PCN-on-KITTI-like trains cleanly (val 0.1246) but the quick real-data look did
+  NOT show crisp car completions — same blob failure mode as Findings #15-19, on
+  one dense example. Inconclusive; needs the proper eval before any conclusion.
+
+## Next
+- Proper completion eval on real seq-08: target SPARSE clusters (40-300 pts),
+  render top-down + side views, 4-6 examples, `pcn_kitti_best` vs `pcn_best`
+  side by side. Record as Finding #26 once run.
+- Recreate `.venv` in place (Python 3.10.11) for the permanent pip-launcher fix.
+- Open follow-up (`kitti_like_partial.md`): `main.py` must run completion on a
+  single representative frame per track, not accumulated `all_pts` (a smear).
