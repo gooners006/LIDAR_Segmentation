@@ -81,12 +81,20 @@ def parse_args():
         "--pcn-ckpt", type=str,
         default=os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "checkpoints", "pcn_best.pth"),
+            "checkpoints", "pcn_kitti_best.pth"),
         help="Path to PCN checkpoint for point cloud completion",
     )
     parser.add_argument(
         "--no-completion", action="store_true",
         help="Disable PCN point cloud completion",
+    )
+    parser.add_argument(
+        "--heading-method", type=str, default="lshape", choices=["lshape", "pca"],
+        help="Heading estimator for completion reorientation (A/B: lshape vs pca)",
+    )
+    parser.add_argument(
+        "--out-tag", type=str, default="",
+        help="Suffix for the output dir (output/<seq><tag>); avoids clobbering",
     )
     parser.add_argument(
         "--mine-pairs", type=str, default=None, metavar="DIR",
@@ -151,8 +159,10 @@ def main():
         completer = PointCloudCompleter(
             model_path=args.pcn_ckpt,
             seed=PIPELINE_CONFIG["pcn_sample_seed"],
+            heading_method=args.heading_method,
         )
-        print(f"Loaded PCN completer from {args.pcn_ckpt}")
+        print(f"Loaded PCN completer from {args.pcn_ckpt} "
+              f"(heading={args.heading_method})")
     else:
         completer = PointCloudCompleter(seed=PIPELINE_CONFIG["pcn_sample_seed"])
 
@@ -175,6 +185,9 @@ def main():
     track_class_votes: dict[int, list[str]] = {}
     track_frames: dict[int, list[int]] = {}
     track_centroids: dict[int, list[list[float]]] = {}
+    # Per-frame global->sensor transform, so completion can run on a single
+    # representative frame in the sensor frame (Z up, ego at origin).
+    track_transforms: dict[int, list[np.ndarray]] = {}
 
     # --- Main loop ---
     print(f"Starting playback for {len(bin_paths)} frames...")
@@ -250,11 +263,13 @@ def main():
                     track_class_votes[track_id] = []
                     track_frames[track_id] = []
                     track_centroids[track_id] = []
+                    track_transforms[track_id] = []
 
                 track_class_votes[track_id].append(cluster_classes[bbox_idx])
                 cluster_pts = np.asarray(objects_pcd.points)[labels == cluster_label]
                 track_points[track_id].append(cluster_pts)
                 track_frames[track_id].append(frame_idx)
+                track_transforms[track_id].append(T_total)
                 track_centroids[track_id].append(
                     bbox_objects[bbox_idx].get_center().tolist()
                 )
@@ -305,7 +320,8 @@ def main():
 
     # --- Output writing ---
     if args.save_output:
-        output_dir = os.path.join(PROJECT_ROOT, f"output/{args.seq}/objects")
+        seq_out = f"{args.seq}{args.out_tag}"
+        output_dir = os.path.join(PROJECT_ROOT, f"output/{seq_out}/objects")
         os.makedirs(output_dir, exist_ok=True)
 
         cfg = PIPELINE_CONFIG
@@ -344,17 +360,31 @@ def main():
 
             all_pts = np.vstack(pts_list)
 
+            # Completion runs on a SINGLE representative frame (the densest), not
+            # the accumulated cloud (a motion smear for moving cars). Recover that
+            # frame's sensor-frame points and run the completer there, then map the
+            # completed cloud back to the global frame for output.
+            ref_idx = int(np.argmax([len(p) for p in pts_list]))
+            ref_global = pts_list[ref_idx]
+            ref_T = track_transforms[track_id][ref_idx]
+            ref_R, ref_t = ref_T[:3, :3], ref_T[:3, 3]
+            ref_sensor = (ref_global - ref_t) @ ref_R  # global -> sensor frame
+
             if not completion_enabled:
                 output_pts = all_pts
                 skip_reason = "disabled"
             elif resolved not in pcn_classes:
                 output_pts = all_pts
                 skip_reason = "unsupported_class"
-            elif len(all_pts) < pcn_min_pts:
+            elif len(ref_sensor) < pcn_min_pts:
                 output_pts = all_pts
                 skip_reason = "too_few_points"
             else:
-                output_pts, skip_reason = completer.complete(all_pts, resolved)
+                completed_sensor, skip_reason = completer.complete(ref_sensor, resolved)
+                if skip_reason is None:
+                    output_pts = (completed_sensor @ ref_R.T) + ref_t  # sensor -> global
+                else:
+                    output_pts = all_pts
 
             completed = skip_reason is None
             if completed:
@@ -363,6 +393,14 @@ def main():
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(output_pts)
             o3d.io.write_point_cloud(os.path.join(output_dir, f"{track_id}.ply"), pcd)
+
+            # Save the single-frame partial that was completed (the "before"
+            # cloud, global frame) so completion can be inspected before/after.
+            if completed:
+                partial_pcd = o3d.geometry.PointCloud()
+                partial_pcd.points = o3d.utility.Vector3dVector(ref_global)
+                o3d.io.write_point_cloud(
+                    os.path.join(output_dir, f"{track_id}_partial.ply"), partial_pcd)
 
             track_entry = {
                 "track_id": track_id,
@@ -378,6 +416,8 @@ def main():
             if completion_enabled:
                 track_entry["completion_method"] = "pcn"
                 track_entry["pcn_checkpoint"] = args.pcn_ckpt
+                track_entry["completion_ref_frame"] = int(track_frames[track_id][ref_idx])
+                track_entry["completion_input_points"] = int(len(ref_sensor))
             if skip_reason is not None:
                 track_entry["completion_skip_reason"] = skip_reason
             tracks_meta.append(track_entry)
@@ -389,7 +429,7 @@ def main():
             "pcn_checkpoint": args.pcn_ckpt if completion_enabled else None,
             "tracks": tracks_meta,
         }
-        json_path = os.path.join(PROJECT_ROOT, f"output/{args.seq}/tracks.json")
+        json_path = os.path.join(PROJECT_ROOT, f"output/{seq_out}/tracks.json")
         with open(json_path, "w") as f:
             json.dump(meta, f, indent=2)
 

@@ -602,3 +602,73 @@ At the pipeline level the pretrained checkpoint keeps a precision edge (fewer fa
 **Conclusion (validates advisor's concern):** The "too perfect" synthetic Stage A data is **not hurting, but also not meaningfully helping** — real-data fine-tuning on 420k clusters does essentially all the work. The synthetic prior is redundant given the size of the real training set. Stage A could be dropped without classifier-quality loss; the only possible value is the pipeline-level precision margin, which is unconfirmed.
 
 **Decision:** Keep `stage_b_best.pth` as production for now (precision matters for the pipeline). Do not invest further in improving Stage A realism (would not move the needle). Artifacts kept: `checkpoints/stage_b_scratch_*`. If a clean claim is needed for the thesis, retrain the pretrained variant under identical seed/code/epochs to control the pipeline comparison.
+
+## 26. KITTI-like PCN Verification — Data Fix Worked; the Blob Failure Was an Inference Bug (2026-06-27)
+
+**Context:** `pcn_kitti_best.pth` (PCN trained on KITTI-like single-view partials, Finding #15–19 follow-up) converged well (val 0.1246) but a quick look still showed blobs on seq-08. The planned next step was: "if still blobs, the data fix failed → reconsider PoinTr." This is the proper verification. Scripts: `scratchpad/verify_pcn_step1.py` (synthetic), `scratchpad/verify_pcn_step2.py` (real seq-08).
+
+**Hypothesis:** Distinguish two failure causes that the prior quick look conflated — (a) data-domain gap (the model genuinely can't complete real clusters) vs (b) an inference-normalization mismatch in `completion.py complete()`.
+
+**Step 1 — synthetic in-distribution sanity + normalization calibration (KITTI-like val cars, n=30–80):**
+
+Calibration of the train/inference relationship (we have both partial and GT here):
+- Training canonical car frame is **Y-up, length along Z** (GT extents X=1.92 width, Y=1.43 height, Z=4.49 length). `_augment_rotation` rotates about Z = the **length** axis → it is **roll-invariance, not yaw**. Real clusters must therefore be reoriented (gravity→Y, length→Z), not fed in raw.
+- `partial_radius / gt_radius` median **1.137** (tight) → scale is recoverable from the partial.
+- `|partial_centroid − gt_centroid| / gt_radius` median **0.35–0.40** → the partial's mass centroid is far off the true car center.
+
+Completion quality (Chamfer in metres, F-score @0.1 m; same partials, three inference paths + ablations):
+
+| Path | CD (m) | F@0.1m |
+|---|---|---|
+| 1. Training normalization (lower bound) | **0.160** | **0.76** |
+| 2. `completion.py complete()` [3D PCA + partial-radius/centroid] | 0.57 | 0.28 |
+| 3a. partial-centroid + true radius | 0.49 | 0.34 |
+| 3b. **GT-centroid + estimated scale (×1.137)** | **0.162** | **0.74** |
+| 3c. GT-centroid + true radius | 0.160 | 0.76 |
+| 3d. bbox-centroid + estimated scale | 0.27 | 0.52 |
+
+**The model is good in-distribution (0.16 m).** `complete()`'s **3D PCA alignment + partial-radius/partial-centroid** normalization (never seen in training) wrecks even known-good input (3.5× worse CD) — this applies to *every* PCN checkpoint, including `pcn_best`. The ablation isolates the cause: **scale is solved** by the ×1.137 factor (3b ≈ 3c ≈ training); **centroid is the dominant error** (partial-centroid wrecks it even with true radius; GT-centroid recovers full quality). PCA is pure harm. bbox-centroid recovers ~70% of the centroid gap (residual = width-axis occlusion bias).
+
+**Step 2 — real seq-08 static cars (single-frame velodyne clusters, 40–300 pts):**
+- `pcn_best` and `pcn_kitti` via `complete()` → **round blobs** on every example (reproduces the documented failure).
+- A **corrected** inference path (no PCA; reorient gravity→Y, length→Z; scale ×1.137; full-car-center estimate via bbox + ego-direction width prior) → **de-blobbed, car-footprint-shaped** completions; occasionally a clean car silhouette (track 107, 197 pts). Not uniformly crisp on the sparsest one-sided inputs (residual flatness = remaining domain gap + imperfect center estimate).
+- **The static-car pseudo-GT metric is invalid for completion.** Accumulated LiDAR is itself one-sided (never sees occluded surfaces), so CD/F-score *reward under-completion*: the raw partial scored the **lowest** CD in every example. Quantitative completion evidence must come from synthetic (true GT exists); real-data assessment is qualitative. Renders: `output/verify_pcn_step2/`.
+
+**Conclusion:** The KITTI-like data fix (Finding #15–19 line of work) **worked** — the model produces clean cars in-distribution. The "blobs on real data" were **primarily an inference-normalization bug in `completion.py complete()`** (3D PCA + partial-radius/centroid), not a data-domain failure. The planned pivot to PoinTr was based on a false premise (the model was never the bottleneck the blobs implied).
+
+**Decision / next steps:**
+1. **Fix the inference path first.** Port the corrected normalization into `completion.py complete()` (remove PCA; reorient; scale ×1.137; estimate full-car center). This is the real fix and a general bug — `complete()` also degrades `pcn_best`. Validate before wiring into `main.py`.
+2. **PoinTr / PoinTr++ remain on the table** — not as a rescue for "broken PCN," but as a potential *quality* upgrade once inference is fixed and PCN sets the fair baseline. Transformer completers handle severe one-sided partiality better and may close the residual real-data crispness gap. Decide after seeing fixed-PCN quality on real clusters.
+3. Other candidates to close the residual gap (future work): better center estimation, or light fine-tuning on real partials. Headline question (data vs inference) is resolved.
+
+## 27. Completion Quality Is Gated by Input Cleanliness, Not Heading (2026-06-27)
+
+**Context:** After porting the fixed `complete()` and wiring single-frame completion into `main.py` (Finding #26 follow-up), a full seq-08 run still showed some dense tracks completing poorly while sparse ones completed well. Initial hypothesis: the reorientation's heading axis (major horizontal PCA eigenvector) is ambiguous on near-square / two-face BEV footprints, so dense-but-square cars get a wrong heading → bad completion. Proposed fix: replace PCA heading with search-based **L-shape fitting** (Zhang et al. 2017; `docs/An Efficient L-Shape Fitting Method…md`).
+
+**Hypothesis / metric:** L-shape heading → more plausible completed cars than PCA heading. Metric: fraction of completed car tracks whose L/W/H falls in a car box (L∈[3.3,4.9], W∈[1.5,2.1], H∈[1.1,1.7]).
+
+**Method:** Added `_lshape_axes()` (closeness criterion, 1° search) and `_pca_axes()` to `completion.py`; added `--heading-method {lshape,pca}` to `main.py`. Ran the 300-frame seq-08 demo three ways into separate output dirs (`output/08_ab_pca`, `08_ab_lshape`, `08_ab_gated`). A/B scripts: `scratchpad/ab_heading.py`.
+
+**Synthetic sanity (rotated corner-view L, true heading 125°):** PCA → 141° (16° off; inflates W 1.72 / L 4.34 as eigenvectors pull toward the L diagonal). L-shape → **125° exact**, recovers L/W = 4.00/1.80. So L-shape *is* the better estimator in principle.
+
+**Real-data heading A/B — NEGATIVE.** PCA vs L-shape is a wash on seq-08: **18/47 plausible cars either way**, mean L/W/H unchanged (3.29/2.03/1.54 vs 3.26/2.07/1.53), 2 tracks gained / 2 lost. The dense-poor tracks flagged by eye were **not heading failures**:
+- **tid 301** (2864 pts, the original example) — footprint is already elongated (X–Z 1.83×4.49); completes into a real car (~4.2×2.0×1.4) in *both* methods. The earlier "square footprint" call was an artifact: partials are saved in the **global camera frame (Y-up)**, so the true top-down BEV is **X–Z**, not X–Y — the old `diag_footprints.py`/`diag_orientation.py` plotted a side elevation.
+- **tid 762** — a 1.4 m fragment, not a whole car.
+- **tid 884** — a 2.85 m-wide merge of two cars.
+
+**What the data actually shows — input gating.** The L-shape fit's real value is the fitted footprint (length, width), which cleanly separates good from bad completions. Of 47 completed tracks:
+
+| input gate (fitted footprint) | n | plausible-car outputs |
+|---|---|---|
+| FRAGMENT (fit length < 2.7 m) | 15 | **0** |
+| MERGE (fit width > 2.3 m) | 7 | **0** |
+| CLEAN (else) | 26 | **18** (69%) |
+
+Every implausible completion has a detectable bad input. Enabling the gate (`COMPLETION_FRAGMENT_MIN_LENGTH=2.7`, `COMPLETION_MERGE_MAX_WIDTH=2.3`) drops completions 47→26 but **retains all 18 plausible cars**, lifting completion precision **38% → 69%** (`output/08_ab_gated`: 26/62 completed; skips 14 fragment + 7 merge + 15 too_few_points).
+
+**Conclusion:** Completion quality on real data is bottlenecked by **input cleanliness, not heading estimation**. The bad inputs are fragments and merges leaked by upstream HDBSCAN (consistent with the Finding #23 split/merge characterization). The L-shape fit is kept — repurposed as the input gate (and as the default heading, which is principled and free, just not a quality lever).
+
+**Decision / next steps:**
+1. **Gate is wired and on by default** in `completion.py`. Heading default = `lshape`.
+2. The residual 8/26 implausible CLEAN completions (e.g. 110, 1905, 12, 1933) are the genuine completion-model error — the place where PoinTr or better center estimation could still help.
+3. Methodology note: any future BEV/footprint diagnostic on pipeline output **must use the X–Z plane** (global camera frame is Y-up). Pseudo-GT CD remains invalid (Finding #26).

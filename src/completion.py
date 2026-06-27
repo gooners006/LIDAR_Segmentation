@@ -168,10 +168,59 @@ PCN_N_INPUT = 256
 PCN_NUM_COARSE = 1024
 PCN_GRID_SIZE = 2
 
+# Corrected-inference constants, calibrated on synthetic val cars (Finding #26,
+# scratchpad/verify_pcn_step1.py). The model trains in a canonical car frame
+# (X=width, Y=up, Z=length) centered on the GT centroid and normalized by the GT
+# radius. complete() must reproduce that normalization from a partial observation:
+#   - COMPLETION_SCALE_CORRECTION: median partial_radius / gt_radius. The partial
+#     radius (from a one-sided view) systematically over/under-estimates the true
+#     GT radius; divide by this to recover the training scale.
+#   - COMPLETION_CAR_WIDTH_PRIOR: assumed full car width (m). The occluded far side
+#     is unobserved, so push the center toward it to the half-width prior.
+#   - COMPLETION_UP_SHIFT: ground removal cuts the lower body, biasing the bbox
+#     center upward; shift it back down. This is the dominant center correction.
+COMPLETION_SCALE_CORRECTION = 1.137
+COMPLETION_CAR_WIDTH_PRIOR = 1.9
+COMPLETION_UP_SHIFT = 0.25
+
+# Heading estimation for the canonical-frame reorientation. The major horizontal
+# PCA axis is ambiguous on near-square / two-face / merged BEV footprints (dense
+# but poorly-completed tracks, e.g. seq-08 tid 301/762/884): the eigenvectors no
+# longer align with the car body, so length/width get swapped or rotated ~45 deg.
+# Search-based L-shape fitting (Zhang et al. 2017, "Efficient L-Shape Fitting for
+# Vehicle Detection Using Laser Scanners") scores edge adherence instead of
+# variance spread, so it locks onto the true rectangle even when it isn't
+# elongated. "lshape" is the default; "pca" is kept for A/B comparison.
+COMPLETION_HEADING_METHOD = "lshape"
+# Number of yaw samples in [0, pi/2) for the L-shape search (1 deg resolution).
+COMPLETION_LSHAPE_ANGLES = 90
+# Input-quality gate from the L-shape footprint fit. Validated on seq-08 (A/B
+# run, scratchpad/ab_heading.py): of 47 completed car tracks, every implausible
+# completion came from a fragment or merge input, and gating them lifts
+# completion precision from 18/47 to 18/26. Heading (lshape vs pca) is neutral on
+# real data; the fit's real value is detecting these bad inputs.
+#   - COMPLETION_FRAGMENT_MIN_LENGTH: fitted footprint length (m) below which the
+#     cluster is a fragment, not a whole car (0/15 plausible below 2.7 m).
+#   - COMPLETION_MERGE_MAX_WIDTH: fitted footprint width (m) above which the
+#     cluster is two merged cars / a 90-deg error (0/7 plausible above 2.3 m).
+# Set either to None to disable that gate.
+COMPLETION_FRAGMENT_MIN_LENGTH = 2.7
+COMPLETION_MERGE_MAX_WIDTH = 2.3
+
 
 class PointCloudCompleter:
-    def __init__(self, model_path: Optional[str] = None, seed: int = 0):
+    def __init__(
+        self,
+        model_path: Optional[str] = None,
+        seed: int = 0,
+        heading_method: str = COMPLETION_HEADING_METHOD,
+        merge_max_width: Optional[float] = COMPLETION_MERGE_MAX_WIDTH,
+        fragment_min_length: Optional[float] = COMPLETION_FRAGMENT_MIN_LENGTH,
+    ):
         self.model_path = model_path
+        self.heading_method = heading_method
+        self.merge_max_width = merge_max_width
+        self.fragment_min_length = fragment_min_length
         self._model = None
         self._device = None
         self._rng = np.random.default_rng(seed)
@@ -216,42 +265,127 @@ class PointCloudCompleter:
         return np.vstack([pts, pts[pad_idx]])
 
     @staticmethod
-    def _pca_axes(pts: np.ndarray) -> np.ndarray:
-        """Principal axes as columns, sorted by descending eigenvalue (right-handed)."""
-        cov = np.cov(pts.T)
-        eigenvalues, eigenvectors = np.linalg.eigh(cov)
-        order = eigenvalues.argsort()[::-1]
-        axes = eigenvectors[:, order]
-        if np.linalg.det(axes) < 0:
-            axes[:, 2] *= -1
-        return axes
+    def _pca_axes(xy: np.ndarray) -> tuple[np.ndarray, np.ndarray, float, float]:
+        """Length/width axes from the horizontal PCA eigenvectors (legacy).
+
+        Returns (length_dir, width_dir, length_extent, width_extent). The length
+        axis is the major eigenvector; extents are the point spread along each.
+        """
+        cov = xy.T @ xy
+        w, v = np.linalg.eigh(cov)
+        len_dir = v[:, int(np.argmax(w))]
+        wid_dir = np.array([-len_dir[1], len_dir[0]])
+        e_len = xy @ len_dir
+        e_wid = xy @ wid_dir
+        return (len_dir, wid_dir,
+                float(e_len.max() - e_len.min()),
+                float(e_wid.max() - e_wid.min()))
+
+    @staticmethod
+    def _lshape_axes(
+        xy: np.ndarray, n_angles: int = COMPLETION_LSHAPE_ANGLES, d0: float = 0.01
+    ) -> tuple[np.ndarray, np.ndarray, float, float]:
+        """Length/width axes by search-based L-shape fitting (Zhang et al. 2017).
+
+        Rotates a bounding rectangle through yaw in [0, pi/2) and scores each
+        angle by the *closeness* criterion: every point is bounded by two pairs
+        of parallel edges, so its distance to the nearest edge (in whichever of
+        the two directions is closer) should be small if the rectangle is aligned
+        with the car body. Summing 1/distance rewards points hugging the edges,
+        which stays well-defined even when the footprint isn't elongated (where
+        PCA degenerates). Returns (length_dir, width_dir, length_extent,
+        width_extent); the longer rectangle side is the length axis.
+        """
+        thetas = np.linspace(0.0, np.pi / 2.0, n_angles, endpoint=False)
+        best_score, best_t = -np.inf, 0.0
+        for t in thetas:
+            ct, st = np.cos(t), np.sin(t)
+            c1 = xy[:, 0] * ct + xy[:, 1] * st
+            c2 = -xy[:, 0] * st + xy[:, 1] * ct
+            d1 = np.minimum(c1.max() - c1, c1 - c1.min())
+            d2 = np.minimum(c2.max() - c2, c2 - c2.min())
+            d = np.maximum(np.minimum(d1, d2), d0)
+            score = float(np.sum(1.0 / d))
+            if score > best_score:
+                best_score, best_t = score, t
+
+        ct, st = np.cos(best_t), np.sin(best_t)
+        u1 = np.array([ct, st])
+        u2 = np.array([-st, ct])
+        ext1 = float(np.ptp(xy @ u1))
+        ext2 = float(np.ptp(xy @ u2))
+        if ext1 >= ext2:
+            return u1, u2, ext1, ext2
+        return u2, u1, ext2, ext1
 
     def complete(
         self, partial_xyz: np.ndarray, class_label: str
     ) -> tuple[np.ndarray, Optional[str]]:
-        """Complete a partial point cloud using PCN.
+        """Complete a single-frame partial car cluster using PCN.
+
+        ``partial_xyz`` must be a single-frame observation in the **sensor frame**
+        (Z = gravity up, ego at the origin), not accumulated multi-frame points.
+        The completed cloud is returned in the same sensor frame.
+
+        Reproduces the training normalization from the partial (Finding #26): the
+        old PCA + partial-centroid + partial-radius path was never seen in
+        training and produced blobs. Instead we reorient to the canonical car
+        frame (X=width, Y=up, Z=length), estimate the full-car center, and
+        normalize by a scale-corrected radius.
 
         Returns (output_points, skip_reason). skip_reason is None on success.
-        class_label is currently unused; reserved for future class-specific completers.
+        class_label is currently unused; the priors below are car-specific (the
+        pipeline only completes cars).
         """
         if self._model is None:
             return partial_xyz.astype(np.float32), "model_not_loaded"
 
-        pts = np.asarray(partial_xyz, dtype=np.float32)
-        if len(pts) == 0:
-            return pts, "empty_input"
+        pts = np.asarray(partial_xyz, dtype=np.float64)
+        if len(pts) < 16:
+            return pts.astype(np.float32), "too_few_points"
 
-        centroid = pts.mean(axis=0)
-        pts_centered = pts - centroid
-        radius = float(np.linalg.norm(pts_centered, axis=1).max())
+        # Reorient sensor frame -> canonical car frame (X=width, Y=up, Z=length).
+        # Gravity (sensor +Z) maps to the canonical up axis; the horizontal
+        # heading axis (from L-shape fitting, or PCA for A/B) maps to length.
+        xy = pts[:, :2] - pts[:, :2].mean(0)
+
+        # Input-quality gate from the L-shape footprint (computed independently of
+        # the heading choice so the gate is consistent). Fragments and merges
+        # never complete into plausible cars, so skip them rather than emit junk.
+        ls_len_dir, _, fit_length, fit_width = self._lshape_axes(xy)
+        if self.fragment_min_length is not None and fit_length < self.fragment_min_length:
+            return pts.astype(np.float32), "fragment_input"
+        if self.merge_max_width is not None and fit_width > self.merge_max_width:
+            return pts.astype(np.float32), "merge_suspected"
+
+        if self.heading_method == "pca":
+            len_dir, _, _, _ = self._pca_axes(xy)
+        else:
+            len_dir = ls_len_dir
+        norm = np.linalg.norm(len_dir)
+        if norm < 1e-9:
+            return pts.astype(np.float32), "degenerate_orientation"
+        e_len = np.array([len_dir[0] / norm, len_dir[1] / norm, 0.0])
+        e_wid = np.array([-e_len[1], e_len[0], 0.0])         # perpendicular in ground
+        e_up = np.array([0.0, 0.0, 1.0])
+        basis = np.column_stack([e_wid, e_up, e_len])        # sensor -> canonical
+        pts_c = pts @ basis
+
+        # Full-car center estimate from a one-sided partial:
+        #   - up axis (Y): shift the bbox center down to undo the ground-cut bias
+        #   - width axis (X): push toward the occluded far-from-ego side to the
+        #     car-width prior (sign of bbox-center X = direction away from ego)
+        center = 0.5 * (pts_c.min(0) + pts_c.max(0))
+        center[1] -= COMPLETION_UP_SHIFT
+        sign = np.sign(center[0]) if abs(center[0]) > 1e-9 else 1.0
+        observed_w = pts_c[:, 0].max() - pts_c[:, 0].min()
+        center[0] += sign * max(0.5 * COMPLETION_CAR_WIDTH_PRIOR - 0.5 * observed_w, 0.0)
+
+        radius = float(np.linalg.norm(pts_c - center, axis=1).max()) / COMPLETION_SCALE_CORRECTION
         if radius < 1e-6:
-            return pts, "degenerate_radius"
+            return pts.astype(np.float32), "degenerate_radius"
 
-        # PCA alignment: rotate longest axis to X for canonical orientation
-        axes = self._pca_axes(pts_centered)
-        pts_aligned = pts_centered @ axes
-
-        pts_norm = pts_aligned / radius
+        pts_norm = ((pts_c - center) / radius).astype(np.float32)
         pts_fixed = self._fix_size(pts_norm, PCN_N_INPUT, self._rng)
 
         import torch
@@ -260,8 +394,9 @@ class PointCloudCompleter:
             _, fine = self._model(inp)
             fine_np = fine.squeeze(0).cpu().numpy()
 
-        # Undo: scale → undo PCA rotation → undo centering
-        completed = (fine_np * radius @ axes.T + centroid).astype(np.float32)
+        # Un-normalize in the canonical frame, then rotate back to the sensor frame.
+        pred_c = fine_np * radius + center
+        completed = (pred_c @ basis.T).astype(np.float32)
         return completed, None
 
 

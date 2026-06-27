@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-06-26
+Last updated: 2026-06-27
 
 ## Current Architecture
 
@@ -11,7 +11,7 @@ Last updated: 2026-06-26
 | 5 | Geometric filtering (ground-plane-relative) | `src/pipeline.py` | Tuned |
 | 6 | Classification (dual-branch PointNet, binary car/not-car) | `src/classifier.py` | Binary Stage B trained |
 | — | Centroid tracker + track-level filtering | `src/tracker.py`, `src/evaluate.py` | Working |
-| 7 | Point completion | `src/pcn.py`, `src/completion.py` | PCN trained on KITTI-like partials (pcn_kitti_best); real-data quality unverified |
+| 7 | Point completion | `src/pcn.py`, `src/completion.py` | Fixed inference (#26); single-frame completion in `main.py`; L-shape input gate (#27) → completion precision 38%→69% |
 
 Key files: `src/main.py` (runner), `src/evaluate.py` (metrics + sweep flags), `src/visualize_gt.py` (GT vs pipeline toggle viz), `src/train_classifier.py`, `src/mine_stage_b.py`, `src/analyze_clustering.py` (filter ablation + merge/split), `src/explore_merge_strategies.py` (recall strategy exploration).
 
@@ -68,35 +68,70 @@ All disabled by default, CLI-toggleable for documentation:
 - `--merge-fragments` — post-clustering fragment merge
 - `--adaptive-hdbscan` — distance-ring HDBSCAN with per-ring MCS
 
-## Completion — KITTI-like PCN trained, verdict pending
+## Completion — KITTI-like PCN VERIFIED; the blobs were an inference bug (Finding #26)
 
 Root cause of prior PCN failures (#15-19): synthetic partials were OOD from the
 real post-pipeline input (voxelized 0.05 m, ground-removed, single-viewpoint).
 Built a KITTI-like single-view partial generator (`_render_kitti_like` in
 `src/train_pcn.py`, `--kitti-like`; see `docs/pcn/kitti_like_partial.md`) and
-trained PCN on it: `checkpoints/pcn_kitti_best.pth`, best val 0.1246, clean
-convergence (plateau ~epoch 55).
+trained PCN on it: `checkpoints/pcn_kitti_best.pth`, best val 0.1246.
 
-**Status: unverified on real data.** A quick `test_single_frame_pcn.py` look on
-seq-08 still produced blobs, but on the densest cluster with a single-view render
-and no metric — not a valid test. Completion targets SINGLE-FRAME clusters, not
-accumulated tracks (those are motion smears).
+**Verdict (Finding #26): the data fix WORKED.** In-distribution synthetic eval is
+clean (CD 0.16 m, F@0.1m 0.76 — real cars, not blobs). The "blobs on real data"
+were **primarily an inference-normalization bug in `completion.py complete()`**:
+it applies **3D PCA alignment + partial-radius/partial-centroid** normalization
+that the model never saw in training (this breaks *every* PCN checkpoint, incl.
+`pcn_best` — 3.5× worse CD even on in-distribution input). A corrected inference
+path (no PCA; reorient gravity→Y, length→Z; scale ×1.137; full-car-center
+estimate) de-blobs real seq-08 clusters into car-footprint shapes (see
+`output/verify_pcn_step2/`). Scripts: `scratchpad/verify_pcn_step1.py` (synthetic,
+calibration + ablation), `scratchpad/verify_pcn_step2.py` (real, multi-view + pseudo-GT).
+
+Key sub-findings: scale is solved by the ×1.137 factor; **centroid estimation is
+the dominant residual error**; training's `_augment_rotation` is roll-invariance
+(about the length axis), not yaw. The static-car pseudo-GT metric is **invalid**
+for completion — accumulated LiDAR is itself one-sided, so CD rewards
+under-completion (raw partial scored lowest CD on every real example).
 
 ## Checkpoints
 
 - `checkpoints/stage_b_best.pth` — binary Stage B classifier (current best)
 - `checkpoints/classifier_best.pth` — binary Stage A classifier
-- `checkpoints/pcn_kitti_best.pth` — PCN on KITTI-like partials (real quality unverified)
+- `checkpoints/pcn_kitti_best.pth` — PCN on KITTI-like partials (used by fixed `complete()`)
 - `checkpoints/pcn_best.pth` — prior PCN (blobs on real data, #15-19)
 
 ## Immediate Next Steps
 
-1. **Verify KITTI-like PCN on real data** — proper eval: sparse seq-08 clusters
-   (40-300 pts), top-down+side views, multiple examples, vs `pcn_best`. Record as
-   Finding #26. If still blobs, the data fix failed → reconsider PoinTr. If good →
-   wire into `main.py` (single representative frame, not accumulated `all_pts`).
-2. **Thesis writing** — pipeline description, experiment results, discussion of recall ceiling
-3. **Pipeline diagram** for thesis report
+1. ~~Verify KITTI-like PCN on real data~~ — DONE (Finding #26). Data fix worked;
+   blobs were an inference-normalization bug.
+2. ~~Fix `completion.py complete()` + wire single-frame completion into `main.py`~~
+   — DONE. Ported the corrected normalization (removed 3D PCA; reorient
+   gravity→up, major horizontal axis→length; scale ×1.137; full-car-center
+   estimate with up-shift + ego-side width push). Verified bit-for-bit identical
+   to the validated step-2 path (`scratchpad/validate_completion_port.py`, max
+   |Δ|=0). `main.py` now completes each track's **densest single frame** in the
+   sensor frame and maps the result back to global (was: accumulated `all_pts`
+   smear in global frame). End-to-end seq-08/100f: 18/29 car tracks completed
+   (11 skipped `too_few_points`, single-frame <64 pts); outputs are car-sized
+   (L≈3.5–4.2 m, W≈1.8 m, H≈1.3–1.5 m). Constants live in `completion.py`
+   (`COMPLETION_SCALE_CORRECTION/CAR_WIDTH_PRIOR/UP_SHIFT`).
+3. ~~Heading A/B (PCA vs L-shape) + input gating~~ — DONE (Finding #27).
+   Heading method is **neutral** on real data (18/47 plausible cars either way);
+   the dense-poor tracks were bad *inputs* (fragments/merges), not heading
+   failures. Repurposed the L-shape fit as an **input-quality gate** (skip
+   fragments fit-len<2.7 m and merges fit-width>2.3 m): completion precision
+   38%→69%, all plausible cars retained (`output/08_ab_gated`). Gate is on by
+   default in `completion.py`; heading default = `lshape`. **Methodology:** BEV
+   diagnostics must use the X–Z plane (global frame is Y-up).
+4. **Re-run full seq-08 with the gate on** — the current full `output/08`
+   (884 tracks) predates the input gate; regenerate with
+   `--seq 08 --frames 5000` for production output.
+5. **(Optional) PoinTr / PoinTr++** — the remaining lever is the 8/26 implausible
+   *clean*-input completions (genuine model error), not heading or gating.
+   Transformer completers handle severe one-sided partiality better. Decide
+   whether completion is a headline contribution or a working component.
+6. **Thesis writing** — pipeline description, experiment results, discussion of recall ceiling
+7. **Pipeline diagram** for thesis report
 
 ## Medium-Term Backlog
 

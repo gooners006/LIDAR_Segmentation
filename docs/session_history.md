@@ -1053,3 +1053,59 @@ The ~0.74 recall ceiling is confirmed as a hard limit of density-based clusterin
 - Recreate `.venv` in place (Python 3.10.11) for the permanent pip-launcher fix.
 - Open follow-up (`kitti_like_partial.md`): `main.py` must run completion on a
   single representative frame per track, not accumulated `all_pts` (a smear).
+
+---
+# Session — 2026-06-27
+
+## What was done
+
+### Completion inference fix ported + wired (Finding #26 follow-up, earlier in session)
+- Ported the corrected normalization into `src/completion.py complete()`: removed
+  3D PCA; reorient gravity→Y / length→Z; scale ×1.137; full-car-center estimate
+  (up-shift + ego-side width push). Constants `COMPLETION_SCALE_CORRECTION/
+  CAR_WIDTH_PRIOR/UP_SHIFT`. Validated bit-for-bit vs the step-2 path.
+- `src/main.py`: completion now runs on each track's **densest single frame** in
+  the sensor frame (global↔sensor via `track_transforms`), mapped back to global;
+  saves `<tid>_partial.ply`; added `--out-tag`; `--pcn-ckpt` default →
+  `pcn_kitti_best.pth`.
+
+### L-shape heading A/B + input gating (Finding #27)
+- Read `docs/An Efficient L-Shape Fitting Method…md` (Qu et al. 2017). Implemented
+  search-based L-shape fit `_lshape_axes()` (closeness criterion, 1° search) and
+  `_pca_axes()` in `completion.py`; added `--heading-method {lshape,pca}` to `main.py`.
+- Ran 300-frame seq-08 demo three ways: `output/08_ab_pca`, `output/08_ab_lshape`,
+  `output/08_ab_gated` (`--seq 08 --frames 300 --out-tag _ab_* --heading-method *`).
+- A/B script `scratchpad/ab_heading.py` (BEV uses **X–Z** ground plane: global frame
+  is Y-up). Fixed a NumPy 2.0 `.ptp()` removal in `_lshape_axes`.
+- Enabled the input gate by default: `COMPLETION_FRAGMENT_MIN_LENGTH=2.7`,
+  `COMPLETION_MERGE_MAX_WIDTH=2.3` → `complete()` returns `fragment_input` /
+  `merge_suspected`; `main.py` records `completion_skip_reason`.
+
+## Files changed (git)
+- Modified: `src/completion.py`, `src/main.py`, `docs/findings.md`,
+  `docs/project_state.md`
+- New (untracked): `docs/An Efficient L-Shape Fitting Method…md`,
+  `scratchpad/ab_heading.py` (+ other scratch diagnostics)
+- Experiment artifacts (gitignored `output/`): `output/08_ab_pca`,
+  `output/08_ab_lshape`, `output/08_ab_gated`, `output/ab_heading.png`
+- Unrelated untracked files present but NOT part of this session:
+  `.agents/skills/thesis-reviewer/`, `DepthCamera_*.json`, `DepthCapture_*.png`
+
+## Results / findings (Finding #27)
+- Synthetic sanity: L-shape recovers exact heading (125° vs PCA's 141°, 16° off).
+- **Heading A/B on real data: NEGATIVE** — PCA vs L-shape a wash (18/47 plausible
+  cars either way, mean L/W/H unchanged). Dense-poor tracks were bad *inputs*:
+  301 actually fine, 762 a fragment, 884 a merge. Earlier misdiagnosis came from
+  plotting X–Y (side view) instead of X–Z.
+- **Input gating: the win** — fragments (0/15) and merges (0/7) never complete into
+  plausible cars. Gate drops completions 47→26 but retains all 18 good cars →
+  completion precision **38% → 69%** (`output/08_ab_gated`: 26/62; skips 14
+  fragment + 7 merge + 15 too_few_points).
+
+## Next
+- Optional: re-run full `output/08` (`--seq 08 --frames 5000`) with the gate on
+  (current full run predates the gate).
+- Residual lever: the 8/26 implausible *clean*-input completions (genuine PCN
+  error) — PoinTr / better center estimation.
+- Methodology: BEV/footprint diagnostics must use the X–Z plane.
+- Carry-over: recreate `.venv` in place (Python 3.10.11) for the pip-launcher fix.
