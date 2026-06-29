@@ -122,14 +122,31 @@ under-completion (raw partial scored lowest CD on every real example).
    fragments fit-len<2.7 m and merges fit-width>2.3 m): completion precision
    38%→69%, all plausible cars retained (`output/08_ab_gated`). Gate is on by
    default in `completion.py`; heading default = `lshape`. **Methodology:** BEV
-   diagnostics must use the X–Z plane (global frame is Y-up).
-4. **Re-run full seq-08 with the gate on** — the current full `output/08`
-   (884 tracks) predates the input gate; regenerate with
-   `--seq 08 --frames 5000` for production output.
-5. **(Optional) PoinTr / PoinTr++** — the remaining lever is the 8/26 implausible
-   *clean*-input completions (genuine model error), not heading or gating.
-   Transformer completers handle severe one-sided partiality better. Decide
-   whether completion is a headline contribution or a working component.
+   diagnostics use the X–Z horizontal plane; the vertical axis is Y but the
+   frame is **Y-down** (world up = −Y; `poses @ Tr` sends sensor +Z to
+   (0, −1, 0)), so side-elevation plots must negate Y. See Finding #27 note 3.
+4. ~~Re-run full seq-08 with the gate on~~ — DONE. Regenerated `output/08`
+   with `--seq 08 --frames 5000` (4071 frames; pre-gate output preserved at
+   `output/08_pregate`). 1005 accepted car tracks; **518 completed** (was 884
+   pre-gate). The gate diverted 365 low-quality inputs from completion
+   (294 `fragment_input`, 71 `merge_suspected`); plus 122 `too_few_points`.
+   Skipped tracks are still saved as raw partial points. Accepted-track count
+   unchanged (1005 vs 1006), confirming the gate filters what gets completed,
+   not what gets detected.
+5. **PoinTr completion — IN PROGRESS.** Targets the 8/26 implausible
+   *clean*-input completions (genuine PCN model error), not heading or gating;
+   transformer completers handle severe one-sided partiality better. Faithful,
+   self-contained PoinTr core implemented (`src/pointr.py`, 8.9M params: FPS+DGCNN
+   point proxies, geometry-aware block on the 1st enc/dec layer per the paper's
+   model-E ablation, dynamic query generator, per-proxy FoldingNet,
+   predict-missing-then-concat-input; loss = CD(coarse,GT)+CD(fine,GT), exact —
+   no subsample). Trains via `src/train_pointr.py --kitti-like`, reusing
+   `ShapeNetCompletionDataset`/`_render_kitti_like` verbatim so it shares the PCN
+   baseline's data; AdamW lr 5e-4, batch 16 (~3.8 GB VRAM), 100 epochs →
+   `checkpoints/pointr_kitti_best.pth`. `completion.py _load_model()` dispatches
+   PoinTr vs PCN by checkpoint (`pointr_config` key); `complete()` is unchanged.
+   **Next: finish training, then compare vs PCN (val CD/F-score, then real seq-08
+   plausibility) per the experiment protocol before deciding to swap.**
 6. **Thesis writing** — pipeline description, experiment results, discussion of recall ceiling
 7. **Pipeline diagram** for thesis report
 

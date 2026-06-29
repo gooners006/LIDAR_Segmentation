@@ -233,19 +233,40 @@ class PointCloudCompleter:
 
     def _load_model(self, path: str):
         import torch
-        from pcn import PCN
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         ckpt = torch.load(path, map_location=device, weights_only=False)
 
-        cfg = ckpt.get("config", {})
-        if cfg.get("coarse_n_points", PCN_NUM_COARSE) != PCN_NUM_COARSE:
-            raise ValueError(
-                f"Checkpoint coarse_n_points={cfg['coarse_n_points']} "
-                f"!= expected {PCN_NUM_COARSE}"
-            )
+        # Dispatch on checkpoint type. PoinTr checkpoints carry a "pointr_config";
+        # PCN checkpoints do not. Both expose the same forward(partial)->(coarse,
+        # fine) contract and consume a PCN_N_INPUT-point partial, so complete()
+        # is model-agnostic below.
+        if "pointr_config" in ckpt:
+            from pointr import PoinTr
 
-        model = PCN(num_coarse=PCN_NUM_COARSE, grid_size=PCN_GRID_SIZE).to(device)
+            pc = ckpt["pointr_config"]
+            model = PoinTr(
+                num_proxies=pc["num_proxies"],
+                num_query=pc["num_query"],
+                trans_dim=pc["trans_dim"],
+                num_heads=pc["num_heads"],
+                enc_depth=pc["enc_depth"],
+                dec_depth=pc["dec_depth"],
+                grid_size=pc["grid_size"],
+                knn_dgcnn=pc["knn_dgcnn"],
+                knn_geo=pc["knn_geo"],
+            ).to(device)
+        else:
+            from pcn import PCN
+
+            cfg = ckpt.get("config", {})
+            if cfg.get("coarse_n_points", PCN_NUM_COARSE) != PCN_NUM_COARSE:
+                raise ValueError(
+                    f"Checkpoint coarse_n_points={cfg['coarse_n_points']} "
+                    f"!= expected {PCN_NUM_COARSE}"
+                )
+            model = PCN(num_coarse=PCN_NUM_COARSE, grid_size=PCN_GRID_SIZE).to(device)
+
         model.load_state_dict(ckpt["model_state_dict"])
         model.eval()
         self._model = model

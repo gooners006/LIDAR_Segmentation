@@ -652,7 +652,7 @@ Completion quality (Chamfer in metres, F-score @0.1 m; same partials, three infe
 **Synthetic sanity (rotated corner-view L, true heading 125°):** PCA → 141° (16° off; inflates W 1.72 / L 4.34 as eigenvectors pull toward the L diagonal). L-shape → **125° exact**, recovers L/W = 4.00/1.80. So L-shape *is* the better estimator in principle.
 
 **Real-data heading A/B — NEGATIVE.** PCA vs L-shape is a wash on seq-08: **18/47 plausible cars either way**, mean L/W/H unchanged (3.29/2.03/1.54 vs 3.26/2.07/1.53), 2 tracks gained / 2 lost. The dense-poor tracks flagged by eye were **not heading failures**:
-- **tid 301** (2864 pts, the original example) — footprint is already elongated (X–Z 1.83×4.49); completes into a real car (~4.2×2.0×1.4) in *both* methods. The earlier "square footprint" call was an artifact: partials are saved in the **global camera frame (Y-up)**, so the true top-down BEV is **X–Z**, not X–Y — the old `diag_footprints.py`/`diag_orientation.py` plotted a side elevation.
+- **tid 301** (2864 pts, the original example) — footprint is already elongated (X–Z 1.83×4.49); completes into a real car (~4.2×2.0×1.4) in *both* methods. The earlier "square footprint" call was an artifact: partials are saved in the **global frame whose horizontal plane is X–Z** (vertical axis = Y), so the true top-down BEV is **X–Z**, not X–Y — the old `diag_footprints.py`/`diag_orientation.py` plotted a side elevation.
 - **tid 762** — a 1.4 m fragment, not a whole car.
 - **tid 884** — a 2.85 m-wide merge of two cars.
 
@@ -671,4 +671,4 @@ Every implausible completion has a detectable bad input. Enabling the gate (`COM
 **Decision / next steps:**
 1. **Gate is wired and on by default** in `completion.py`. Heading default = `lshape`.
 2. The residual 8/26 implausible CLEAN completions (e.g. 110, 1905, 12, 1933) are the genuine completion-model error — the place where PoinTr or better center estimation could still help.
-3. Methodology note: any future BEV/footprint diagnostic on pipeline output **must use the X–Z plane** (global camera frame is Y-up). Pseudo-GT CD remains invalid (Finding #26).
+3. Methodology note: any future BEV/footprint diagnostic on pipeline output **must use the X–Z plane** (the global frame's horizontal ground plane). **Vertical axis is Y, but world up = −Y (the frame is Y-down): `poses @ Tr` maps sensor +Z to (0, −1, 0).** So side-elevation plots must negate Y or matplotlib draws cars upside down. (This corrects the earlier "Y-up" label, which only verified the X–Z horizontal plane, not the sign of Y.) Pseudo-GT CD remains invalid (Finding #26).
