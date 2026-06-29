@@ -98,12 +98,14 @@ The most involved thread and where active work lives:
    an **L-shape input gate** (reject fit-length < 2.7 m fragments, fit-width > 2.3 m
    merges). Lifted completion precision **38% → 69%**, retaining all 18 plausible cars.
    The residual 8/26 implausible *clean* completions are genuine model error.
-4. **PoinTr (in progress):** to attack those 8/26 genuine model errors, a faithful
-   self-contained **PoinTr** (transformer completer, 8.9M params) was implemented and is
-   **training in the background** (epoch ~3/100; already beating PCN's cd_fine baseline).
-   It reuses PCN's exact dataset for a clean comparison; `completion.py` dispatches PoinTr
-   vs PCN by checkpoint. **No verdict yet** — the comparison-vs-PCN per protocol is the
-   pending step.
+4. **PoinTr — done, verdict keep PCN (Finding #28):** a faithful self-contained
+   **PoinTr** (transformer completer, 8.9M params) was implemented and trained on PCN's
+   exact dataset for a clean one-variable comparison. **Synthetic: decisive PoinTr win**
+   (val cd_fine 0.063 vs 0.125; F@0.1 0.99 vs 0.76). **Real seq-08: a wash** — same
+   26/62 clean-gated tracks, plausible-car rate 16/26 vs PCN's 18/26 (the gap is
+   height-threshold noise), near-identical BEV footprints. The synthetic gain **does not
+   transfer** to real one-sided LiDAR — both models hit the same partiality-gap and
+   centroid-estimation ceiling, not a capacity limit. Kept PCN as production.
 
 ## 4. Where things stand now
 
@@ -154,13 +156,13 @@ splitting from Storyline 2. Strength: genuinely instructive, shows scientific ma
 the "invalid pseudo-GT metric" insight is publishable-grade. Risk: it's a story about
 *process*, so it needs at least one concrete positive completion result to anchor it.
 
-### Storyline 4 — "Transformer completion as the upgrade" (highest upside, unproven)
-If PoinTr beats PCN on the residual 8/26 clean-input errors, the thesis gets a forward-
-looking contribution: a self-contained, CUDA-free PoinTr that completes real one-sided
-LiDAR car scans where a folding-decoder PCN cannot. Spine: classical pipeline produces
-clean car partials → transformer completer reconstructs full geometry. Strength: a positive,
-modern result. Risk: entirely contingent on the comparison currently running — do **not**
-commit to this framing until the numbers are in.
+### Storyline 4 — "Transformer completion tested, and capacity is not the bottleneck" (resolved)
+PoinTr was implemented and compared against PCN (Finding #28). It **won decisively on
+synthetic** (cd_fine halved, F-score 0.76→0.99) but was a **wash on real seq-08** (plausible
+16/26 vs 18/26, threshold noise). The lesson — a stronger decoder does not help when the
+limit is the synthetic↔real partiality gap and centroid estimation, not capacity — folds
+naturally into Storyline 3. This is now a *resolved* sub-result, not a headline: it
+strengthens the transfer-gap argument rather than providing a "transformer beats PCN" win.
 
 ### Storyline 5 — "Synthetic priors are redundant at scale" (a sharp side-claim)
 A focused secondary thread from Finding #25: with 420k real mined clusters, ShapeNet
@@ -170,8 +172,10 @@ Too small to be the whole thesis, but an excellent discussion-section or ablatio
 highlight.
 
 ### Recommended spine
-Lead with **Storyline 2** (decomposed error analysis — it's the most rigorous and is already
-fully supported by evidence), use **Storyline 3** as the completion chapter (the détour is
-the most memorable part of the work), and fold in **#5** as a sharp ablation. Promote
-**Storyline 4** to co-lead *only if* the PoinTr comparison delivers — otherwise it becomes
-"future work," and the completion chapter still stands on the methodological insight of #3.
+Lead with **Storyline 2** (decomposed error analysis — the most rigorous and already fully
+supported by evidence), use **Storyline 3** as the completion chapter (the détour is the most
+memorable part of the work), fold **Storyline 4** into it as the closing experiment (the
+PoinTr comparison resolved that decoder capacity is not the real-data bottleneck — a clean
+reinforcement of the transfer-gap thesis), and add **#5** as a sharp ablation. The completion
+chapter now has a definite arc: blobs → "domain gap" → inference bug → input gating →
+transformer test → *the bottleneck is the synthetic↔real partiality gap, not the model*.

@@ -672,3 +672,66 @@ Every implausible completion has a detectable bad input. Enabling the gate (`COM
 1. **Gate is wired and on by default** in `completion.py`. Heading default = `lshape`.
 2. The residual 8/26 implausible CLEAN completions (e.g. 110, 1905, 12, 1933) are the genuine completion-model error — the place where PoinTr or better center estimation could still help.
 3. Methodology note: any future BEV/footprint diagnostic on pipeline output **must use the X–Z plane** (the global frame's horizontal ground plane). **Vertical axis is Y, but world up = −Y (the frame is Y-down): `poses @ Tr` maps sensor +Z to (0, −1, 0).** So side-elevation plots must negate Y or matplotlib draws cars upside down. (This corrects the earlier "Y-up" label, which only verified the X–Z horizontal plane, not the sign of Y.) Pseudo-GT CD remains invalid (Finding #26).
+
+## 28. PoinTr vs PCN — Synthetic Win Does Not Transfer to Real Data (2026-06-30)
+
+**Context:** Implemented a faithful, self-contained PoinTr (transformer completer, no
+custom CUDA; `src/pointr.py`, 8.9M params) to attack the residual 8/26 implausible
+*clean*-input completions that are genuine PCN model error (Finding #27). Trained it
+via `src/train_pointr.py --kitti-like` on the **exact same** `ShapeNetCompletionDataset`
+/ `_render_kitti_like` data and `(coarse, fine)` contract as the PCN baseline, changing
+only the model + loss — a clean one-variable comparison. 100 epochs, AdamW lr 5e-4
+(StepLR ×0.5 @40/80), batch 16, exact CD loss. Checkpoint: `pointr_kitti_best.pth`
+(best epoch 90).
+
+**Hypothesis / metric:** PoinTr's transformer decoder handles severe one-sided
+partiality better, so it should (a) win on synthetic val CD/F-score and (b) raise the
+real seq-08 plausible-car rate above PCN's 18/26 (same plausibility box as #27:
+L∈[3.3,4.9], W∈[1.5,2.1], H∈[1.1,1.7]).
+
+**(a) Synthetic validation — decisive PoinTr win:**
+
+| Model | val cd_fine | val F@0.1m |
+|---|---|---|
+| PCN (`pcn_kitti_best`) | 0.1246 | 0.76 |
+| **PoinTr (`pointr_kitti_best`)** | **0.0634** | **0.987** |
+
+PoinTr roughly halves Chamfer error and pushes F-score 0.76→0.99 on the identical
+synthetic val set.
+
+**(b) Real seq-08 — a wash.** Rendered seq-08 (300 frames, gate on, heading=lshape —
+identical config to the PCN `output/08_ab_gated` baseline) with the PoinTr checkpoint
+into `output/08_pointr`. The input gate is model-independent, so **both runs completed
+the same 26/62 clean-gated tracks**; only the completion output differs. Compared
+per-track (`scratchpad/compare_pcn_pointr.py`, render `output/compare_pcn_pointr.png`):
+
+| | plausible-car rate (real seq-08) |
+|---|---|
+| PCN | **18/26** |
+| PoinTr | **16/26** |
+
+The 18→16 difference is **threshold noise, not a quality regression**: all 3 PoinTr
+losses (tids 301/2175/2536) are the *height* extent crossing the 1.7 m cap by ≤0.05 m
+(1.70/1.72/1.75); PoinTr also *fixes* one too-short car (tid 1905: L 3.23→3.45 m, a
+win). PoinTr systematically completes slightly **taller and fuller** cars (H and W both
+nudge up ~0.1–0.2 m across nearly every track). The BEV footprints are near-identical
+between models on every disagreement track — neither produces a blob where the other
+makes a car. The genuine failures (110/1538/2001/3194 — merges/bad inputs) stay
+implausible in **both** models identically.
+
+**Conclusion:** PoinTr's large synthetic-CD advantage **does not transfer to real
+data.** On real one-sided LiDAR clusters the two models are equivalent in plausibility
+and shape. Both are bottlenecked by the same factors — the residual real-vs-synthetic
+partiality gap (Finding #26) and the centroid/scale estimation in `complete()` — not by
+decoder capacity. This is the same synthetic→real transfer gap that defined the entire
+PCN saga (#15–19, #26). The transformer's extra fidelity is spent on synthetic detail
+that real scans neither contain nor benefit from.
+
+**Decision:** **Keep PCN as production** (`pcn_kitti_best.pth`) — smaller and equivalent
+on real data; no real-data justification to swap. PoinTr is retained
+(`pointr_kitti_best.pth`, `src/pointr.py`, `src/train_pointr.py`) and
+`completion.py._load_model()` dispatches either by checkpoint, so the swap is one flag
+if ever wanted. AdaPoinTr (denoising + adaptive query bank) is **not pursued** — it
+targets synthetic completion fidelity, which this finding shows is not the real-data
+bottleneck. For the thesis, the result is a clean negative/transfer-gap contribution,
+not a PoinTr-beats-PCN headline.

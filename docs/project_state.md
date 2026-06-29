@@ -133,20 +133,24 @@ under-completion (raw partial scored lowest CD on every real example).
    Skipped tracks are still saved as raw partial points. Accepted-track count
    unchanged (1005 vs 1006), confirming the gate filters what gets completed,
    not what gets detected.
-5. **PoinTr completion — IN PROGRESS.** Targets the 8/26 implausible
-   *clean*-input completions (genuine PCN model error), not heading or gating;
-   transformer completers handle severe one-sided partiality better. Faithful,
-   self-contained PoinTr core implemented (`src/pointr.py`, 8.9M params: FPS+DGCNN
-   point proxies, geometry-aware block on the 1st enc/dec layer per the paper's
-   model-E ablation, dynamic query generator, per-proxy FoldingNet,
-   predict-missing-then-concat-input; loss = CD(coarse,GT)+CD(fine,GT), exact —
-   no subsample). Trains via `src/train_pointr.py --kitti-like`, reusing
-   `ShapeNetCompletionDataset`/`_render_kitti_like` verbatim so it shares the PCN
-   baseline's data; AdamW lr 5e-4, batch 16 (~3.8 GB VRAM), 100 epochs →
-   `checkpoints/pointr_kitti_best.pth`. `completion.py _load_model()` dispatches
-   PoinTr vs PCN by checkpoint (`pointr_config` key); `complete()` is unchanged.
-   **Next: finish training, then compare vs PCN (val CD/F-score, then real seq-08
-   plausibility) per the experiment protocol before deciding to swap.**
+5. **PoinTr completion — DONE (Finding #28). Verdict: keep PCN.** Implemented a
+   faithful self-contained PoinTr (`src/pointr.py`, 8.9M params; FPS+DGCNN point
+   proxies, geometry-aware block on the 1st enc/dec layer, dynamic query generator,
+   per-proxy FoldingNet, predict-missing-then-concat; exact CD loss) and trained it
+   100 epochs on the **same** KITTI-like ShapeNet data + `(coarse,fine)` contract as
+   PCN (`src/train_pointr.py --kitti-like` → `checkpoints/pointr_kitti_best.pth`,
+   best epoch 90). **Synthetic: decisive PoinTr win** (val cd_fine 0.0634 vs PCN
+   0.1246; F@0.1 0.987 vs 0.76). **Real seq-08: a wash** — same 26/62 clean-gated
+   tracks (gate is model-independent), plausible-car rate **16/26 (PoinTr) vs 18/26
+   (PCN)**, the 2-car gap being height-threshold noise (≤0.05 m over the 1.7 m cap),
+   with near-identical BEV footprints (`output/08_pointr`,
+   `output/compare_pcn_pointr.png`). The big synthetic gain **does not transfer** —
+   both models are bottlenecked by the residual real-vs-synthetic partiality gap and
+   `complete()`'s centroid/scale estimation, not decoder capacity. **Keep
+   `pcn_kitti_best.pth` as production** (smaller, equivalent on real); `complete()`
+   dispatches either by checkpoint if a swap is ever wanted. AdaPoinTr not pursued
+   (targets synthetic fidelity, which isn't the real bottleneck). For the thesis this
+   is a clean transfer-gap result, not a PoinTr-beats-PCN headline.
 6. **Thesis writing** — pipeline description, experiment results, discussion of recall ceiling
 7. **Pipeline diagram** for thesis report
 
