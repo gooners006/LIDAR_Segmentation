@@ -1109,3 +1109,56 @@ The ~0.74 recall ceiling is confirmed as a hard limit of density-based clusterin
   error) — PoinTr / better center estimation.
 - Methodology: BEV/footprint diagnostics must use the X–Z plane.
 - Carry-over: recreate `.venv` in place (Python 3.10.11) for the pip-launcher fix.
+
+---
+# Session — 2026-06-30 (seq-08 testing + completion-focus planning)
+
+## What was done
+
+### Full seq-08 evaluation
+- Ran `python src/evaluate.py --seq 08 --frames 5000 --iou-threshold 0.3`
+  (4071 frames, default two-pass track-filtered eval, stage_b_best.pth).
+- First full-sequence eval on seq 08 (prior headline was seq 00, 100f).
+
+### Visualizations (all headless; figures in output/, scripts in scratchpad/)
+- `seq08_bev_detections.png` — 6-frame BEV TP/FP/FN overview.
+- `seq08_failure_zooms.png` — merge/split close-ups (frames 3900, 2500, 250)
+  with per-cluster "instance" panels + GT footprint outlines.
+- `seq08_timeseries.png` — per-frame rolling P/R/F1 + GT-car/FN/FP density.
+- `seq08_completion.png` — partial vs completed grid, axis-agnostic (sorted) dims.
+- `seq08_completion_global.png` — 14 completed cars overlaid on raw frame 2543.
+- `seq08_pcn_vs_pointr_shapes.png` — PCN vs PoinTr footprints, 6 shared tracks.
+- `seq08_completion_3d_9882.png` — 3-angle 3D of cleanest completion.
+- New scripts: viz_seq08_{bev,zoom,timeseries}.py, viz_completion.py,
+  viz_completion_{global,3d}.py, viz_pcn_vs_pointr.py, view_track_3d.py
+  (interactive Open3D launcher).
+
+### Scratchpad review (discussion only)
+- Reviewed all 18 scratchpad scripts. Agreed split: Group 1 = frozen lab records
+  (verify_pcn_step1/2, validate_completion_port, diag_*, ab_heading,
+  compare_pcn_pointr, viz_all26) backing Findings #26–28; Group 2 = reusable viz
+  tools (this session's). Decision: leave everything in scratchpad, no promotion.
+
+### Direction decision + plan
+- Shift project focus to point-cloud completion, prioritizing thesis narrative
+  strength; retraining acceptable.
+- Wrote `docs/completion/plan.md` (4-direction roadmap + detailed Direction 4a plan).
+
+## Files changed
+- No tracked file changes from the analysis work (git clean). New untracked
+  session artifacts: output/seq08_*.png, scratchpad/viz_*.py, scratchpad/view_track_3d.py.
+- Docs written this wrap-up: docs/completion/plan.md (new), docs/project_state.md,
+  docs/session_history.md.
+
+## Results / findings
+- Seq 08 full (4071f): P=0.913, R=0.693, F1=0.788, meanIoU=0.895
+  (TP=23593 FP=2235 FN=10470). Confirms seq-00 story at 40× scale:
+  precision-saturated, recall-limited. Per-frame recall anti-correlated with
+  GT-car density (dense parked-car stretches drive FN); FP flat ~1/frame.
+- Completion viz: dense inputs (>1.5k pts) complete into correct car shapes;
+  sparse inputs (~64 pts) largely prior-driven; 90° heading ambiguity visible;
+  PCN ≈ PoinTr on real (PoinTr slightly taller) — consistent with #28.
+
+## Next
+- Begin Direction 4a Step 0: amodal GT box builder (`scratchpad/amodal_gt.py`).
+  See `docs/completion/plan.md` and project_state.md "Immediate Next Steps".

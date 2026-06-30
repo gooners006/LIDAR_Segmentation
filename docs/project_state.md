@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-06-27
+Last updated: 2026-06-30
 
 ## Current Architecture
 
@@ -26,7 +26,9 @@ Key files: `src/main.py` (runner), `src/evaluate.py` (metrics + sweep flags), `s
 - Checkpoint: `checkpoints/stage_b_best.pth`
 - **Stage A ablation done (Finding #25):** advisor's "too perfect synthetic data" concern resolved — from-scratch Stage B matches pretrained (macro F1 0.9285 vs 0.9225). Synthetic prior is redundant given 420k real clusters; pretrained keeps a weak pipeline precision edge. See `docs/classifier/`.
 
-## Eval Metrics (Deterministic, seq 00, 100 frames)
+## Eval Metrics
+
+### Seq 00 (deterministic, 100 frames) — headline baseline
 
 | Metric | Value |
 |--------|-------|
@@ -36,6 +38,20 @@ Key files: `src/main.py` (runner), `src/evaluate.py` (metrics + sweep flags), `s
 | Mean IoU | 0.943 |
 
 RANSAC is deterministic (`np.random.default_rng(42)`). Results reproducible across runs.
+
+### Seq 08 (full, 4071 frames) — generalization check (new 2026-06-30)
+
+| Metric | Value |
+|--------|-------|
+| Precision | 0.913 |
+| Recall | 0.693 |
+| F1 | 0.788 |
+| Mean IoU | 0.895 |
+
+TP=23593 FP=2235 FN=10470. Command: `python src/evaluate.py --seq 08 --frames 5000`.
+Confirms the seq-00 story at 40× scale: precision-saturated, recall-limited;
+per-frame recall anti-correlated with GT-car density, FP flat ~1/frame.
+Figures: `output/seq08_{bev_detections,failure_zooms,timeseries}.png`.
 
 ## Recall Bottleneck — Fully Characterized
 
@@ -100,59 +116,61 @@ under-completion (raw partial scored lowest CD on every real example).
 - `checkpoints/pcn_kitti_best.pth` — PCN on KITTI-like partials (used by fixed `complete()`)
 - `checkpoints/pcn_best.pth` — prior PCN (blobs on real data, #15-19)
 
-## Immediate Next Steps
+## Project Focus (updated 2026-06-30): Point-Cloud Completion
 
-1. ~~Verify KITTI-like PCN on real data~~ — DONE (Finding #26). Data fix worked;
-   blobs were an inference-normalization bug.
-2. ~~Fix `completion.py complete()` + wire single-frame completion into `main.py`~~
-   — DONE. Ported the corrected normalization (removed 3D PCA; reorient
-   gravity→up, major horizontal axis→length; scale ×1.137; full-car-center
-   estimate with up-shift + ego-side width push). Verified bit-for-bit identical
-   to the validated step-2 path (`scratchpad/validate_completion_port.py`, max
-   |Δ|=0). `main.py` now completes each track's **densest single frame** in the
-   sensor frame and maps the result back to global (was: accumulated `all_pts`
-   smear in global frame). End-to-end seq-08/100f: 18/29 car tracks completed
-   (11 skipped `too_few_points`, single-frame <64 pts); outputs are car-sized
-   (L≈3.5–4.2 m, W≈1.8 m, H≈1.3–1.5 m). Constants live in `completion.py`
-   (`COMPLETION_SCALE_CORRECTION/CAR_WIDTH_PRIOR/UP_SHIFT`).
-3. ~~Heading A/B (PCA vs L-shape) + input gating~~ — DONE (Finding #27).
-   Heading method is **neutral** on real data (18/47 plausible cars either way);
-   the dense-poor tracks were bad *inputs* (fragments/merges), not heading
-   failures. Repurposed the L-shape fit as an **input-quality gate** (skip
-   fragments fit-len<2.7 m and merges fit-width>2.3 m): completion precision
-   38%→69%, all plausible cars retained (`output/08_ab_gated`). Gate is on by
-   default in `completion.py`; heading default = `lshape`. **Methodology:** BEV
-   diagnostics use the X–Z horizontal plane; the vertical axis is Y but the
-   frame is **Y-down** (world up = −Y; `poses @ Tr` sends sensor +Z to
-   (0, −1, 0)), so side-elevation plots must negate Y. See Finding #27 note 3.
-4. ~~Re-run full seq-08 with the gate on~~ — DONE. Regenerated `output/08`
-   with `--seq 08 --frames 5000` (4071 frames; pre-gate output preserved at
-   `output/08_pregate`). 1005 accepted car tracks; **518 completed** (was 884
-   pre-gate). The gate diverted 365 low-quality inputs from completion
-   (294 `fragment_input`, 71 `merge_suspected`); plus 122 `too_few_points`.
-   Skipped tracks are still saved as raw partial points. Accepted-track count
-   unchanged (1005 vs 1006), confirming the gate filters what gets completed,
-   not what gets detected.
-5. **PoinTr completion — DONE (Finding #28). Verdict: keep PCN.** Implemented a
-   faithful self-contained PoinTr (`src/pointr.py`, 8.9M params; FPS+DGCNN point
-   proxies, geometry-aware block on the 1st enc/dec layer, dynamic query generator,
-   per-proxy FoldingNet, predict-missing-then-concat; exact CD loss) and trained it
-   100 epochs on the **same** KITTI-like ShapeNet data + `(coarse,fine)` contract as
-   PCN (`src/train_pointr.py --kitti-like` → `checkpoints/pointr_kitti_best.pth`,
-   best epoch 90). **Synthetic: decisive PoinTr win** (val cd_fine 0.0634 vs PCN
-   0.1246; F@0.1 0.987 vs 0.76). **Real seq-08: a wash** — same 26/62 clean-gated
-   tracks (gate is model-independent), plausible-car rate **16/26 (PoinTr) vs 18/26
-   (PCN)**, the 2-car gap being height-threshold noise (≤0.05 m over the 1.7 m cap),
-   with near-identical BEV footprints (`output/08_pointr`,
-   `output/compare_pcn_pointr.png`). The big synthetic gain **does not transfer** —
-   both models are bottlenecked by the residual real-vs-synthetic partiality gap and
-   `complete()`'s centroid/scale estimation, not decoder capacity. **Keep
-   `pcn_kitti_best.pth` as production** (smaller, equivalent on real); `complete()`
-   dispatches either by checkpoint if a swap is ever wanted. AdaPoinTr not pursued
-   (targets synthetic fidelity, which isn't the real bottleneck). For the thesis this
-   is a clean transfer-gap result, not a PoinTr-beats-PCN headline.
-6. **Thesis writing** — pipeline description, experiment results, discussion of recall ceiling
-7. **Pipeline diagram** for thesis report
+Direction shifted to deepen completion, prioritizing **thesis narrative
+strength**; retraining acceptable. Four directions:
+
+1. **Valid real-data completion metric** — donor-frame occluded-side Chamfer +
+   symmetry self-consistency; curated synthetic bench. Foundational: currently
+   NO valid real-data metric (pseudo-GT CD invalid, #26/#27).
+2. **Improve `complete()` geometry** — centroid (dominant residual error), 90°
+   heading flip. Startable now on the valid synthetic metric.
+3. **Close train-vs-real partiality gap** (#28 bottleneck) via masked-Chamfer
+   fine-tuning on real cars. Retraining OK; contingency (negative-result
+   precedent #16/#17/#19).
+4. **Downstream utility** — completion improves bbox dims/orientation
+   (measurable now via GT boxes) or recovers split cars (#23).
+
+Chosen order (narrative-first): **4a → 1 → 2 → 3.** Scratchpad viz scripts kept
+in scratchpad (Group 1 frozen records / Group 2 reusable tools); not promoted.
+
+Full roadmap and active step plan: **`docs/completion/plan.md`**.
+
+Prior completion milestones (DONE): KITTI-like PCN data fix + inference-bug fix
+(#26), single-frame completion wired into `main.py`, L-shape input gate
+(precision 38%→69%, #27), full seq-08 regenerated (`output/08`, 518 completed),
+PoinTr benchmarked → keep PCN (#28). See `docs/findings.md`.
+
+## Immediate Next Steps — Direction 4a: "Does completion improve the box?"
+
+Quantify whether PCN completion yields a bbox closer to amodal GT than the raw
+partial. Primary metrics: |ΔL|,|ΔW|,|ΔH|, BEV oriented-box IoU; secondary yaw
+error (mod 180°). Hypothesis: completion improves occlusion-truncated dims
+(W, far-end L); heading neutral (#27). Detailed plan in `docs/completion/plan.md`.
+
+- **Step 0 — Amodal GT box builder** (`scratchpad/amodal_gt.py`): static cars only
+  (sem=10), accumulate instance points across frames via `poses @ Tr`, fit oriented
+  box (L-shape fit in X–Z + Y-extent height; frame is Y-down, world up = −Y),
+  compute viewpoint-azimuth coverage → `well_observed` flag, cache to
+  `output/08/amodal_gt.json`. Validate well-observed static-car count + dim sanity
+  (L 3.5–5, W 1.6–2.0, H 1.4–1.6 m). **Start here.**
+- **Step 1** (`scratchpad/completion_box_eval.py`): per-frame label-propagated
+  detections (reuse `get_frame_detections`), keep TP car clusters matched to
+  well-observed static GT; fit raw-partial box and completed box
+  (run `completion.complete()`); look up amodal GT box.
+- **Step 2**: paired raw-vs-completed-vs-GT metrics; report within-car improvement.
+- **Step 3**: result table + 4–6 box-overlay figures (GT black / raw blue /
+  completed green); record finding in `docs/findings.md`; update this file.
+- **Decision:** completed beats raw → headline "completion adds value"; neutral/worse
+  → fix `complete()` geometry (Dir 2) before claiming value. Either way documented.
+- **Pseudo-GT trap avoidance:** restrict to static cars + viewpoint-coverage filter
+  so amodal W is trustworthy; emphasize L/H/yaw as cleanest. Step 0 infra is reused
+  by Direction 1a.
+
+### Deferred
+- Thesis writing (pipeline description, experiment results, recall-ceiling discussion).
+- Pipeline diagram for thesis report.
 
 ## Medium-Term Backlog
 
