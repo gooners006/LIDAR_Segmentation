@@ -32,6 +32,10 @@ model choice PCN≈PoinTr on real → keep PCN (#28).
 
 **Chosen order (narrative-first): 4a → 1 → 2 → 3.**
 
+Idea backlog from the pre-plan session handoff (symmetry-mirror input,
+symmetry-derived center, plausible-car-rate eval recipe):
+`docs/completion/next_ideas.md`.
+
 ## Active plan — Direction 4a: "Does completion improve the box?"
 
 **Hypothesis:** PCN completion yields a bbox closer to amodal GT than the raw
@@ -46,12 +50,23 @@ valid; add a viewpoint-azimuth coverage filter so amodal W is trustworthy;
 emphasize L/H/yaw as cleanest signals and treat W under the filter explicitly.
 
 ### Steps
-- [ ] **Step 0 — Amodal GT box builder** (`scratchpad/amodal_gt.py`): static cars
-  (sem=10), accumulate instance points across frames via `poses @ Tr`, fit oriented
-  box (L-shape fit in X–Z + Y-extent height; frame is Y-down, world up = −Y),
-  compute viewpoint coverage → `well_observed`, cache `output/08/amodal_gt.json`.
-  Validate: well-observed static-car count + dim sanity (L 3.5–5, W 1.6–2.0,
-  H 1.4–1.6 m). **Start here.**
+- [x] **Step 0 — Amodal GT box builder** (`scratchpad/amodal_gt.py`): DONE
+  (2026-07-02). Seq 08: 393 sem=10 instances, 388 fitted, **40 well-observed**;
+  well-observed dims median L 4.14 / W 1.75 / H 1.47 m (in-range 38/40, 29/40,
+  29/40 — misses are genuine compacts ~3.0–3.5 m). Cached
+  `output/08/amodal_gt.json`; visual check `output/08/amodal_gt_check.png`
+  (`scratchpad/amodal_gt_viz.py`). Beyond the planned azimuth-coverage filter,
+  three extra guards proved necessary: (1) reject instance IDs ever labeled
+  moving-car (sem=252) — stop-and-go cars keep their ID and smear the
+  accumulation; (2) face-support counts (≥40 pts within 0.35 m of each box
+  face) — azimuth coverage alone misses far ends occluded by adjacent parked
+  cars; (3) overhang truncation flag (> max(15, 0.1%·n) pts beyond a face
+  +0.15 m ⇒ the percentile trim cut a sparsely-observed real tail). A
+  support-histogram extent estimator was tried and reverted (truncated sparse
+  ends harder and inflated W/H by bin quantization); percentile extents
+  (0.5/99.5) + the overhang *flag* won. Full write-up:
+  **`docs/completion/amodal_gt.md`** (method, guards, results, verification,
+  JSON schema).
 - [ ] **Step 1** (`scratchpad/completion_box_eval.py`): per-frame label-propagated
   detections (reuse `get_frame_detections`), keep TP car clusters matched to a
   well-observed static GT instance; fit raw-partial box and completed box

@@ -40,53 +40,6 @@ Activate the environment:
 source .venv/bin/activate
 ```
 
-Visualize the pipeline with Open3D:
-
-```bash
-python src/main.py
-```
-
-Run headless and save PLY + `tracks.json` output:
-
-```bash
-python src/main.py --no-gui --save-output --seq 00 --frames 100
-```
-
-Evaluate segmentation against ground-truth labels:
-
-```bash
-python src/evaluate.py --seq 00 --frames 100 --iou-threshold 0.3
-```
-
-Train the PointNet classifier (Stage A — synthetic ShapeNet):
-
-```bash
-python src/train_classifier.py --epochs 50
-```
-
-Mine real LiDAR clusters for Stage B fine-tuning:
-
-```bash
-python src/mine_stage_b.py --seq 00 --frames 5000 --split train
-```
-
-Open the exploratory notebook:
-
-```bash
-jupyter notebook notebooks/data_exploratory.ipynb
-```
-
-## Key Files
-
-- `src/pipeline.py` — PIPELINE_CONFIG and core stages (ground removal, clustering, filtering)
-- `src/main.py` — full pipeline runner with visualization and output
-- `src/evaluate.py` — segmentation evaluation against SemanticKITTI GT
-- `src/classifier.py` — PointNet classifier model and bbox feature extraction
-- `src/train_classifier.py` — Stage A classifier training on ShapeNet
-- `src/mine_stage_b.py` — mine real LiDAR clusters for Stage B fine-tuning
-- `src/pcn_model.py` — Point Completion Network model
-- `src/train_pcn.py` — PCN training script
-
 ## Training Strategy
 
 Classifier uses two-stage training:
@@ -176,6 +129,13 @@ Before editing code:
 3. Keep the diff minimal.
 4. Run or suggest the correct evaluation command.
 5. Update `docs/project_state.md` if the change affects project direction or results.
+
+Communication:
+
+- Before each change, state the hypothesis and the reasoning (why this change,
+  what evidence motivates it) — not just what is being changed.
+- When asking for approval to run a long/background task, include a time
+  estimate for the run.
 
 ## Out of Scope
 

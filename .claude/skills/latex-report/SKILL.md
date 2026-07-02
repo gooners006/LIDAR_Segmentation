@@ -48,7 +48,7 @@ Wait for the user's response before proceeding.
 
 ### Template format
 
-All documents use the Springer LNCS class (`llncs.cls`). The template files are in `docs/LaTeX2e+Proceedings+Templates+download/`.
+All documents use the Springer LNCS class (`llncs.cls`). The template files are in `docs/writing/lncs-template/`.
 
 ```latex
 \documentclass[runningheads]{llncs}
@@ -144,7 +144,7 @@ Save the LaTeX file to `docs/report/` directory. Use descriptive filenames:
 
 If the `docs/report/` directory doesn't exist, create it.
 
-Copy `llncs.cls` and `splncs04.bst` from `docs/LaTeX2e+Proceedings+Templates+download/` into `docs/report/` if not already present, so the document compiles.
+Copy `llncs.cls` and `splncs04.bst` from `docs/writing/lncs-template/` into `docs/report/` if not already present, so the document compiles.
 
 Place any figures into `docs/report/figures/` and reference them with `\includegraphics{figures/<name>}`. Reuse existing figures in that folder when applicable.
 

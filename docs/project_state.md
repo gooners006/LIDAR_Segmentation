@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-06-30
+Last updated: 2026-07-02
 
 ## Current Architecture
 
@@ -51,7 +51,7 @@ RANSAC is deterministic (`np.random.default_rng(42)`). Results reproducible acro
 TP=23593 FP=2235 FN=10470. Command: `python src/evaluate.py --seq 08 --frames 5000`.
 Confirms the seq-00 story at 40× scale: precision-saturated, recall-limited;
 per-frame recall anti-correlated with GT-car density, FP flat ~1/frame.
-Figures: `output/seq08_{bev_detections,failure_zooms,timeseries}.png`.
+Figures: `output/figures/seq08_{bev_detections,failure_zooms,timeseries}.png`.
 
 ## Recall Bottleneck — Fully Characterized
 
@@ -100,7 +100,7 @@ that the model never saw in training (this breaks *every* PCN checkpoint, incl.
 `pcn_best` — 3.5× worse CD even on in-distribution input). A corrected inference
 path (no PCA; reorient gravity→Y, length→Z; scale ×1.137; full-car-center
 estimate) de-blobs real seq-08 clusters into car-footprint shapes (see
-`output/verify_pcn_step2/`). Scripts: `scratchpad/verify_pcn_step1.py` (synthetic,
+`output/experiments/verify_pcn_step2/`). Scripts: `scratchpad/verify_pcn_step1.py` (synthetic,
 calibration + ablation), `scratchpad/verify_pcn_step2.py` (real, multi-view + pseudo-GT).
 
 Key sub-findings: scale is solved by the ×1.137 factor; **centroid estimation is
@@ -149,13 +149,13 @@ partial. Primary metrics: |ΔL|,|ΔW|,|ΔH|, BEV oriented-box IoU; secondary yaw
 error (mod 180°). Hypothesis: completion improves occlusion-truncated dims
 (W, far-end L); heading neutral (#27). Detailed plan in `docs/completion/plan.md`.
 
-- **Step 0 — Amodal GT box builder** (`scratchpad/amodal_gt.py`): static cars only
-  (sem=10), accumulate instance points across frames via `poses @ Tr`, fit oriented
-  box (L-shape fit in X–Z + Y-extent height; frame is Y-down, world up = −Y),
-  compute viewpoint-azimuth coverage → `well_observed` flag, cache to
-  `output/08/amodal_gt.json`. Validate well-observed static-car count + dim sanity
-  (L 3.5–5, W 1.6–2.0, H 1.4–1.6 m). **Start here.**
-- **Step 1** (`scratchpad/completion_box_eval.py`): per-frame label-propagated
+- **Step 0 — Amodal GT box builder** (`scratchpad/amodal_gt.py`): **DONE
+  2026-07-02.** Seq 08: 40 well-observed static cars, dims median
+  L 4.14 / W 1.75 / H 1.47 m; cached `output/08/amodal_gt.json`, visual check
+  `output/08/amodal_gt_check.png`. Needed three guards beyond azimuth coverage:
+  moving-ID rejection (sem=252 overlap), per-face support counts, overhang
+  truncation flag. Write-up: `docs/completion/amodal_gt.md`.
+- **Step 1 — next** (`scratchpad/completion_box_eval.py`): per-frame label-propagated
   detections (reuse `get_frame_detections`), keep TP car clusters matched to
   well-observed static GT; fit raw-partial box and completed box
   (run `completion.complete()`); look up amodal GT box.

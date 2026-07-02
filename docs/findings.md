@@ -354,7 +354,7 @@ Pipeline integration is complete and correct:
 - `tracks.json` metadata: `raw_point_count`, `point_count`, `completed`, `completion_skip_reason`, `completion_method`, `pcn_checkpoint`
 - Deterministic sampling via `pcn_sample_seed`
 
-Comparison images saved to `output/completion_comparison/` (accumulated) and `output/single_frame_pcn/` (per-frame).
+Comparison images saved to `output/experiments/completion_comparison/` (accumulated) and `output/experiments/single_frame_pcn/` (per-frame).
 
 **Decision:** PCN integration is mechanically done but output is not usable without domain-adaptation fine-tuning. The `simulate_lidar_noise()` augmentation and `KITTIObjectDataset` in `completion.py` are ready for this. Keep completion disabled by default (`--no-completion`) until fine-tuning is done.
 
@@ -632,7 +632,7 @@ Completion quality (Chamfer in metres, F-score @0.1 m; same partials, three infe
 **Step 2 — real seq-08 static cars (single-frame velodyne clusters, 40–300 pts):**
 - `pcn_best` and `pcn_kitti` via `complete()` → **round blobs** on every example (reproduces the documented failure).
 - A **corrected** inference path (no PCA; reorient gravity→Y, length→Z; scale ×1.137; full-car-center estimate via bbox + ego-direction width prior) → **de-blobbed, car-footprint-shaped** completions; occasionally a clean car silhouette (track 107, 197 pts). Not uniformly crisp on the sparsest one-sided inputs (residual flatness = remaining domain gap + imperfect center estimate).
-- **The static-car pseudo-GT metric is invalid for completion.** Accumulated LiDAR is itself one-sided (never sees occluded surfaces), so CD/F-score *reward under-completion*: the raw partial scored the **lowest** CD in every example. Quantitative completion evidence must come from synthetic (true GT exists); real-data assessment is qualitative. Renders: `output/verify_pcn_step2/`.
+- **The static-car pseudo-GT metric is invalid for completion.** Accumulated LiDAR is itself one-sided (never sees occluded surfaces), so CD/F-score *reward under-completion*: the raw partial scored the **lowest** CD in every example. Quantitative completion evidence must come from synthetic (true GT exists); real-data assessment is qualitative. Renders: `output/experiments/verify_pcn_step2/`.
 
 **Conclusion:** The KITTI-like data fix (Finding #15–19 line of work) **worked** — the model produces clean cars in-distribution. The "blobs on real data" were **primarily an inference-normalization bug in `completion.py complete()`** (3D PCA + partial-radius/centroid), not a data-domain failure. The planned pivot to PoinTr was based on a false premise (the model was never the bottleneck the blobs implied).
 
@@ -647,7 +647,7 @@ Completion quality (Chamfer in metres, F-score @0.1 m; same partials, three infe
 
 **Hypothesis / metric:** L-shape heading → more plausible completed cars than PCA heading. Metric: fraction of completed car tracks whose L/W/H falls in a car box (L∈[3.3,4.9], W∈[1.5,2.1], H∈[1.1,1.7]).
 
-**Method:** Added `_lshape_axes()` (closeness criterion, 1° search) and `_pca_axes()` to `completion.py`; added `--heading-method {lshape,pca}` to `main.py`. Ran the 300-frame seq-08 demo three ways into separate output dirs (`output/08_ab_pca`, `08_ab_lshape`, `08_ab_gated`). A/B scripts: `scratchpad/ab_heading.py`.
+**Method:** Added `_lshape_axes()` (closeness criterion, 1° search) and `_pca_axes()` to `completion.py`; added `--heading-method {lshape,pca}` to `main.py`. Ran the 300-frame seq-08 demo three ways into separate output dirs (`output/experiments/08_ab_pca`, `08_ab_lshape`, `08_ab_gated`). A/B scripts: `scratchpad/ab_heading.py`.
 
 **Synthetic sanity (rotated corner-view L, true heading 125°):** PCA → 141° (16° off; inflates W 1.72 / L 4.34 as eigenvectors pull toward the L diagonal). L-shape → **125° exact**, recovers L/W = 4.00/1.80. So L-shape *is* the better estimator in principle.
 
@@ -664,7 +664,7 @@ Completion quality (Chamfer in metres, F-score @0.1 m; same partials, three infe
 | MERGE (fit width > 2.3 m) | 7 | **0** |
 | CLEAN (else) | 26 | **18** (69%) |
 
-Every implausible completion has a detectable bad input. Enabling the gate (`COMPLETION_FRAGMENT_MIN_LENGTH=2.7`, `COMPLETION_MERGE_MAX_WIDTH=2.3`) drops completions 47→26 but **retains all 18 plausible cars**, lifting completion precision **38% → 69%** (`output/08_ab_gated`: 26/62 completed; skips 14 fragment + 7 merge + 15 too_few_points).
+Every implausible completion has a detectable bad input. Enabling the gate (`COMPLETION_FRAGMENT_MIN_LENGTH=2.7`, `COMPLETION_MERGE_MAX_WIDTH=2.3`) drops completions 47→26 but **retains all 18 plausible cars**, lifting completion precision **38% → 69%** (`output/experiments/08_ab_gated`: 26/62 completed; skips 14 fragment + 7 merge + 15 too_few_points).
 
 **Conclusion:** Completion quality on real data is bottlenecked by **input cleanliness, not heading estimation**. The bad inputs are fragments and merges leaked by upstream HDBSCAN (consistent with the Finding #23 split/merge characterization). The L-shape fit is kept — repurposed as the input gate (and as the default heading, which is principled and free, just not a quality lever).
 
@@ -700,10 +700,10 @@ PoinTr roughly halves Chamfer error and pushes F-score 0.76→0.99 on the identi
 synthetic val set.
 
 **(b) Real seq-08 — a wash.** Rendered seq-08 (300 frames, gate on, heading=lshape —
-identical config to the PCN `output/08_ab_gated` baseline) with the PoinTr checkpoint
-into `output/08_pointr`. The input gate is model-independent, so **both runs completed
+identical config to the PCN `output/experiments/08_ab_gated` baseline) with the PoinTr checkpoint
+into `output/experiments/08_pointr`. The input gate is model-independent, so **both runs completed
 the same 26/62 clean-gated tracks**; only the completion output differs. Compared
-per-track (`scratchpad/compare_pcn_pointr.py`, render `output/compare_pcn_pointr.png`):
+per-track (`scratchpad/compare_pcn_pointr.py`, render `output/figures/compare_pcn_pointr.png`):
 
 | | plausible-car rate (real seq-08) |
 |---|---|

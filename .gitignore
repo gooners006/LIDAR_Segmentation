@@ -21,5 +21,5 @@ scratchpad/
 *.pdf
 
 # Downloaded templates
-docs/ICTA_Word+Template/
-docs/LaTeX2e+Proceedings+Templates+download/
+docs/writing/ICTA_Word+Template/
+docs/writing/lncs-template/
