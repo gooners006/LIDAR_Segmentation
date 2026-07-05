@@ -2,7 +2,10 @@
 
 ## Project Context
 
-This repository is for a master's thesis research project on LiDAR point-cloud processing using KITTI-style sequences. The current focus is object segmentation, tracking/output extraction, and evaluation against ground-truth labels.
+This repository is for a master's thesis research project on LiDAR point-cloud
+processing using KITTI-style sequences: object segmentation, tracking/output
+extraction, point-cloud completion, and evaluation against ground-truth labels.
+The current focus is tracked in `docs/project_state.md`.
 
 This is research code. Prioritize clarity, reproducibility, and easy experimentation over heavy abstraction.
 
@@ -20,8 +23,8 @@ Important docs:
 - `docs/session_history.md` — chronological session diary (read only if asked)
 - `docs/datasets.md` — dataset layout and assumptions
 - `docs/findings.md` — experiment observations and conclusions
-- `docs/pipeline_feedback.md` — notes on pipeline behavior and known problems
 - `docs/pcn/` — PCN-related notes and references
+- `docs/completion/plan.md` — active completion roadmap and step plan
 
 ## Common Commands
 
@@ -31,20 +34,25 @@ first, or invoke the venv interpreter directly (e.g.
 `.venv/bin/python src/main.py` on Linux/macOS). Do not run scripts with a bare
 system `python`/`python3`.
 
-Activate the environment:
+Common evaluation commands:
 
 ```bash
-# Windows
-.venv\Scripts\activate
-# Linux/macOS
-source .venv/bin/activate
+# Headline baseline: seq 00, 100 frames (defaults; deterministic)
+.venv\Scripts\python.exe src/evaluate.py
+# Generalization check: seq 08, full sequence
+.venv\Scripts\python.exe src/evaluate.py --seq 08 --frames 5000
+# Run pipeline headless with saved outputs
+.venv\Scripts\python.exe src/main.py --seq 00 --no-gui --save-output
 ```
 
 ## Training Strategy
 
 Classifier uses two-stage training:
-- **Stage A:** Train on synthetic ShapeNet partial renders (balanced across 4 classes)
+- **Stage A:** Train on synthetic ShapeNet partial renders
 - **Stage B:** Fine-tune on real mined LiDAR clusters from SemanticKITTI
+
+The classifier is binary (car / not-car). Current checkpoints and metrics: see
+`docs/project_state.md`.
 
 Checkpoints are saved in `checkpoints/`. Training logs are CSV files alongside checkpoints.
 
@@ -55,7 +63,10 @@ When testing any change, such as a new parameter, algorithm, or pipeline step:
 1. State the hypothesis.
 2. State which metric is expected to improve.
 3. Run `evaluate.py` before the change to record baseline results.
-4. Make only the intended change.
+4. Make only the intended change. If an edge case forces a departure from the
+   stated change mid-run, take the conservative option, log it under a
+   **Deviations** heading (what the plan said vs. what the code/data revealed),
+   and continue.
 5. Run `evaluate.py` after the change.
 6. Compare:
    - Precision
@@ -68,8 +79,35 @@ When testing any change, such as a new parameter, algorithm, or pipeline step:
    - before/after metrics
    - whether the change helped
    - any visible failure cases
+   - any deviations from the intended change (from step 4)
 
 Do not treat a change as successful without evaluation results.
+When metrics conflict, explain the tradeoff (e.g., higher recall with much
+lower precision may indicate over-segmentation).
+
+## Integrating External Methods or Code
+
+Before porting, adapting, or integrating any external method, library, or data
+format (e.g., Patchwork++, SORT-style tracking, KITTI raw tracklets, a paper's
+reference implementation), use the `/semantics-map` skill: produce a reviewable
+semantics map (coordinate conventions, normalization, units, what is preserved
+vs. changed vs. dropped) and get explicit user sign-off **before writing any
+integration code**. Finding #26 (PCN inference-normalization bug) is the
+motivating failure: a silent train/inference semantics mismatch cost multiple
+sessions.
+
+## Workflow Skills
+
+Situational skills — invoke them when the situation matches, without waiting to
+be asked:
+
+- `/semantics-map` — mandatory before external integrations (see above).
+- `/tweakable-plan` — when planning an experiment or feature with open design
+  decisions: lead with the judgment calls, bury mechanical work.
+- `/intervention-brainstorm` — when a metric stalls or a research direction
+  needs options: 10 codebase-grounded interventions, cheapest to most ambitious.
+- `/quiz-me` — after substantial Claude-written changes land: comprehension
+  quiz so the user can defend the design at their thesis defense.
 
 ## Coding Conventions
 
@@ -91,27 +129,14 @@ output/<seq>/objects/<track_id>.ply
 output/<seq>/tracks.json
 ```
 
-- Prefer readable, explicit code over premature abstraction.
-- Avoid large refactors unless specifically requested.
-- Keep changes small and easy to compare experimentally.
+- Prefer readable, explicit code over premature abstraction; avoid large
+  refactors; keep changes small and easy to compare experimentally.
 
 ## Data and Output Safety
 
-- Do not overwrite existing experiment outputs unless explicitly requested.
-- Preserve previous evaluation results when comparing experiments.
-- Use clear output folders or filenames when testing new configurations.
-- Do not delete generated outputs, notebooks, or result files without permission.
-
-## Evaluation Priority
-
-Primary segmentation metrics:
-
-- F1
-- meanIoU
-- Precision
-- Recall
-
-When metrics conflict, explain the tradeoff. For example, higher recall with much lower precision may indicate over-segmentation.
+- Do not overwrite or delete existing outputs, results, or notebooks without
+  permission; preserve previous results when comparing experiments.
+- Use distinct output folders when testing new configurations (`main.py --out-tag`).
 
 ## Known Failure Modes
 
@@ -125,17 +150,11 @@ When metrics conflict, explain the tradeoff. For example, higher recall with muc
 Before editing code:
 
 1. Inspect the relevant files.
-2. Explain the intended change for exploratory/risky changes.
+2. Explain the intended change and its reasoning for exploratory/risky changes.
 3. Keep the diff minimal.
-4. Run or suggest the correct evaluation command.
-5. Update `docs/project_state.md` if the change affects project direction or results.
+4. Update `docs/project_state.md` if the change affects project direction or results.
 
-Communication:
-
-- Before each change, state the hypothesis and the reasoning (why this change,
-  what evidence motivates it) — not just what is being changed.
-- When asking for approval to run a long/background task, include a time
-  estimate for the run.
+When asking for approval to run a long/background task, include a time estimate.
 
 ## Out of Scope
 
