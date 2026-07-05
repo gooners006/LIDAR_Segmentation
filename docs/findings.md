@@ -735,3 +735,65 @@ if ever wanted. AdaPoinTr (denoising + adaptive query bank) is **not pursued** �
 targets synthetic completion fidelity, which this finding shows is not the real-data
 bottleneck. For the thesis, the result is a clean negative/transfer-gap contribution,
 not a PoinTr-beats-PCN headline.
+
+## 29. Completion Improves Amodal Box Estimates (Direction 4a) (2026-07-05)
+
+**Context:** Direction 4a asks whether PCN completion yields a bounding box closer to
+the true (amodal) car than the raw single-frame partial — the first quantitative
+real-data evidence that completion adds downstream value. Reference boxes are the 40
+well-observed static-car amodal GT boxes from Step 0 (`output/08/amodal_gt.json`,
+Finding write-up `docs/completion/amodal_gt.md`). Scripts:
+`scratchpad/completion_box_eval.py` (Step 1 sweep),
+`completion_box_eval_step2.py` (paired metrics),
+`completion_box_eval_viz.py` (overlay figure).
+
+**Hypothesis (pre-registered in `docs/completion/plan.md`):** completion improves
+occlusion-truncated dims (W, far-end L); heading neutral (#27). Primary metrics
+|ΔL|,|ΔW|,|ΔH| and BEV oriented-box IoU; secondary yaw (mod 180°).
+
+**Method:** For all 2,063 seq-08 frames in which a well-observed car was observed:
+run the detection pipeline (Stage B classifier, `thing_classes={10,252}`), greedy
+IoU≥0.3 matching, keep TP pairs on well-observed cars → **2,075 (frame, car) pairs
+covering all 40 cars**. Per pair, run the production completion path
+(`pcn_kitti_best`, L-shape gate + heading) and fit raw-partial and completed boxes in
+the world frame with the *same* fitter as the GT boxes (`fit_oriented_box_xz`,
+minmax extents), so fitter bias cancels. Gate skipped 714 fragments + 22 merges
+(35% — consistent with the #23 split rate), leaving **1,339 completed pairs**.
+Primary statistics use per-car medians (frame pairs of a parked car are
+autocorrelated), Wilcoxon signed-rank across cars.
+
+**Result — completion adds value (per-car medians, n=39 cars with ≥1 completed pair):**
+
+| Metric | Raw | Completed | Wilcoxon p | Verdict |
+|---|---|---|---|---|
+| BEV IoU | 0.707 | **0.747** | 0.0019 | better |
+| \|ΔW\| (m) | 0.270 | **0.170** | 0.00015 | better |
+| \|ΔH\| (m) | 0.255 | **0.131** | 1.6e-10 | better |
+| center err XZ (m) | 0.286 | **0.234** | 2.8e-05 | better |
+| \|ΔL\| (m) | 0.447 | 0.456 | 0.65 | neutral |
+| yaw err (deg) | 3.5 | 3.0 | 0.74 | neutral |
+
+Key sub-findings:
+1. **Completion helps most where the sensor saw least** — BEV IoU by input size:
+   <100 pts 0.461→0.599, 100–300 pts 0.585→0.678, ≥300 pts 0.703→0.744. The right
+   profile for the use case.
+2. **The W gain is not a GT artifact**: it holds both for cars whose width the GT
+   accumulation truly constrains (both_sides_seen, 13 cars: 0.291→0.182) and the
+   rest (26 cars: 0.167→0.118).
+3. **L is under-completion, not compact overshoot.** Signed ΔL on normal-length cars
+   (≥3.6 m, 32 cars): raw −0.485 m, completed −0.545 m — the network does not extend
+   the unobserved far end (compacts are neutral: −0.10 both). The one strong
+   regression case in the overlay figure is a *heading* error on a 109-pt input.
+   Both are Direction-2 targets (far-end/center estimation), not blockers.
+4. Yaw neutrality independently confirms #27 (heading is not a quality lever).
+
+**Artifacts:** `output/experiments/completion_box_eval/step1_records_08.json` (2,075
+records), `step2_metrics_08.json` (aggregates), figure
+`output/figures/completion_box_overlays_08.png` (6 panels: GT black / raw blue /
+completed green).
+
+**Decision:** Pre-registered criterion met — completed beats raw on BEV IoU, W, H
+with strong significance and nothing degrades significantly. **Headline "completion
+adds value" is established.** Per the roadmap, proceed to Direction 1 (valid
+real-data completion metric); the L-undershoot and sparse-input heading errors are
+logged as Direction-2 targets.

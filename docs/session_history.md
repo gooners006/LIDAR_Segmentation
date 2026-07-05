@@ -1162,3 +1162,77 @@ The ~0.74 recall ceiling is confirmed as a hard limit of density-based clusterin
 ## Next
 - Begin Direction 4a Step 0: amodal GT box builder (`scratchpad/amodal_gt.py`).
   See `docs/completion/plan.md` and project_state.md "Immediate Next Steps".
+
+---
+
+# Session — 2026-07-05 (Direction 4a complete: completion improves the box)
+
+## What was done
+
+### Advisor progress report
+- Concise 2–3 page markdown report covering May 12 – Jul 5:
+  `docs/report/progress_report_2026_07_05.md` (classifier/tracking status,
+  recall-ceiling story, completion saga #26–#28, planned direction WP1–4).
+
+### Direction 4a Steps 1–3 (Step 0 was done 2026-07-02)
+- **Step 1** `scratchpad/completion_box_eval.py`: per-frame label-propagated
+  detections (`evaluate.get_frame_detections`, Stage B classifier,
+  thing_classes={10,252}), greedy IoU≥0.3 matching, TP pairs on the 40
+  well-observed amodal-GT cars; production completion path
+  (`pcn_kitti_best.pth`, L-shape gate); raw and completed boxes fitted in the
+  world frame with the same fitter as GT (`fit_oriented_box_xz`, minmax
+  extents). Full run: 2,063 candidate frames, ~44 min in background →
+  `output/experiments/completion_box_eval/step1_records_08.json`.
+- **Step 2** `scratchpad/completion_box_eval_step2.py`: |ΔL|,|ΔW|,|ΔH|,
+  BEV oriented-box IoU (Sutherland–Hodgman clipping), yaw error (mod 180°,
+  folded to [0,90]), XZ center error. Primary unit = car (per-car medians,
+  Wilcoxon signed-rank across cars, avoids pseudo-replication); pooled
+  frame-level secondary; splits by both_sides_seen, GT length, input density
+  → `step2_metrics_08.json`.
+- **Step 3** `scratchpad/completion_box_eval_viz.py`: 6-panel BEV overlay
+  figure (GT black / raw blue / completed green)
+  → `output/figures/completion_box_overlays_08.png`.
+- Docs: **Finding #29** appended to `docs/findings.md`;
+  `docs/completion/plan.md` Steps 1–3 marked done + DECISION recorded;
+  `docs/project_state.md` Direction 4a closed, next = Direction 1.
+
+### Methodology Q&A (thesis-defense prep)
+- Walked through: L-shape fit/gate, fragment (2.7 m fit) vs GT-length (3.6 m
+  analysis split) thresholds — different quantities, no inconsistency;
+  Wilcoxon signed-rank + p-value interpretation; amodal-GT validity
+  (constructed pseudo-GT, defensible via multi-frame-vs-single-frame
+  information asymmetry, external car-dim anchor, paired-design noise
+  tolerance, both_sides_seen split).
+- New idea logged: cross-validate amodal GT boxes against KITTI raw 3D
+  tracklets (odometry seq 08 = raw drive 2011_09_30_drive_0028), if annotated.
+
+## Files changed
+- Modified: `docs/completion/plan.md`, `docs/findings.md`, `docs/project_state.md`
+- New (untracked): `docs/report/progress_report_2026_07_05.md`
+- New (gitignored scratchpad/output): `scratchpad/completion_box_eval.py`,
+  `scratchpad/completion_box_eval_step2.py`, `scratchpad/completion_box_eval_viz.py`;
+  `output/experiments/completion_box_eval/step1_records_08.json` (2,075 records),
+  `step2_metrics_08.json`; `output/figures/completion_box_overlays_08.png`
+
+## Results / findings
+- 2,075 TP pairs, 40/40 well-observed cars; 1,339 completed; gated: 714
+  fragment + 22 merge (35%, matches #23 split rate).
+- Per-car medians (n=39, Wilcoxon): BEV IoU 0.707→0.747 (p=.0019); |ΔW|
+  0.270→0.170 (p=1.5e-4); |ΔH| 0.255→0.131 (p=1.6e-10); center err
+  0.286→0.234 (p=2.8e-5); |ΔL| 0.447→0.456 (p=.65, neutral); yaw 3.5°→3.0°
+  (p=.74, neutral — confirms #27).
+- Gains largest on sparse inputs: <100 pts IoU 0.461→0.599; ≥300 pts
+  0.703→0.744. |ΔW| gain holds in both both_sides_seen groups.
+- Signed ΔL, normal cars (≥3.6 m, 32 cars): raw −0.485 m, completed −0.545 m
+  → length **under-completion** (far end not extended), not compact overshoot.
+- **DECISION: pre-registered criterion met — "completion adds value"
+  established (Finding #29). Proceed to Direction 1.**
+
+## Next
+- Direction 1: donor-frame occluded-side Chamfer metric (+ symmetry
+  self-consistency secondary); reuses Step 0 accumulation/coverage infra.
+- Optional hardening: check KITTI raw tracklets for 2011_09_30_drive_0028 and
+  validate a subset of the 40 amodal GT boxes against human annotations.
+- Direction-2 targets on record: length under-completion, sparse-input heading
+  errors, (idea) track-level fragment gate.
+- Uncommitted: doc changes + progress report — consider a checkpoint commit.

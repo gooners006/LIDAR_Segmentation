@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-07-02
+Last updated: 2026-07-05
 
 ## Current Architecture
 
@@ -142,34 +142,40 @@ Prior completion milestones (DONE): KITTI-like PCN data fix + inference-bug fix
 (precision 38%→69%, #27), full seq-08 regenerated (`output/08`, 518 completed),
 PoinTr benchmarked → keep PCN (#28). See `docs/findings.md`.
 
-## Immediate Next Steps — Direction 4a: "Does completion improve the box?"
+## Direction 4a — COMPLETE (2026-07-05): "Completion adds value" established
 
-Quantify whether PCN completion yields a bbox closer to amodal GT than the raw
-partial. Primary metrics: |ΔL|,|ΔW|,|ΔH|, BEV oriented-box IoU; secondary yaw
-error (mod 180°). Hypothesis: completion improves occlusion-truncated dims
-(W, far-end L); heading neutral (#27). Detailed plan in `docs/completion/plan.md`.
+Finding #29. All four steps done (`docs/completion/plan.md` has details):
+Step 0 amodal GT (40 well-observed static cars, `output/08/amodal_gt.json`);
+Steps 1–3 paired box eval (`scratchpad/completion_box_eval*.py`): 2,075 TP
+pairs / 1,339 completed on seq 08.
 
-- **Step 0 — Amodal GT box builder** (`scratchpad/amodal_gt.py`): **DONE
-  2026-07-02.** Seq 08: 40 well-observed static cars, dims median
-  L 4.14 / W 1.75 / H 1.47 m; cached `output/08/amodal_gt.json`, visual check
-  `output/08/amodal_gt_check.png`. Needed three guards beyond azimuth coverage:
-  moving-ID rejection (sem=252 overlap), per-face support counts, overhang
-  truncation flag. Write-up: `docs/completion/amodal_gt.md`.
-- **Step 1 — next** (`scratchpad/completion_box_eval.py`): per-frame label-propagated
-  detections (reuse `get_frame_detections`), keep TP car clusters matched to
-  well-observed static GT; fit raw-partial box and completed box
-  (run `completion.complete()`); look up amodal GT box.
-- **Step 2**: paired raw-vs-completed-vs-GT metrics; report within-car improvement.
-- **Step 3**: result table + 4–6 box-overlay figures (GT black / raw blue /
-  completed green); record finding in `docs/findings.md`; update this file.
-- **Decision:** completed beats raw → headline "completion adds value"; neutral/worse
-  → fix `complete()` geometry (Dir 2) before claiming value. Either way documented.
-- **Pseudo-GT trap avoidance:** restrict to static cars + viewpoint-coverage filter
-  so amodal W is trustworthy; emphasize L/H/yaw as cleanest. Step 0 infra is reused
-  by Direction 1a.
+**Headline (per-car medians, n=39, Wilcoxon):** completed box beats raw partial
+on BEV IoU 0.707→**0.747** (p=.002), |ΔW| 0.270→**0.170** (p=1.5e-4), |ΔH|
+0.255→**0.131** (p=1.6e-10), center err 0.286→**0.234** (p=2.8e-5); L and yaw
+neutral. Gains largest on sparse inputs (<100 pts: IoU 0.461→0.599). Figure:
+`output/figures/completion_box_overlays_08.png`.
+
+Direction-2 targets logged (not blockers): length under-completion on normal
+cars (far end not extended, signed ΔL −0.49→−0.55) and heading errors on
+sparse inputs.
+
+## Immediate Next Steps — Direction 1: valid real-data completion metric
+
+Donor-frame occluded-side Chamfer: split a static car's frames by ego
+viewpoint, complete from set A, measure against set B (surfaces unseen in A);
+plus symmetry self-consistency (secondary). Reuses Step 0's accumulation +
+viewpoint-coverage infrastructure. Unblocks measuring Directions 2/3 on real
+data. Plan: `docs/completion/plan.md`.
+
+Optional hardening before the thesis writeup: cross-validate the amodal GT
+boxes against KITTI raw 3D tracklets (odometry seq 08 = raw drive
+2011_09_30_drive_0028), if that drive is annotated. Thesis framing: present
+amodal GT as accumulation-derived pseudo-GT; the paired design tolerates
+reference noise (Finding #29 discussion).
 
 ### Deferred
 - Thesis writing (pipeline description, experiment results, recall-ceiling discussion).
+  Advisor progress report done 2026-07-05: `docs/report/progress_report_2026_07_05.md`.
 - Pipeline diagram for thesis report.
 
 ## Medium-Term Backlog

@@ -67,21 +67,30 @@ emphasize L/H/yaw as cleanest signals and treat W under the filter explicitly.
   (0.5/99.5) + the overhang *flag* won. Full write-up:
   **`docs/completion/amodal_gt.md`** (method, guards, results, verification,
   JSON schema).
-- [ ] **Step 1** (`scratchpad/completion_box_eval.py`): per-frame label-propagated
-  detections (reuse `get_frame_detections`), keep TP car clusters matched to a
-  well-observed static GT instance; fit raw-partial box and completed box
-  (run `completion.complete()`); look up amodal GT box.
-- [ ] **Step 2**: paired raw-vs-completed metrics against GT; report within-car
-  improvement (paired test).
-- [ ] **Step 3**: result table + 4–6 box-overlay figures (GT black / raw blue /
-  completed green); record finding in `docs/findings.md`; update
-  `docs/project_state.md`.
+- [x] **Step 1** (`scratchpad/completion_box_eval.py`): DONE (2026-07-05).
+  2,075 TP pairs over all 40 well-observed cars (2,063 candidate frames);
+  1,339 completed, 714 fragment-gated + 22 merge-gated (35%, matches #23 split
+  rate). Records: `output/experiments/completion_box_eval/step1_records_08.json`.
+- [x] **Step 2** (`scratchpad/completion_box_eval_step2.py`): DONE (2026-07-05).
+  Per-car medians (n=39), Wilcoxon: BEV IoU 0.707→0.747 (p=.002), |ΔW|
+  0.270→0.170 (p=1.5e-4), |ΔH| 0.255→0.131 (p=1.6e-10), center 0.286→0.234
+  (p=2.8e-5); L and yaw neutral. Aggregates: `step2_metrics_08.json`.
+- [x] **Step 3** (`scratchpad/completion_box_eval_viz.py`): DONE (2026-07-05).
+  6-panel overlay figure `output/figures/completion_box_overlays_08.png`;
+  **Finding #29** recorded in `docs/findings.md`.
 
 ### Decision criterion
 - Completed beats raw on dim error / BEV IoU → headline "completion adds value";
   proceed to Direction 1.
 - Neutral or worse → fix complete() geometry (Direction 2) before claiming value;
   reorder roadmap. Either outcome is a documented finding.
+
+**DECISION (2026-07-05): criterion met — "completion adds value" established
+(Finding #29). Proceed to Direction 1.** Direction-2 targets logged from the
+breakdowns: (a) length under-completion on normal cars (signed ΔL −0.49 raw →
+−0.55 completed; the far end is not extended), (b) heading errors on sparse
+inputs (the one strong IoU regression case). Largest gains on sparse inputs
+(<100 pts: IoU 0.461→0.599).
 
 ### Reuse note
 Step 0's accumulation + viewpoint-coverage infrastructure is the same machinery
