@@ -66,7 +66,7 @@ def main():
     seq = args.seq
     n_frames = args.frames
     pcn_ckpt = args.pcn_ckpt
-    cls_ckpt = os.path.join(PROJECT_ROOT, "checkpoints", "stage_b_best.pth")
+    cls_ckpt = os.path.join(PROJECT_ROOT, "checkpoints", "stage_b_scratch_best.pth")
     ckpt_name = os.path.splitext(os.path.basename(pcn_ckpt))[0]
     output_dir = os.path.join(PROJECT_ROOT, "output", f"single_frame_pcn_{ckpt_name}")
     os.makedirs(output_dir, exist_ok=True)

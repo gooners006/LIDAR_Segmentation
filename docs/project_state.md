@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-07-05
+Last updated: 2026-07-14
 
 ## Current Architecture
 
@@ -18,37 +18,43 @@ Key files: `src/main.py` (runner), `src/evaluate.py` (metrics + sweep flags), `s
 ## Classifier — Binary (Complete)
 
 - `CLASS_LABELS = ["car", "not-car"]`, `NUM_CLASSES = 2`
-- Stage A: ShapeNet car (02958343) as positive, unknown_fraction=0.50. Best val macro F1: 0.9986
+- **Production (since 2026-07-14, Finding #31): `checkpoints/stage_b_scratch_best.pth`** —
+  trained on real mined clusters only, from random init. Stage A synthetic
+  pretraining dropped from the final pipeline (kept as thesis ablation, #7/#25/#30).
+- Stage A (ablation material): ShapeNet car (02958343) as positive, unknown_fraction=0.50. Best val macro F1: 0.9986
 - Stage B: Mined from SemanticKITTI (train: seqs 00-07,09-10; val: seq 08; 5000 frames each, purity 0.75)
   - Train: 420,333 clusters (88,600 car / 331,733 not-car)
   - Val: 130,394 clusters (24,968 car / 105,426 not-car)
-- Stage B best: epoch 13/15, macro F1 0.9225 (car P=0.837 R=0.900)
-- Checkpoint: `checkpoints/stage_b_best.pth`
+- Scratch best: epoch 14/15, macro F1 0.9285; fine-tuned (A→B) best: epoch 13/15, macro F1 0.9225
 - **Stage A ablation done (Finding #25):** advisor's "too perfect synthetic data" concern resolved — from-scratch Stage B matches pretrained (macro F1 0.9285 vs 0.9225). Synthetic prior is redundant given 420k real clusters; pretrained keeps a weak pipeline precision edge. See `docs/classifier/`.
+- **Cross-domain matrix done (Finding #30, advisor-requested):** sim-to-real gap is total and symmetric — car F1 = 0.000 in every off-diagonal cell (synthetic-trained on real, real-trained on synthetic); fine-tuning forgets synthetic entirely. Script: `scratchpad/cross_domain_classifier_eval.py`; results: `output/experiments/cross_domain_classifier/`.
 
 ## Eval Metrics
+
+Headline numbers below use the production scratch checkpoint (Finding #31;
+prior fine-tuned-checkpoint numbers preserved there).
 
 ### Seq 00 (deterministic, 100 frames) — headline baseline
 
 | Metric | Value |
 |--------|-------|
 | Precision | 0.984 |
-| Recall | 0.739 |
-| F1 | 0.844 |
-| Mean IoU | 0.943 |
+| Recall | 0.761 |
+| F1 | 0.859 |
+| Mean IoU | 0.942 |
 
-RANSAC is deterministic (`np.random.default_rng(42)`). Results reproducible across runs.
+TP=1242 FP=20 FN=389. RANSAC is deterministic (`np.random.default_rng(42)`). Results reproducible across runs.
 
-### Seq 08 (full, 4071 frames) — generalization check (new 2026-06-30)
+### Seq 08 (full, 4071 frames) — generalization check (updated 2026-07-14)
 
 | Metric | Value |
 |--------|-------|
-| Precision | 0.913 |
-| Recall | 0.693 |
+| Precision | 0.903 |
+| Recall | 0.699 |
 | F1 | 0.788 |
 | Mean IoU | 0.895 |
 
-TP=23593 FP=2235 FN=10470. Command: `python src/evaluate.py --seq 08 --frames 5000`.
+TP=23823 FP=2565 FN=10240. Command: `python src/evaluate.py --seq 08 --frames 5000`.
 Confirms the seq-00 story at 40× scale: precision-saturated, recall-limited;
 per-frame recall anti-correlated with GT-car density, FP flat ~1/frame.
 Figures: `output/figures/seq08_{bev_detections,failure_zooms,timeseries}.png`.
@@ -90,7 +96,8 @@ Root cause of prior PCN failures (#15-19): synthetic partials were OOD from the
 real post-pipeline input (voxelized 0.05 m, ground-removed, single-viewpoint).
 Built a KITTI-like single-view partial generator (`_render_kitti_like` in
 `src/train_pcn.py`, `--kitti-like`; see `docs/pcn/kitti_like_partial.md`) and
-trained PCN on it: `checkpoints/pcn_kitti_best.pth`, best val 0.1246.
+trained PCN on it: `checkpoints/pcn_kitti_best.pth`, best val loss 0.1246
+(= coarse CD + 0.5·fine CD; val fine-CD 0.066).
 
 **Verdict (Finding #26): the data fix WORKED.** In-distribution synthetic eval is
 clean (CD 0.16 m, F@0.1m 0.76 — real cars, not blobs). The "blobs on real data"
@@ -111,8 +118,9 @@ under-completion (raw partial scored lowest CD on every real example).
 
 ## Checkpoints
 
-- `checkpoints/stage_b_best.pth` — binary Stage B classifier (current best)
-- `checkpoints/classifier_best.pth` — binary Stage A classifier
+- `checkpoints/stage_b_scratch_best.pth` — binary classifier, real-data-only from scratch (**production**, Finding #31)
+- `checkpoints/stage_b_best.pth` — binary Stage B fine-tuned from Stage A (kept for reproducibility)
+- `checkpoints/classifier_best.pth` — binary Stage A classifier (ablation material)
 - `checkpoints/pcn_kitti_best.pth` — PCN on KITTI-like partials (used by fixed `complete()`)
 - `checkpoints/pcn_best.pth` — prior PCN (blobs on real data, #15-19)
 
@@ -140,7 +148,10 @@ Full roadmap and active step plan: **`docs/completion/plan.md`**.
 Prior completion milestones (DONE): KITTI-like PCN data fix + inference-bug fix
 (#26), single-frame completion wired into `main.py`, L-shape input gate
 (precision 38%→69%, #27), full seq-08 regenerated (`output/08`, 518 completed),
-PoinTr benchmarked → keep PCN (#28). See `docs/findings.md`.
+PoinTr benchmarked → keep PCN (#28; synthetic table corrected 2026-07-06 via
+matched eval `scratchpad/matched_eval_pcn_pointr.py` — PoinTr's edge is small
+(CD 0.161→0.153 m, F 0.755→0.782), not the "halves CD" originally recorded;
+real-data equivalence and keep-PCN decision unchanged). See `docs/findings.md`.
 
 ## Direction 4a — COMPLETE (2026-07-05): "Completion adds value" established
 

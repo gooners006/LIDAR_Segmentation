@@ -100,12 +100,13 @@ The most involved thread and where active work lives:
    The residual 8/26 implausible *clean* completions are genuine model error.
 4. **PoinTr — done, verdict keep PCN (Finding #28):** a faithful self-contained
    **PoinTr** (transformer completer, 8.9M params) was implemented and trained on PCN's
-   exact dataset for a clean one-variable comparison. **Synthetic: decisive PoinTr win**
-   (val cd_fine 0.063 vs 0.125; F@0.1 0.99 vs 0.76). **Real seq-08: a wash** — same
-   26/62 clean-gated tracks, plausible-car rate 16/26 vs PCN's 18/26 (the gap is
-   height-threshold noise), near-identical BEV footprints. The synthetic gain **does not
-   transfer** to real one-sided LiDAR — both models hit the same partiality-gap and
-   centroid-estimation ceiling, not a capacity limit. Kept PCN as production.
+   exact dataset for a clean one-variable comparison. **Synthetic: small PoinTr edge**
+   (matched eval, corrected 2026-07-06: CD 0.153 vs 0.161 m, F@0.1m 0.782 vs 0.755;
+   the originally recorded "decisive win" mixed metrics from different protocols).
+   **Real seq-08: a wash** — same 26/62 clean-gated tracks, plausible-car rate 16/26
+   vs PCN's 18/26 (the gap is height-threshold noise), near-identical BEV footprints.
+   Both models hit the same partiality-gap and centroid-estimation ceiling, not a
+   capacity limit. Kept PCN as production.
 
 ## 4. Where things stand now
 
@@ -157,8 +158,9 @@ the "invalid pseudo-GT metric" insight is publishable-grade. Risk: it's a story 
 *process*, so it needs at least one concrete positive completion result to anchor it.
 
 ### Storyline 4 — "Transformer completion tested, and capacity is not the bottleneck" (resolved)
-PoinTr was implemented and compared against PCN (Finding #28). It **won decisively on
-synthetic** (cd_fine halved, F-score 0.76→0.99) but was a **wash on real seq-08** (plausible
+PoinTr was implemented and compared against PCN (Finding #28, corrected 2026-07-06). It
+holds a **small synthetic edge** (matched eval: CD 0.153 vs 0.161 m, F 0.782 vs 0.755;
+the original "decisive win" was a metric mix-up) and is a **wash on real seq-08** (plausible
 16/26 vs 18/26, threshold noise). The lesson — a stronger decoder does not help when the
 limit is the synthetic↔real partiality gap and centroid estimation, not capacity — folds
 naturally into Storyline 3. This is now a *resolved* sub-result, not a headline: it

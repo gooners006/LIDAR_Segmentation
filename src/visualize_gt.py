@@ -102,7 +102,7 @@ def main():
         from scipy.spatial import cKDTree
         cfg = PIPELINE_CONFIG
         cls_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        default_ckpt = os.path.join(PROJECT_ROOT, "checkpoints", "stage_b_best.pth")
+        default_ckpt = os.path.join(PROJECT_ROOT, "checkpoints", "stage_b_scratch_best.pth")
         cls_model, cls_bbox_stats = load_classifier(default_ckpt, cls_device)
         tracker = CentroidTracker(
             max_distance=cfg["tracker_max_distance"],

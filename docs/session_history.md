@@ -1236,3 +1236,131 @@ The ~0.74 recall ceiling is confirmed as a hard limit of density-based clusterin
 - Direction-2 targets on record: length under-completion, sparse-input heading
   errors, (idea) track-level fragment gate.
 - Uncommitted: doc changes + progress report — consider a checkpoint commit.
+
+---
+
+# Session — 2026-07-06 (PoinTr matched eval: Finding #28 synthetic table corrected)
+
+*(Entry reconstructed retroactively on 2026-07-14 from working-tree diffs and
+the corrected Finding #28 text; the original session context was not
+available at wrap-up.)*
+
+## What was done
+- Built `scratchpad/matched_eval_pcn_pointr.py`: runs `pcn_kitti_best.pth` and
+  `pointr_kitti_best.pth` through the identical `verify_pcn_step1.py` protocol
+  — same 30 synthetic val cars, literally identical normalized 256-point
+  partials, CD/F in metres — to replace Finding #28's mixed-protocol synthetic
+  comparison.
+- Corrected **Finding #28** in `docs/findings.md`: the original "decisive
+  PoinTr win" (cd_fine 0.1246 vs 0.0634, F 0.76 vs 0.987) mixed metrics from
+  different protocols (PCN's val *loss* vs PoinTr's val *fine-CD*; metre-scale
+  vs normalized-frame F-scores). Propagated the correction to
+  `docs/project_walkthrough.md` (Storyline 4) and the milestone note in
+  `docs/project_state.md`.
+
+## Files changed
+- Modified: `docs/findings.md` (#28 rewrite), `docs/project_walkthrough.md`,
+  `docs/project_state.md` (milestone note)
+- New (gitignored scratchpad): `scratchpad/matched_eval_pcn_pointr.py`
+
+## Results / findings
+- Matched eval, training-normalization path: PCN CD 0.161 ± 0.021 m / F@0.1m
+  0.755 vs PoinTr **0.153 ± 0.016 m / 0.782** — a real but small (~5%) edge,
+  better on 27/30 samples; matched like-for-like log fine-CDs are 0.0658 vs
+  0.0634.
+- GT-free inference path: both degrade identically (CD ~0.5 m, ~3× the
+  in-distribution floor) — the centroid-estimation bottleneck (#26) is
+  architecture-independent.
+- Cross-checks passed: PCN row reproduces Finding #26's documented numbers;
+  normalized-CD column matches both training logs.
+- **Real-data equivalence and the keep-PCN decision are unchanged.** Revised
+  thesis framing: a controlled architecture comparison where a small synthetic
+  edge vanishes on real data because shared inference/domain bottlenecks
+  dominate — decoder capacity was never the binding constraint.
+
+## Next
+- (Superseded by the 2026-07-14 session below.)
+
+---
+
+# Session — 2026-07-14 (Cross-domain classifier matrix; Stage A dropped from production)
+
+*(Entry written at wrap-up from working-tree diffs and Findings #30/#31; the
+original working-session context was not available, so details are taken from
+those findings.)*
+
+## What was done
+
+### Cross-domain classifier matrix (Finding #30, advisor-requested)
+- Advisor (07/07 chat) requested a sim-to-real cross-validation table:
+  train-on-synthetic → test-on-real and vice versa. Three cells existed
+  (Stage A log, Finding #25); the missing cells were run with a new script
+  `scratchpad/cross_domain_classifier_eval.py` (evaluates any checkpoint on
+  either val set). Semantics decision: each checkpoint keeps **its own
+  training-time bbox-feature mean/std** (deployment behavior); only eval data
+  changes.
+- Commands:
+  ```bash
+  .venv\Scripts\python.exe scratchpad/cross_domain_classifier_eval.py --ckpt checkpoints/classifier_best.pth --domain real
+  .venv\Scripts\python.exe scratchpad/cross_domain_classifier_eval.py --ckpt checkpoints/stage_b_scratch_best.pth --domain synthetic
+  .venv\Scripts\python.exe scratchpad/cross_domain_classifier_eval.py --ckpt checkpoints/stage_b_best.pth --domain synthetic
+  ```
+- Table sent to advisor. Artifacts:
+  `output/experiments/cross_domain_classifier/*.json` (per-class reports +
+  confusion matrices).
+
+### Stage A dropped from production (Finding #31)
+- Following #30, the user decided to remove Stage A synthetic pretraining from
+  the final pipeline (kept as thesis ablation, #7/#25/#30). Open concern was
+  #25's pipeline-precision edge for the pretrained checkpoint (100-frame
+  spot-check). Both standard evals were re-run with
+  `checkpoints/stage_b_scratch_best.pth`:
+  ```bash
+  .venv\Scripts\python.exe src/evaluate.py --classifier-ckpt checkpoints/stage_b_scratch_best.pth
+  .venv\Scripts\python.exe src/evaluate.py --seq 08 --frames 5000 --classifier-ckpt checkpoints/stage_b_scratch_best.pth
+  ```
+- Default classifier checkpoint switched to `stage_b_scratch_best.pth` in
+  `src/evaluate.py`, `src/main.py`, `src/visualize_gt.py`,
+  `src/test_single_frame_pcn.py`. `stage_b_best.pth` kept on disk for
+  reproducibility.
+- Docs updated: Findings #30 and #31 appended to `docs/findings.md`;
+  `docs/project_state.md` refreshed (production checkpoint, headline metrics,
+  checkpoints list, classifier section).
+
+## Files changed
+- Modified: `docs/findings.md` (#30, #31), `docs/project_state.md`,
+  `src/evaluate.py`, `src/main.py`, `src/visualize_gt.py`,
+  `src/test_single_frame_pcn.py`
+- New (gitignored scratchpad/output): `scratchpad/cross_domain_classifier_eval.py`,
+  `output/experiments/cross_domain_classifier/*.json`
+- Still uncommitted from earlier sessions: 2026-07-06 Finding #28 correction
+  (`docs/findings.md`, `docs/project_walkthrough.md`, `docs/project_state.md`),
+  `docs/report/progress_report_2026_07_05.md` (untracked)
+
+## Results / findings
+- **#30 — sim-to-real gap is total and symmetric.** Cluster-level macro F1
+  (car F1): Stage A on real val 0.447 (0.000, recovers 5 of 24,968 cars);
+  scratch on synthetic 0.304 (0.000); fine-tuned on synthetic 0.318 (0.000) —
+  fine-tuning catastrophically forgets synthetic (0.999 → 0.318). Stage A's
+  0.807 accuracy on real val is pure majority-class — report macro F1 +
+  confusion matrix, not accuracy.
+- **#31 — hypothesis (scratch loses precision) wrong; scratch is
+  neutral-to-better.** Seq 00 (100f): F1 0.844 → **0.859** (+37 TP at
+  identical FP=20), P 0.984, R 0.761, mIoU 0.942. Seq 08 (4071f): F1 0.788 =
+  0.788, mIoU 0.895 = 0.895; P 0.913→0.903, R 0.693→0.699 (+230 TP / +330 FP,
+  ~0.08 FP/frame). #25's precision edge was a 100-frame small-sample effect.
+  Seq-00 fine-tuned baseline re-run first and reproduced the documented
+  headline exactly (deterministic), so the comparison is clean.
+- **New headline metrics (production = scratch checkpoint):** seq 00
+  P 0.984 / R 0.761 / F1 0.859 / mIoU 0.942; seq 08 P 0.903 / R 0.699 /
+  F1 0.788 / mIoU 0.895.
+
+## Next
+- Direction 1: donor-frame occluded-side Chamfer metric (+ symmetry
+  self-consistency secondary); reuses Step 0 accumulation/coverage infra.
+  Plan: `docs/completion/plan.md`.
+- Optional hardening: cross-validate amodal GT boxes against KITTI raw 3D
+  tracklets (odometry seq 08 = raw drive 2011_09_30_drive_0028), if annotated.
+- Consider a checkpoint commit: working tree now carries the 07-06 #28
+  correction, today's #30/#31 doc updates, and the checkpoint-default switch
+  in four `src/` files.

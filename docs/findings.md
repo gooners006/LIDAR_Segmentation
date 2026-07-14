@@ -673,7 +673,7 @@ Every implausible completion has a detectable bad input. Enabling the gate (`COM
 2. The residual 8/26 implausible CLEAN completions (e.g. 110, 1905, 12, 1933) are the genuine completion-model error — the place where PoinTr or better center estimation could still help.
 3. Methodology note: any future BEV/footprint diagnostic on pipeline output **must use the X–Z plane** (the global frame's horizontal ground plane). **Vertical axis is Y, but world up = −Y (the frame is Y-down): `poses @ Tr` maps sensor +Z to (0, −1, 0).** So side-elevation plots must negate Y or matplotlib draws cars upside down. (This corrects the earlier "Y-up" label, which only verified the X–Z horizontal plane, not the sign of Y.) Pseudo-GT CD remains invalid (Finding #26).
 
-## 28. PoinTr vs PCN — Synthetic Win Does Not Transfer to Real Data (2026-06-30)
+## 28. PoinTr vs PCN — Equivalent on Real Data; Small Synthetic Edge (2026-06-30; corrected 2026-07-06)
 
 **Context:** Implemented a faithful, self-contained PoinTr (transformer completer, no
 custom CUDA; `src/pointr.py`, 8.9M params) to attack the residual 8/26 implausible
@@ -689,15 +689,37 @@ partiality better, so it should (a) win on synthetic val CD/F-score and (b) rais
 real seq-08 plausible-car rate above PCN's 18/26 (same plausibility box as #27:
 L∈[3.3,4.9], W∈[1.5,2.1], H∈[1.1,1.7]).
 
-**(a) Synthetic validation — decisive PoinTr win:**
+**(a) Synthetic validation — small consistent PoinTr edge (CORRECTED 2026-07-06):**
 
-| Model | val cd_fine | val F@0.1m |
-|---|---|---|
-| PCN (`pcn_kitti_best`) | 0.1246 | 0.76 |
-| **PoinTr (`pointr_kitti_best`)** | **0.0634** | **0.987** |
+> **Correction:** this section originally claimed a decisive PoinTr win
+> ("val cd_fine 0.1246 vs 0.0634, F 0.76 vs 0.987 — PoinTr roughly halves
+> Chamfer error"). Those numbers mixed metrics from different protocols:
+> PCN's 0.1246 was its val **loss** (coarse CD + 0.5·fine CD) from the
+> training log, PoinTr's 0.0634 was its val **fine-CD**; PCN's F 0.76 came
+> from the metre-scale `verify_pcn_step1.py` protocol while PoinTr's 0.987
+> came from the training log's normalized-frame F-score. The matched
+> like-for-like fine-CDs from the training logs are 0.0658 (PCN, best epoch)
+> vs 0.0634 (PoinTr, best epoch).
 
-PoinTr roughly halves Chamfer error and pushes F-score 0.76→0.99 on the identical
-synthetic val set.
+Matched eval (`scratchpad/matched_eval_pcn_pointr.py`): both checkpoints run
+through the identical `verify_pcn_step1.py` protocol — same 30 synthetic val
+cars, literally identical normalized 256-point partials, CD/F in metres:
+
+| Path | Model | CD (m) | F@0.1m | CD (norm) |
+|---|---|---|---|---|
+| training norm (GT centre+radius) | PCN | 0.161 ± 0.021 | 0.755 | 0.0667 |
+| | **PoinTr** | **0.153 ± 0.016** | **0.782** | 0.0634 |
+| GT-free inference (partial centre + calibrated scale) | PCN | 0.504 ± 0.132 | 0.362 | 0.206 |
+| | **PoinTr** | **0.489 ± 0.112** | **0.420** | 0.200 |
+
+PoinTr's synthetic edge is real but small: ~5% lower CD, better on 27/30
+samples (paired; mean ΔCD +0.008 m). Cross-checks: PCN's row reproduces the
+Finding-#26 documented numbers (CD 0.16 / F 0.76), and the normalized-CD
+column matches both training logs (PCN 0.0667 ≈ log 0.0658; PoinTr 0.0634 =
+log 0.0634), so the protocol chain is consistent. Under the GT-free inference
+path both models degrade identically (CD ~0.5 m, ~3× the in-distribution
+floor) — the centroid-estimation bottleneck (Finding #26) is
+architecture-independent.
 
 **(b) Real seq-08 — a wash.** Rendered seq-08 (300 frames, gate on, heading=lshape —
 identical config to the PCN `output/experiments/08_ab_gated` baseline) with the PoinTr checkpoint
@@ -719,13 +741,16 @@ between models on every disagreement track — neither produces a blob where the
 makes a car. The genuine failures (110/1538/2001/3194 — merges/bad inputs) stay
 implausible in **both** models identically.
 
-**Conclusion:** PoinTr's large synthetic-CD advantage **does not transfer to real
-data.** On real one-sided LiDAR clusters the two models are equivalent in plausibility
-and shape. Both are bottlenecked by the same factors — the residual real-vs-synthetic
-partiality gap (Finding #26) and the centroid/scale estimation in `complete()` — not by
-decoder capacity. This is the same synthetic→real transfer gap that defined the entire
-PCN saga (#15–19, #26). The transformer's extra fidelity is spent on synthetic detail
-that real scans neither contain nor benefit from.
+**Conclusion (revised 2026-07-06 with corrected numbers):** PoinTr is marginally
+better in-distribution (~5% CD, consistent across samples), and this small edge
+yields **no real-data advantage.** On real one-sided LiDAR clusters the two models
+are equivalent in plausibility and shape. Both are bottlenecked by the same
+factors — the residual real-vs-synthetic partiality gap (Finding #26) and the
+centroid/scale estimation in `complete()` — not by decoder capacity: the matched
+eval shows those shared bottlenecks (GT-free CD ~0.5 m vs ~0.15 m in-distribution)
+dwarf the architecture difference. The original "large synthetic win fails to
+transfer" framing overstated the gap; the accurate story is simpler — decoder
+capacity was never the binding constraint.
 
 **Decision:** **Keep PCN as production** (`pcn_kitti_best.pth`) — smaller and equivalent
 on real data; no real-data justification to swap. PoinTr is retained
@@ -733,8 +758,9 @@ on real data; no real-data justification to swap. PoinTr is retained
 `completion.py._load_model()` dispatches either by checkpoint, so the swap is one flag
 if ever wanted. AdaPoinTr (denoising + adaptive query bank) is **not pursued** — it
 targets synthetic completion fidelity, which this finding shows is not the real-data
-bottleneck. For the thesis, the result is a clean negative/transfer-gap contribution,
-not a PoinTr-beats-PCN headline.
+bottleneck. For the thesis, the result is a clean controlled architecture comparison:
+a small synthetic edge that vanishes on real data because shared inference/domain
+bottlenecks dominate — not a PoinTr-beats-PCN headline.
 
 ## 29. Completion Improves Amodal Box Estimates (Direction 4a) (2026-07-05)
 
@@ -797,3 +823,96 @@ with strong significance and nothing degrades significantly. **Headline "complet
 adds value" is established.** Per the roadmap, proceed to Direction 1 (valid
 real-data completion metric); the L-undershoot and sparse-input heading errors are
 logged as Direction-2 targets.
+
+## 30. Cross-Domain Classifier Matrix — Sim-to-Real Gap Is Total and Symmetric (2026-07-14)
+
+**Context:** Advisor requested (07/07 chat) a cross-validation table for the
+sim-to-real gap: train on synthetic, test on SemanticKITTI, and vice versa.
+Three cells already existed (Stage A training log, Finding #25); the missing
+cells were run with `scratchpad/cross_domain_classifier_eval.py`, which
+evaluates any checkpoint on either val set. Semantics decision: each checkpoint
+uses **its own training-time bbox-feature mean/std** (deployment behavior);
+only the eval data changes.
+
+**Commands:**
+
+```bash
+.venv\Scripts\python.exe scratchpad/cross_domain_classifier_eval.py --ckpt checkpoints/classifier_best.pth --domain real
+.venv\Scripts\python.exe scratchpad/cross_domain_classifier_eval.py --ckpt checkpoints/stage_b_scratch_best.pth --domain synthetic
+.venv\Scripts\python.exe scratchpad/cross_domain_classifier_eval.py --ckpt checkpoints/stage_b_best.pth --domain synthetic
+```
+
+**Finding — cluster-level macro F1 (car F1 in parens); new cells bold:**
+
+| Train ↓ Test → | Synthetic val (1,402) | Real val, seq 08 (130,394) |
+|---|---|---|
+| Synthetic only (Stage A, `classifier_best`) | 0.999 (0.999) | **0.447 (0.000)** |
+| Real only (`stage_b_scratch_best`) | **0.304 (0.000)** | 0.929 (0.885) |
+| Synthetic → real fine-tuned (`stage_b_best`, production) | **0.318 (0.000)** | 0.923 (0.875) |
+
+1. **No direction transfers.** Stage A on real clusters recovers 5 of 24,968
+   cars (car P=0.020, R=0.000) — the binary-classifier confirmation of
+   Finding #7's pipeline-level result. Both real-trained models classify **0
+   of 701** synthetic cars as car.
+2. **Fine-tuning catastrophically forgets synthetic** (0.999 → 0.318). The
+   fine-tuned and from-scratch models are equally blind to synthetic data —
+   consistent with #25: after 420k real clusters, nothing of Stage A remains
+   that matters.
+3. **Accuracy is misleading here:** Stage A on real val scores 0.807 accuracy
+   purely via the 80% not-car majority class while finding zero cars. This is
+   the concrete argument for reporting macro F1 + confusion matrix to the
+   advisor, not accuracy.
+
+**Artifacts:** `output/experiments/cross_domain_classifier/*.json` (per-class
+reports + confusion matrices).
+
+**Decision:** Table sent to advisor as the requested sim-to-real-gap
+evidence. No modeling change: the production pipeline already uses the
+real-fine-tuned checkpoint, and #25 already established the synthetic prior
+is redundant. The matrix strengthens the thesis narrative: the domain gap is
+symmetric and complete at cluster level, so real-data fine-tuning (Stage B)
+is not an optimization but a necessity.
+
+## 31. Stage A Dropped from Production Pipeline — Scratch Checkpoint Matches/Beats Fine-Tuned at Full Scale (2026-07-14)
+
+**Context:** Following Finding #30 (symmetric total domain gap) the user decided
+to remove Stage A synthetic pretraining from the final pipeline (kept as thesis
+ablation material). The one open concern was Finding #25's pipeline-level
+precision edge for the pretrained checkpoint (FP 27 vs 62 on a 100-frame seq-08
+spot-check, flagged there as uncontrolled). Before switching, both standard
+evals were run with `stage_b_scratch_best.pth`.
+
+**Hypothesis:** scratch loses some precision (per #25's spot-check), recall
+unchanged.
+
+**Commands:**
+
+```bash
+.venv\Scripts\python.exe src/evaluate.py --classifier-ckpt checkpoints/stage_b_scratch_best.pth
+.venv\Scripts\python.exe src/evaluate.py --seq 08 --frames 5000 --classifier-ckpt checkpoints/stage_b_scratch_best.pth
+```
+
+**Result — hypothesis wrong; scratch is neutral-to-better:**
+
+| | seq 00 (100f) fine-tuned | seq 00 scratch | seq 08 (4071f) fine-tuned | seq 08 scratch |
+|---|---|---|---|---|
+| Precision | 0.984 | 0.984 | 0.913 | 0.903 |
+| Recall | 0.739 | **0.761** | 0.693 | 0.699 |
+| F1 | 0.844 | **0.859** | 0.788 | 0.788 |
+| Mean IoU | 0.943 | 0.942 | 0.895 | 0.895 |
+| TP / FP / FN | 1205 / 20 / 426 | 1242 / 20 / 389 | 23593 / 2235 / 10470 | 23823 / 2565 / 10240 |
+
+The seq-00 fine-tuned baseline was re-run first and reproduced the documented
+headline exactly (deterministic), so the comparison is clean. Seq 00: +37 TP at
+identical FP — a genuine F1 gain (0.844→0.859). Seq 08 full: F1 and mIoU
+identical to 3 decimals; +230 TP vs +330 FP (~0.08 FP/frame). **Finding #25's
+precision edge does not hold at full scale — it was a 100-frame small-sample
+effect.**
+
+**Decision:** Production classifier checkpoint switched to
+`stage_b_scratch_best.pth` (defaults updated in `evaluate.py`, `main.py`,
+`visualize_gt.py`, `test_single_frame_pcn.py`). New headline metrics: seq 00
+P 0.984 / R 0.761 / F1 0.859 / mIoU 0.942; seq 08 P 0.903 / R 0.699 / F1 0.788 /
+mIoU 0.895. The final pipeline trains the classifier on real SemanticKITTI data
+only; Stage A is retained as the thesis sim-to-real ablation (#7, #25, #30).
+`stage_b_best.pth` (fine-tuned) is kept on disk for reproducibility.

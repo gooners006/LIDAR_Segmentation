@@ -66,7 +66,7 @@ def parse_args():
         "--classifier-ckpt", type=str,
         default=os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "checkpoints", "stage_b_best.pth"),
+            "checkpoints", "stage_b_scratch_best.pth"),
         help="Path to learned classifier checkpoint",
     )
     parser.add_argument(

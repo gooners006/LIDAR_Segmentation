@@ -294,7 +294,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--classifier-ckpt", type=str,
-        default=os.path.join(PROJECT_ROOT, "checkpoints", "stage_b_best.pth"),
+        default=os.path.join(PROJECT_ROOT, "checkpoints", "stage_b_scratch_best.pth"),
         help="Path to classifier checkpoint",
     )
     parser.add_argument(
