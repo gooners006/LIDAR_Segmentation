@@ -95,3 +95,31 @@ inputs (the one strong IoU regression case). Largest gains on sparse inputs
 ### Reuse note
 Step 0's accumulation + viewpoint-coverage infrastructure is the same machinery
 Direction 1a (donor-frame Chamfer) needs — build once, use for both.
+
+## Direction 1 — COMPLETE (2026-07-17): donor-frame occluded-side metric, validated
+
+**Finding #32**; full method/results/schema: **`docs/completion/donor_metric.md`**.
+
+- [x] Design locked with user 2026-07-17: visibility-mask novel set (τ=0.15),
+  one-directional coverage (novel→method, cov@0.1 m), out-of-GT-box guard,
+  pipeline TP inputs, raw + mirrored baselines, per-car medians + Wilcoxon.
+- [x] Steps 1–3 + figure (`scratchpad/donor_metric_step{1,2,3}.py`,
+  `donor_metric_viz.py`): 2,092 TP pairs / 1,337 gate-passed / 39 cars on
+  seq 08 → `output/experiments/donor_metric/`,
+  `output/figures/donor_metric_08.png`.
+- [x] **Validation gate: all four items PASS** (raw last; per-car IQR 0.14;
+  ranking stable across τ; completed out-of-box 0.0003 ≤ mirrored 0.0083).
+- [x] Headline (per-car medians, n=39, τ=0.15): cov@0.1 raw 0.000 / mirrored
+  0.043 / **completed 0.304**; med novel-dist 0.518 / 0.332 / **0.161 m**;
+  all Wilcoxon p < 1e-6.
+- [x] Supporting refactor: `estimate_canonical_frame()` extracted from
+  `complete()` (`src/completion.py`), verified behavior-preserving.
+- Symmetry self-consistency (secondary, A6): implemented (car-median self-CD
+  0.122 m); usefulness as a reference-free signal not yet tested — optional.
+
+**Direction-2 targets, now measurable:** far_end cov 0.133 (vs far_side 0.321,
+top 0.203) = the #29 length under-completion number to move; heading/center
+errors on diagonal/sparse views (worst figure panels + out-of-box flags).
+
+**Next: Direction 2 — improve `complete()` geometry**, measured with this
+metric (report per-car-median cov@0.1 @ τ=0.15 + Wilcoxon, far_end split).

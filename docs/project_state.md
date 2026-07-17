@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-07-14
+Last updated: 2026-07-17
 
 ## Current Architecture
 
@@ -170,13 +170,28 @@ Direction-2 targets logged (not blockers): length under-completion on normal
 cars (far end not extended, signed ΔL −0.49→−0.55) and heading errors on
 sparse inputs.
 
-## Immediate Next Steps — Direction 1: valid real-data completion metric
+## Direction 1 — COMPLETE (2026-07-17): valid real-data completion metric
 
-Donor-frame occluded-side Chamfer: split a static car's frames by ego
-viewpoint, complete from set A, measure against set B (surfaces unseen in A);
-plus symmetry self-consistency (secondary). Reuses Step 0's accumulation +
-viewpoint-coverage infrastructure. Unblocks measuring Directions 2/3 on real
-data. Plan: `docs/completion/plan.md`.
+Finding #32; method/results: `docs/completion/donor_metric.md`. Donor-frame
+occluded-side metric: complete from one frame's pipeline cluster, score
+coverage of donor points (other frames of the same static car) ≥ 0.15 m from
+every input point, + out-of-amodal-GT-box hallucination guard. Seq 08:
+2,092 TP pairs / 1,337 gate-passed / 39 cars. **Validation gate: all four
+items pass.** Headline (per-car medians, n=39): cov@0.1 raw 0.000 / mirrored
+0.043 / **completed 0.304**, med novel-dist 0.518→**0.161 m**, out-of-box
+~0; all Wilcoxon p < 1e-6. First real-data evidence PCN reconstructs unseen
+surface (7× the symmetry-mirror baseline). Weakest region = far end (cov
+0.133) — #29's length under-completion, now measurable. Supporting refactor:
+`estimate_canonical_frame()` extracted from `complete()` (behavior-preserving).
+Figure: `output/figures/donor_metric_08.png`.
+
+## Immediate Next Steps — Direction 2: improve `complete()` geometry
+
+Targets (from #29 + #32 breakdowns): (a) far-end under-completion — move
+far_end cov 0.133; (b) heading/center errors on diagonal/sparse views.
+Measure with the donor metric (per-car-median cov@0.1 @ τ=0.15, Wilcoxon,
+far_end split) + the #29 box metrics. Idea backlog:
+`docs/completion/next_ideas.md`. Plan: `docs/completion/plan.md`.
 
 Optional hardening before the thesis writeup: cross-validate the amodal GT
 boxes against KITTI raw 3D tracklets (odometry seq 08 = raw drive

@@ -1364,3 +1364,81 @@ those findings.)*
 - Consider a checkpoint commit: working tree now carries the 07-06 #28
   correction, today's #30/#31 doc updates, and the checkpoint-default switch
   in four `src/` files.
+
+---
+
+# Session — 2026-07-17 (Direction 1 complete: donor-frame occluded-side metric validated, Finding #32)
+
+## What was done
+
+- **Session start + full results/storyline synthesis:** recapped all 31
+  findings and mapped planned vs. possible thesis storylines on request.
+- **Direction 1 planned and locked** (`/tweakable-plan`, plan approved):
+  visibility-mask novel set (τ=0.15 m), one-directional coverage
+  (novel→method, cov@0.1 m + median distance), out-of-amodal-GT-box
+  hallucination guard (+0.2 m), pipeline TP cluster inputs, raw + mirrored
+  baselines, per-car medians + Wilcoxon (as #29), symmetry self-CD secondary.
+- **Refactor (`src/completion.py`):** extracted
+  `PointCloudCompleter.estimate_canonical_frame()` (gate + L-shape heading +
+  canonical basis + full-car center + radius) from `complete()` so the
+  mirrored baseline reuses exactly the production geometry. Verified bitwise
+  behavior-preserving against pre-refactor reference outputs.
+- **Built the 4-script metric pipeline** (all in `scratchpad/`, gitignored by
+  design; outputs under `output/experiments/donor_metric/`):
+  - `donor_metric_step1.py` — detection sweep + per-pair npz cache
+    (`stage_b_scratch_best.pth`, `pcn_kitti_best.pth`); seq 08 full run
+    ~38 min: 2,092 TP pairs / 40 cars / 1,337 gate-passed (733 fragment,
+    22 merge).
+  - `donor_metric_step2.py` — donor accumulation (cached), novel sets at
+    τ∈{0.10,0.15,0.20}, coverage + out-of-box + region breakdown + sym
+    self-CD; ~4 min.
+  - `donor_metric_step3.py` — per-car medians, Wilcoxon, validation gate,
+    size/region/both-sides diagnostics.
+  - `donor_metric_viz.py` — 6-panel BEV figure
+    `output/figures/donor_metric_08.png` (best→worst completed coverage).
+- **Reproduce check:** Step 2 rerun on cached pairs → byte-identical records.
+- **Docs:** new `docs/completion/donor_metric.md` (method, results, schema,
+  caveats); **Finding #32** appended to `docs/findings.md`; Direction-1
+  section added to `docs/completion/plan.md`; `docs/project_state.md` updated
+  (Direction 1 complete, next = Direction 2).
+- Started a `/quiz-me` comprehension quiz (Q1 asked); user deferred — resume
+  next session if wanted.
+
+## Files changed
+
+- Modified: `src/completion.py` (refactor), `docs/findings.md`,
+  `docs/completion/plan.md`, `docs/project_state.md`
+- New: `docs/completion/donor_metric.md`
+- Untracked-by-design (gitignored): `scratchpad/donor_metric_step{1,2,3}.py`,
+  `scratchpad/donor_metric_viz.py`, `output/experiments/donor_metric/`,
+  `output/figures/donor_metric_08.png`
+- Nothing committed this session.
+
+## Results / findings
+
+- **Validation gate: all four items PASS** — (a) raw ranks last at every τ;
+  (b) per-car IQR of completed cov 0.14; (c) ranking stable across τ;
+  (d) completed out-of-box 0.0003 ≤ mirrored 0.0083.
+- **Headline (per-car medians, n=39, τ=0.15):** cov@0.1 raw 0.000 / mirrored
+  0.043 / completed **0.304**; med novel-dist 0.518 / 0.332 / **0.161 m**;
+  all pairwise Wilcoxon p < 1e-6. First valid real-data evidence that PCN
+  reconstructs unseen surface (7× the symmetry-mirror baseline, ~zero
+  hallucination).
+- **Direction-2 targets quantified:** far_end cov 0.133 (vs far_side 0.321,
+  top 0.203) = #29's length under-completion; heading/center errors on
+  diagonal/sparse views (worst figure panels).
+- Completion is input-size-robust (cov 0.30–0.33 across size bins); mirroring
+  degrades on sparse inputs. Sym self-CD car median 0.122 m (untested as a
+  signal).
+
+## Next
+
+- **Direction 2: improve `complete()` geometry** — far-end extension +
+  heading/center robustness, measured with the donor metric (per-car-median
+  cov@0.1 @ τ=0.15 + Wilcoxon, far_end split) alongside #29 box metrics.
+  Idea backlog: `docs/completion/next_ideas.md`.
+- Consider a checkpoint commit: tree carries the #32 docs +
+  `estimate_canonical_frame()` refactor.
+- Optional: finish the `/quiz-me` quiz (Q1 pending); test sym self-CD as a
+  reference-free signal; amodal-GT cross-validation vs KITTI raw tracklets
+  still on the backlog.

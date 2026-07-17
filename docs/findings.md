@@ -873,6 +873,72 @@ is redundant. The matrix strengthens the thesis narrative: the domain gap is
 symmetric and complete at cluster level, so real-data fine-tuning (Stage B)
 is not an optimization but a necessity.
 
+## 32. Donor-Frame Occluded-Side Metric Is Valid — First Real-Data Evidence That Completion Adds Unseen Surface (2026-07-17)
+
+**Context:** Direction 1 (`docs/completion/plan.md`). Completion had no valid
+real-data metric: pseudo-GT Chamfer rewards under-completion because the
+accumulated reference is itself one-sided (#26). Design locked with the user:
+visibility-mask novel set (donor points ≥ τ=0.15 m from every input point),
+one-directional coverage (novel → method: median distance + cov@0.1 m),
+out-of-amodal-GT-box hallucination guard (+0.2 m margin), pipeline TP inputs,
+raw + mirrored-partial baselines, per-car medians + Wilcoxon (as #29).
+Full method + schema: **`docs/completion/donor_metric.md`**.
+
+**Hypothesis:** the completed cloud covers donor-observed unseen surface better
+than raw and mirrored partials, with a stable ranking (raw last, no τ
+inversion) and low hallucination — i.e., the metric is valid for measuring
+Directions 2/3 on real data.
+
+**Commands:**
+
+```bash
+.venv\Scripts\python.exe scratchpad\donor_metric_step1.py --seq 08   # sweep+cache, ~38 min
+.venv\Scripts\python.exe scratchpad\donor_metric_step2.py --seq 08   # metric, ~4 min
+.venv\Scripts\python.exe scratchpad\donor_metric_step3.py --seq 08   # stats+gate
+.venv\Scripts\python.exe scratchpad\donor_metric_viz.py --seq 08     # figure
+```
+
+**Result — hypothesis confirmed; all four validation-gate items pass.**
+Seq 08: 2,092 TP pairs on the 40 well-observed cars, 1,337 gate-passed, all
+qualified (≥100 novel pts @ τ=0.15), 39 cars. Per-car medians (n=39, τ=0.15):
+
+| method | cov@0.1 | med novel-dist (m) | out-of-box |
+|---|---|---|---|
+| raw | 0.000 | 0.518 | 0.000 |
+| mirrored | 0.043 | 0.332 | 0.008 |
+| completed | **0.304** | **0.161** | **0.000** |
+
+All pairwise Wilcoxon p < 1e-6. Gate: (a) raw last at every τ; (b) per-car IQR
+of completed cov 0.14 (moderate, fine for per-car medians); (c) ranking stable
+across τ ∈ {0.10, 0.15, 0.20}; (d) completed out-of-box 0.0003 ≤ mirrored
+0.0083.
+
+**Key sub-findings:**
+
+1. **PCN genuinely reconstructs unseen structure on real data** — 30% of
+   never-observed surface within 10 cm, 7× the symmetry-mirror baseline, with
+   essentially zero hallucination outside the GT box. First positive real-data
+   completion evidence in the project (complements #29's box-level value).
+2. **Far end is the weakest region** (completed cov 0.133 vs far_side 0.321,
+   top 0.203) — #29's length under-completion, now directly measurable; this is
+   the Direction-2 number to move. Mirrored scores ~0 on far_end by
+   construction (reflection across the length plane can't add end surface) —
+   built-in sanity check.
+3. **Completion is input-size-robust** (cov 0.30–0.33 across <100 to ≥300 pts)
+   while mirroring degrades on sparse inputs (0.083 → 0.010).
+4. Worst-case panels (figure) isolate two failure modes: far-end
+   under-completion and heading/center mis-estimation on diagonal or sparse
+   views — both are Direction-2 targets.
+
+**Artifacts:** `output/experiments/donor_metric/` (pair caches, records,
+summary), `output/figures/donor_metric_08.png`. Supporting refactor:
+`estimate_canonical_frame()` extracted from `complete()` (`src/completion.py`),
+verified bitwise behavior-preserving.
+
+**Decision:** metric accepted as the real-data completion metric. Directions 2
+(geometry: far-end + heading) and 3 (real-data fine-tuning) are now measurable
+on real data; report deltas as per-car-median cov@0.1 at τ=0.15 with Wilcoxon.
+
 ## 31. Stage A Dropped from Production Pipeline — Scratch Checkpoint Matches/Beats Fine-Tuned at Full Scale (2026-07-14)
 
 **Context:** Following Finding #30 (symmetric total domain gap) the user decided

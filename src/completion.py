@@ -339,31 +339,23 @@ class PointCloudCompleter:
             return u1, u2, ext1, ext2
         return u2, u1, ext2, ext1
 
-    def complete(
-        self, partial_xyz: np.ndarray, class_label: str
-    ) -> tuple[np.ndarray, Optional[str]]:
-        """Complete a single-frame partial car cluster using PCN.
+    def estimate_canonical_frame(
+        self, partial_xyz: np.ndarray
+    ) -> tuple[Optional[dict], Optional[str]]:
+        """Input gate + canonical-car-frame estimate used by complete().
 
-        ``partial_xyz`` must be a single-frame observation in the **sensor frame**
-        (Z = gravity up, ego at the origin), not accumulated multi-frame points.
-        The completed cloud is returned in the same sensor frame.
-
-        Reproduces the training normalization from the partial (Finding #26): the
-        old PCA + partial-centroid + partial-radius path was never seen in
-        training and produced blobs. Instead we reorient to the canonical car
-        frame (X=width, Y=up, Z=length), estimate the full-car center, and
-        normalize by a scale-corrected radius.
-
-        Returns (output_points, skip_reason). skip_reason is None on success.
-        class_label is currently unused; the priors below are car-specific (the
-        pipeline only completes cars).
+        ``partial_xyz`` is a single-frame observation in the sensor frame
+        (Z = gravity up). Returns (frame, skip_reason); exactly one is None.
+        frame keys: ``basis`` (3x3, sensor -> canonical via ``pts @ basis``),
+        ``center`` (3, in canonical coords), ``radius`` (scale-corrected),
+        ``fit_length``/``fit_width`` (L-shape footprint, m). The canonical car
+        frame is X=width, Y=up, Z=length — the estimated symmetry plane is
+        X=center[0], which external callers (e.g. the mirrored-partial
+        baseline) can reuse so their geometry matches complete() exactly.
         """
-        if self._model is None:
-            return partial_xyz.astype(np.float32), "model_not_loaded"
-
         pts = np.asarray(partial_xyz, dtype=np.float64)
         if len(pts) < 16:
-            return pts.astype(np.float32), "too_few_points"
+            return None, "too_few_points"
 
         # Reorient sensor frame -> canonical car frame (X=width, Y=up, Z=length).
         # Gravity (sensor +Z) maps to the canonical up axis; the horizontal
@@ -375,9 +367,9 @@ class PointCloudCompleter:
         # never complete into plausible cars, so skip them rather than emit junk.
         ls_len_dir, _, fit_length, fit_width = self._lshape_axes(xy)
         if self.fragment_min_length is not None and fit_length < self.fragment_min_length:
-            return pts.astype(np.float32), "fragment_input"
+            return None, "fragment_input"
         if self.merge_max_width is not None and fit_width > self.merge_max_width:
-            return pts.astype(np.float32), "merge_suspected"
+            return None, "merge_suspected"
 
         if self.heading_method == "pca":
             len_dir, _, _, _ = self._pca_axes(xy)
@@ -385,7 +377,7 @@ class PointCloudCompleter:
             len_dir = ls_len_dir
         norm = np.linalg.norm(len_dir)
         if norm < 1e-9:
-            return pts.astype(np.float32), "degenerate_orientation"
+            return None, "degenerate_orientation"
         e_len = np.array([len_dir[0] / norm, len_dir[1] / norm, 0.0])
         e_wid = np.array([-e_len[1], e_len[0], 0.0])         # perpendicular in ground
         e_up = np.array([0.0, 0.0, 1.0])
@@ -404,7 +396,43 @@ class PointCloudCompleter:
 
         radius = float(np.linalg.norm(pts_c - center, axis=1).max()) / COMPLETION_SCALE_CORRECTION
         if radius < 1e-6:
-            return pts.astype(np.float32), "degenerate_radius"
+            return None, "degenerate_radius"
+        return {
+            "basis": basis,
+            "center": center,
+            "radius": radius,
+            "fit_length": fit_length,
+            "fit_width": fit_width,
+        }, None
+
+    def complete(
+        self, partial_xyz: np.ndarray, class_label: str
+    ) -> tuple[np.ndarray, Optional[str]]:
+        """Complete a single-frame partial car cluster using PCN.
+
+        ``partial_xyz`` must be a single-frame observation in the **sensor frame**
+        (Z = gravity up, ego at the origin), not accumulated multi-frame points.
+        The completed cloud is returned in the same sensor frame.
+
+        Reproduces the training normalization from the partial (Finding #26): the
+        old PCA + partial-centroid + partial-radius path was never seen in
+        training and produced blobs. Instead we reorient to the canonical car
+        frame (X=width, Y=up, Z=length), estimate the full-car center, and
+        normalize by a scale-corrected radius (see estimate_canonical_frame).
+
+        Returns (output_points, skip_reason). skip_reason is None on success.
+        class_label is currently unused; the priors are car-specific (the
+        pipeline only completes cars).
+        """
+        if self._model is None:
+            return partial_xyz.astype(np.float32), "model_not_loaded"
+
+        pts = np.asarray(partial_xyz, dtype=np.float64)
+        frame, skip = self.estimate_canonical_frame(pts)
+        if skip is not None:
+            return pts.astype(np.float32), skip
+        basis, center, radius = frame["basis"], frame["center"], frame["radius"]
+        pts_c = pts @ basis
 
         pts_norm = ((pts_c - center) / radius).astype(np.float32)
         pts_fixed = self._fix_size(pts_norm, PCN_N_INPUT, self._rng)
