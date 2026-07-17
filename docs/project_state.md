@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-07-17
+Last updated: 2026-07-18
 
 ## Current Architecture
 
@@ -193,15 +193,30 @@ Measure with the donor metric (per-car-median cov@0.1 @ τ=0.15, Wilcoxon,
 far_end split) + the #29 box metrics. Idea backlog:
 `docs/completion/next_ideas.md`. Plan: `docs/completion/plan.md`.
 
-Optional hardening before the thesis writeup: cross-validate the amodal GT
-boxes against KITTI raw 3D tracklets (odometry seq 08 = raw drive
-2011_09_30_drive_0028), if that drive is annotated. Thesis framing: present
-amodal GT as accumulation-derived pseudo-GT; the paired design tolerates
-reference noise (Finding #29 discussion).
+Far-end plan (written up in
+`docs/report/results_report_2026_07_17_rev2.docx` §6.1): Step 1
+inference geometry (L-shape near-corner anchor + longitudinal length prior +
+symmetry-derived center; no retraining) → Step 2 visibility-weighted
+asymmetric Chamfer retrain on KITTI-like synthetic → Step 3 (contingency)
+masked-Chamfer real fine-tuning. Architecture changes ruled out (#28).
+
+Amodal-GT cross-validation against KITTI raw tracklets: **RESOLVED as
+impossible (2026-07-17)** — raw drive 2011_09_30_drive_0028 (= odometry seq
+08) has no tracklet annotations (verified: 404 on the official S3 bucket
+`avg-kitti/raw_data/2011_09_30_drive_0028/…_tracklets.zip`; control drive
+2011_09_26_drive_0001 exists; 2011_09_30_drive_0027 and 2011_10_03_drive_0027
+also unannotated). Thesis defense of the amodal GT instead rests on: paired
+design tolerates reference noise (#29), construction guards (viewpoint
+coverage + zero motion), and dimension sanity check (median L 4.14 / W 1.75 /
+H 1.47 m vs published car statistics). Written up in rev2 §6.2.
 
 ### Deferred
 - Thesis writing (pipeline description, experiment results, recall-ceiling discussion).
   Advisor progress report done 2026-07-05: `docs/report/progress_report_2026_07_05.md`.
+- Advisor results reports done 2026-07-17 (`docs/report/`):
+  `results_overview_2026_07_17.docx` (condensed, for the advisor) +
+  `results_report_2026_07_17_rev2.docx` (extended justifications /
+  defense-prep companion). Overview not yet sent.
 - Pipeline diagram for thesis report.
 
 ## Medium-Term Backlog

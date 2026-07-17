@@ -1442,3 +1442,92 @@ those findings.)*
 - Optional: finish the `/quiz-me` quiz (Q1 pending); test sym self-CD as a
   reference-free signal; amodal-GT cross-validation vs KITTI raw tracklets
   still on the backlog.
+
+---
+
+# Session — 2026-07-18
+
+(Session ran 2026-07-17 → 18; report files carry the 07-17 date.)
+
+## What was done
+
+### Consolidated results report for the advisor (docx)
+
+- Reviewed all findings (#1–#32) + project state and built a full-story,
+  thematically organized results report with python-docx:
+  `docs/report/results_report_2026_07_17.docx` — detection pipeline arc,
+  recall ceiling, sim-to-real study, completion arc; 7 tables, 3 embedded
+  figures (`seq08_bev_detections`, `completion_box_overlays_08`,
+  `donor_metric_08`), appendix mapping report sections → finding numbers.
+  Used corrected #28 numbers (not the overstated "halves CD" claim).
+- Generator scripts live in the session scratchpad (not in repo):
+  `build_results_docx.py`, `build_overview_docx.py`.
+
+### Rev2 — response to critical review feedback
+
+- User relayed critical review feedback (later revealed to be from another
+  LLM, not the advisor). Addressed every point with existing data — no new
+  experiments needed: operating-point justification (threshold sweep shows
+  recall is capped upstream: τ=0.30 → R 0.695 vs 0.711 at 0.50, so
+  F1-optimal = recall-maximal), filter validity across vehicle sizes (#22:
+  shape thresholds ≈4% of GT-overlapping rejections; SemanticKITTI car class
+  includes SUVs/vans), recall ceiling reframed as structural property of
+  density clustering, gate cost stated (completion attempted on 64.5% of TP
+  detections; detection recall unaffected), signed ΔL treated as known
+  conservative regression (−0.485→−0.545 m, |ΔL| neutral p=0.65), and a
+  far-end remediation plan (§6.1).
+- Corrected a conflation in the feedback: the three domain-adaptation
+  attempts (#16/#17/#19) were completion-side, not classifier-side; synthetic
+  data was dropped only for classification, fixed (KITTI-like generator) for
+  completion.
+- Saved as `docs/report/results_report_2026_07_17_rev2.docx` (rev1 was
+  file-locked in Word; kept as-is).
+
+### Pushback after the LLM reveal + tracklet verification
+
+- Removed the false "supervisor review" attribution from the docx and
+  `project_state.md`.
+- **Verified KITTI raw drive 2011_09_30_drive_0028 (= odometry seq 08) has
+  NO tracklet annotations**: 404 on the official S3 bucket
+  (`avg-kitti/raw_data/<drive>/<drive>_tracklets.zip`); control
+  `2011_09_26_drive_0001` exists (274 KB); `2011_09_30_drive_0027` and
+  `2011_10_03_drive_0027` also 404. The LLM's "mandatory tracklet
+  cross-validation" is unsatisfiable — resolved as impossible. Amodal-GT
+  validity now rests on: paired design, construction guards
+  (viewpoint coverage + zero motion), dimension sanity check
+  (median L 4.14 / W 1.75 / H 1.47 m).
+
+### Condensed overview version (the one to send)
+
+- `docs/report/results_overview_2026_07_17.docx` — 1,534 body words
+  (~5 pages), all 6 key tables + 3 figures kept, prose compressed ~55%;
+  purpose: advisor tracking/understanding. Rev2 cross-referenced as the
+  extended-justification companion.
+
+## Files changed
+
+- Modified: `docs/project_state.md` (far-end plan recorded; tracklet
+  question resolved-impossible)
+- New: `docs/report/results_report_2026_07_17.docx`,
+  `docs/report/results_report_2026_07_17_rev2.docx`,
+  `docs/report/results_overview_2026_07_17.docx`
+- Nothing committed this session.
+
+## Results / findings
+
+- No new experiments. One new fact established: seq-08's source drive has no
+  official KITTI tracklet annotations (verified via S3 probe), so no official
+  3D box GT exists for it — the amodal pseudo-GT (#29) is the only option.
+
+## Next
+
+- Send `results_overview_2026_07_17.docx` to the advisor.
+- **Direction 2 (far-end undershoot), committed plan:** Step 1 inference
+  geometry (L-shape near-corner anchor + longitudinal length prior +
+  symmetry-derived center) → Step 2 visibility-weighted asymmetric Chamfer
+  retrain on KITTI-like synthetic → Step 3 contingency real fine-tuning.
+  Metrics: far_end cov 0.133, signed ΔL −0.545 m, full #29/#32 suites.
+- Consider a checkpoint commit (tree carries #32 docs, refactor, and the
+  three report files).
+- Carry-over from last session: finish `/quiz-me` (Q1 pending); test sym
+  self-CD as a reference-free signal.
