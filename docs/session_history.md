@@ -1531,3 +1531,100 @@ those findings.)*
   three report files).
 - Carry-over from last session: finish `/quiz-me` (Q1 pending); test sym
   self-CD as a reference-free signal.
+
+---
+
+# Session — 2026-07-19 (advisor Q&A, full-pipeline timing benchmark, report restyle, perf plan)
+
+## What was done
+
+### 1. Advisor concern: test scenarios not explicit in the results doc
+- Advisor asked (chat, VN) whether reported metrics come from many frames/many
+  cars or a single car. Root cause: the overview doc never stated the test
+  scenarios.
+- Created `docs/report/results_overview_2026_07_19.docx` (copy; the sent
+  `_07_17` original preserved untouched) with a new "Test scenario and
+  evaluation protocol" subsection at the top of §2: seq 08 = 4,071 frames /
+  393 distinct cars / ≈34k evaluated car appearances (TP+FN=34,063 under the
+  ≥10-points-after-preprocessing rule); seq 00 first 100 frames = 41 cars.
+  Protocol reconstructed from `src/evaluate.py`: per-frame independent eval,
+  greedy 1-to-1 point-IoU matching at 0.3, micro-averaged TP/FP/FN; completion
+  experiments use per-car medians (39 static cars) so each car counts once.
+- Terminology normalized throughout the docx: "scan" → "frame", with a one-time
+  definition (one frame = one full 360° LiDAR scan, ~120k points).
+- Ready-to-send Vietnamese reply drafted in chat.
+
+### 2. Advisor follow-up: inference time + which completion metric matters
+- Built `scratchpad/timing_benchmark.py` — per-stage wall-clock benchmark
+  mirroring the production path (evaluate.py stages + tracker + PCN completion
+  timed per car cluster), `--stride` sampling, 3-frame warmup, 250-frame
+  checkpoints, distinct JSON names per mode.
+- **Sampling-bias lesson:** first-100-contiguous frames gave 675 ms/frame —
+  28% understated (sparse opening scene; HDBSCAN cost ~doubles in dense
+  segments). Uniform stride-40 (n=99) and stride-20 (n=201) agreed within
+  0.3% at ~934 ms. ~100 frames suffice *if drawn across the whole drive*.
+- **Full-sequence run (all 4,071 frames, ~70 min background):**
+  `output/experiments/timing/timing_seq08_full_n4068.json` — **921.3 ms/frame
+  mean (917.6 median), ≈1.1 frames/s** vs the sensor's 10 Hz. Stages: HDBSCAN
+  502 ms (54%), RANSAC 163 ms (18%), load+preprocessing 136 ms (15%),
+  classifier 74 ms (8%, 42.8 clusters/frame ≈ 1.7 ms each), geometric filter
+  46 ms, tracker 0.3 ms. Completion: 18.6 ms per completed car (n=12,322),
+  1.5 ms gate-rejected (n=14,823). Stride-20 estimate was within 1.4%.
+  Scene variability: ~450-frame block means ≈770–1,040 ms.
+- Added to the docx: "Inference time" section (after §1, table + prose) and a
+  completion-metrics section — Coverage@0.1 m = primary quality metric (with
+  out-of-box hallucination guard), BEV IoU = downstream utility, per-car-median
+  aggregation, Chamfer synthetic-only; the two metrics cross-check each other.
+
+### 3. Report restyle: Q&A tone → report tone (user request)
+- Question heading "Which completion metric has to be good — IoU or Coverage?"
+  → numbered "§5.3 Completion evaluation metrics"; old §5.3/§5.4 renumbered
+  §5.4/§5.5 with all cross-references (incl. appendix findings table) updated.
+- "Both, because…" answer paragraph, "Sampling note:", "Two observations."
+  scaffolding, defensive "never a single vehicle or a single frame", and the
+  "rev. July 19 (…)" subtitle all rewritten as declarative report prose.
+  Zero question marks remain; doc is now usable as a school submission /
+  paper draft base.
+- Final timing numbers (921 ms, full sequence) swapped into the docx after the
+  benchmark finished.
+
+### 4. Runtime optimization plan (implementation deferred)
+- `docs/perf/plan.md` created via /tweakable-plan: hypothesis ≤400 ms/frame
+  reachable with metrics unchanged. Section A decisions (A1 regression budget,
+  A2 HDBSCAN strategy, A3 ground removal, A4 preprocessing order) **left open —
+  user deferred the decision to the next session**. Frame-parallelism rejected
+  by user. Full-sequence baseline (921 ms) recorded in the plan.
+
+### 5. Cleanup
+- Deleted `docs/project_walkthrough.md` (user-approved): stale derived
+  synthesis (last updated 2026-06-29, 27 findings, obsolete headline metrics
+  P 0.956/R 0.731/F1 0.829); fully reconstructible from project_state +
+  findings. Recoverable from git history.
+
+## Files changed
+
+- New: `docs/report/results_overview_2026_07_19.docx`, `docs/perf/plan.md`,
+  `scratchpad/timing_benchmark.py` (git-ignored),
+  `output/experiments/timing/timing_seq08{,_stride40,_stride20,_partial,_full_n4068}.json`
+  (git-ignored)
+- Modified: `docs/project_state.md`
+- Deleted: `docs/project_walkthrough.md`
+
+## Results / findings
+
+- **Full-pipeline inference time (seq 08, all 4,071 frames): 921 ms/frame,
+  ≈1.1 frames/s; 72% in classical CPU stages (HDBSCAN 54% + RANSAC 18%);
+  PCN completion 19 ms per completed car.** Not yet a numbered finding —
+  candidate for one when the perf work starts.
+- Distinct-car counts: seq 08 = 393, seq 00 (100 frames) = 41.
+- Contiguous-start timing samples are biased (−28%); sample uniformly.
+
+## Next
+
+- Send `results_overview_2026_07_19.docx` + the VN chat reply (use final
+  figure **921 ms/frame**; the earlier draft said ~934).
+- **Next session: lock Section A of `docs/perf/plan.md` (A1–A4), then
+  implement Tier 1** (classifier batching, `core_dist_n_jobs`, copy trims —
+  exact-output verification against a frozen TP/FP/FN reference).
+- Carried: Direction 2 (far-end under-completion), pipeline diagram, thesis
+  writing.

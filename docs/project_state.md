@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-07-18
+Last updated: 2026-07-19
 
 ## Current Architecture
 
@@ -210,13 +210,50 @@ design tolerates reference noise (#29), construction guards (viewpoint
 coverage + zero motion), and dimension sanity check (median L 4.14 / W 1.75 /
 H 1.47 m vs published car statistics). Written up in rev2 §6.2.
 
+### Queued: pipeline runtime optimization (decisions pending)
+
+`docs/perf/plan.md` (2026-07-19). Baseline: full seq 08 timing = **921 ms/frame**
+(`output/experiments/timing/timing_seq08_full_n4068.json`); target ≤ 400 ms with
+detection metrics unchanged. **Section A (A1 regression budget, A2 HDBSCAN, A3
+ground removal, A4 preprocessing) awaits user decisions — resolve at next
+session start before any implementation.** Frame-level parallelism already
+rejected by user.
+
 ### Deferred
 - Thesis writing (pipeline description, experiment results, recall-ceiling discussion).
   Advisor progress report done 2026-07-05: `docs/report/progress_report_2026_07_05.md`.
 - Advisor results reports done 2026-07-17 (`docs/report/`):
   `results_overview_2026_07_17.docx` (condensed, for the advisor) +
   `results_report_2026_07_17_rev2.docx` (extended justifications /
-  defense-prep companion). Overview not yet sent.
+  defense-prep companion). Overview sent 2026-07-17; advisor asked (2026-07-19)
+  whether metrics cover many frames/cars or one car — i.e. test scenarios were
+  not explicit. Fixed in `results_overview_2026_07_19.docx`: new "Test scenario
+  and evaluation protocol" subsection at top of §2 (seq 08 = 4,071 scans / 393
+  distinct cars / ≈34k per-frame car instances, IoU≥0.3 greedy 1-to-1 point-level
+  matching, micro-averaged TP/FP/FN; seq 00 100 frames = 41 cars; completion
+  §5.3–5.4 unit = 39 static cars, per-car medians). Distinct-car counts from
+  label scan (sem ∈ {10,252}, inst>0, ≥10 raw pts).
+- Advisor follow-up (2026-07-19): inference time + completion-metric
+  explanation. Timing benchmark (`scratchpad/timing_benchmark.py`, Ryzen 7
+  7800X3D + RTX 3070 Ti): headline from **full seq 08, all 4,071 frames**
+  (`output/experiments/timing/timing_seq08_full_n4068.json`, 3 warmup
+  excluded): **921 ms/frame ≈ 1.1 frames/s** — HDBSCAN 502 ms (54%), RANSAC
+  163 ms (18%), preprocessing 136 ms, classifier 74 ms (~43 clusters/frame,
+  1.7 ms each), tracker 0.3 ms; PCN completion +19 ms per completed car
+  (n=12,322; gate rejection 1.5 ms, n=14,823). Scene-density variability:
+  ~450-frame block means range ≈770–1,040 ms. Sampling lesson: the
+  first-100-contiguous frames understate the mean by 28% (675 ms — sparse
+  opening scene); uniform stride-20 sample (201 frames, 934 ms) agreed with
+  the full run to 1.4%, so ~100 frames suffice *if drawn across the whole
+  drive*. Learned components are cheap; classical CPU stages dominate (72%).
+  Both answers added to `results_overview_2026_07_19.docx`: "Inference time"
+  section after §1 and "§5.3 Completion evaluation metrics" (Coverage =
+  primary quality metric w/ out-of-box hallucination guard; BEV IoU =
+  downstream utility; they cross-check each other). Doc restyled 2026-07-19
+  from Q&A tone to report tone (question headings removed; completion
+  sections renumbered §5.3–§5.5) so it can serve as a school
+  submission / paper draft base. Docx and VN reply ready to send (final figure
+  921 ms/frame supersedes the ~934 quoted in the earlier chat draft).
 - Pipeline diagram for thesis report.
 
 ## Medium-Term Backlog
