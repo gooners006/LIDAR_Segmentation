@@ -1,0 +1,224 @@
+% =====================================================================
+% Master's thesis skeleton (FPT School of Business & Technology).
+% Self-contained structural template for the latex-report skill: preamble,
+% titlepage, front matter, and an empty five-chapter body with guidance
+% comments. Derived from an advisor-approved thesis; all content redacted.
+% Fill each section from this project's own findings/evaluation outputs.
+% Compile: pdflatex -> bibtex -> pdflatex -> pdflatex (needs two+ passes
+% for the tikz title border and the TOC/LOF/LOT).
+% =====================================================================
+\documentclass[a4paper, 11pt]{article}
+
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{makecell}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{url}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{tikz}
+\usetikzlibrary{calc, shapes.geometric, arrows, positioning}
+\usepackage[top=2.5cm, bottom=2.5cm, left=3.0cm, right=2.5cm]{geometry}
+\usepackage{hyperref}
+
+% Thesis convention: figure AND table captions at the bottom.
+\captionsetup[figure]{position=bottom}
+\captionsetup[table]{position=bottom}
+\captionsetup[lstlisting]{position=bottom}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  numbers=left, numberstyle=\tiny,
+  frame=single, breaklines=true, showstringspaces=false,
+  columns=fullflexible, keepspaces=true,
+  backgroundcolor=\color{gray!5}
+}
+
+\definecolor{myblue}{HTML}{1b2dd6}
+\bibliographystyle{IEEEtran}          % NOT splncs04
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{FPT School of Business \& Technology}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0.5pt}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=myblue, citecolor=myblue, urlcolor=myblue,
+  pdftitle={<THESIS TITLE>},
+  pdfauthor={Ngo Vi Viet Anh}
+}
+
+\begin{document}
+
+% ------------------------------------------------------------------ %
+% TITLE PAGE
+% ------------------------------------------------------------------ %
+\begin{titlepage}
+\begin{tikzpicture}[remember picture, overlay]
+  \draw[line width=0.5pt]
+    ($(current page.north west) + (1.5cm,-1.5cm)$) rectangle
+    ($(current page.south east) + (-1.5cm,1.5cm)$);
+  \draw[line width=1.5pt]
+    ($(current page.north west) + (1.7cm,-1.7cm)$) rectangle
+    ($(current page.south east) + (-1.7cm,1.7cm)$);
+\end{tikzpicture}
+\begin{center}
+  % \includegraphics[scale=0.25]{figures/fpt.png} \\   % TODO: add logo to figures/
+  \vspace{0.1in}
+  \noindent\rule{5cm}{0.7pt}
+
+  \vspace{0.3in}
+  \textbf{MASTER THESIS ON SOFTWARE ENGINEERING}\\
+
+  \vspace{2in}
+  \hspace*{-1cm}
+  \begin{minipage}{1\textwidth}
+    \centering
+    {\fontsize{13pt}{24pt}\selectfont\textbf{<THESIS TITLE>}}
+  \end{minipage}
+
+  \vspace{2in}
+  \begin{minipage}{0.85\textwidth}
+    \large
+    \begin{tabular}{ll}
+      \textbf{Student:}    & Ngo Vi Viet Anh - <STUDENT ID> \\[0.2cm]
+      \textbf{Supervisor:} & Dr. Doan Nhat Quang \\
+    \end{tabular}
+  \end{minipage}
+
+  \vspace{2in}
+  \text{\large Hanoi, \the\year}
+\end{center}
+\end{titlepage}
+
+% ------------------------------------------------------------------ %
+% FRONT MATTER
+% ------------------------------------------------------------------ %
+\setcounter{page}{2}
+\newpage \tableofcontents
+\newpage \listoffigures
+\newpage \listoftables
+\newpage
+
+% ================================================================== %
+% CHAPTER 1
+% ================================================================== %
+\section{Introduction}
+
+\subsection{Background and Rationale}
+% Situate the problem domain; why it matters. Cite establishing work.
+
+\subsection{Problem and Challenges}
+% The specific difficulties this thesis addresses.
+
+\subsection{Research Objectives}
+% Numbered list. Each objective becomes a contribution and an experiment.
+\begin{enumerate}
+  \item \textbf{<Objective name>} --- <one-sentence aim>.
+  \item \textbf{<Objective name>} --- <one-sentence aim>.
+\end{enumerate}
+
+\subsection{Research Contributions}
+% Numbered list, each contribution given a concrete name; mirrors the
+% objectives and drives the methodology subsections + experiments.
+\begin{itemize}
+  \item \textbf{<Named contribution>} --- <what was built/shown>.
+  \item \textbf{<Named contribution>} --- <what was built/shown>.
+\end{itemize}
+
+\subsection{Thesis Organization}
+% One sentence per following chapter.
+
+% ================================================================== %
+% CHAPTER 2
+% ================================================================== %
+\newpage
+\section{Literature Review and Theoretical Background}
+
+\subsection{Literature Review}
+% Prior work grouped by research direction / competing paradigm,
+% not one flat list. End each group with its limitation this work targets.
+
+\subsection{Theoretical Background}
+% Concepts the reader needs to follow the method, defined before use.
+
+% ================================================================== %
+% CHAPTER 3
+% ================================================================== %
+\newpage
+\section{Proposed Methodology}
+% Open with a system-architecture figure + an N-phase decomposition,
+% then ONE subsection per phase (each with its own figure).
+% Use algpseudocode for algorithms, definition/ontology tables for fixed
+% vocabulary, and numbered equations with every symbol defined right after.
+
+\subsection{System Architecture}
+
+\subsection{<Phase 1>}
+
+\subsection{<Phase 2>}
+
+% ================================================================== %
+% CHAPTER 4
+% ================================================================== %
+\newpage
+\section{Experimental Evaluation}
+
+\subsection{Environment}
+% Hardware/software as an itemized block; note all methods ran identically.
+
+\subsection{Dataset Preparation}
+% Dataset-properties table + statistics table (counts per split / class).
+
+\subsection{Experimental Setup}
+\subsubsection{Baseline Methods}
+% Table with an "Evaluation Purpose" column: each baseline probes one claim.
+\subsubsection{Evaluation Metrics}
+% Grouped by task, each in its own table with one-line descriptions.
+\subsubsection{Implementation Details}
+% Separate protocol per capability; explicit query/test vs. knowledge-base
+% (train/test) split table with stated isolation guarantees.
+
+\subsection{<Task 1> Results}
+% Report losses honestly and explain the tradeoff.
+
+\subsection{<Task 2> Results}
+
+\subsection{Runtime Evaluation}
+% First-class subsection, not a footnote.
+
+\subsection{Ablation Study}
+% Framed as a progression (A -> B -> C) showing why each choice earns its place.
+
+% ================================================================== %
+% CHAPTER 5
+% ================================================================== %
+\newpage
+\section{Conclusion and Future Work}
+
+\subsection{Conclusion}
+
+\subsection{Limitations and Discussion}
+% The honest home for negative results and proven ceilings.
+
+\subsection{Future Work}
+
+% ------------------------------------------------------------------ %
+\newpage
+\bibliography{../references}   % IEEEtran; keys from docs/references.bib
+\end{document}

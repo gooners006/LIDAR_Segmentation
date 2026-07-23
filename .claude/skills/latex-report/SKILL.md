@@ -9,10 +9,11 @@ Write LaTeX documents (conference papers or progress reports) using the Springer
 
 ## Step 1: Determine document type
 
-Ask the user if unclear. The two types are:
+Ask the user if unclear. The three types are:
 
 - **Conference paper** — formal paper for ICTA submission. Follows standard academic structure: abstract, introduction, related work, methodology, experiments, conclusion.
 - **Progress report** — periodic update to advisor. Covers a date range, summarizes what was done, shows results, outlines next steps. Uses the same LNCS format but with a report-oriented section structure.
+- **Master's thesis** — the full thesis document. A long-form, chaptered document that uses its **own** format (article class, IEEEtran bib, custom FPT titlepage), **not** LNCS. Start from `references/thesis-skeleton.tex` and follow `references/thesis-structure.md` (both self-contained in this skill; distilled from an advisor-approved, redacted thesis).
 
 ## Step 2: Gather context automatically
 
@@ -28,6 +29,7 @@ Read these sources in parallel to build a picture of the current research state:
 | `src/evaluate.py` output or saved results | Evaluation metrics if available |
 | `docs/references.bib` | Available BibTeX references |
 | `docs/report/*.tex` | Previous reports for style reference, content continuity, and avoiding duplication |
+| `references/thesis-structure.md` + `references/thesis-skeleton.tex` (thesis only) | The skill's own self-contained thesis template and annotated structure. Authoritative for chapter structure, section conventions, format, and register — never for content. Fill results from `docs/findings.md` and evaluation outputs. |
 
 For progress reports, scope the git log and session summaries to the relevant date range. For conference papers, gather everything relevant to the paper topic.
 
@@ -48,7 +50,11 @@ Wait for the user's response before proceeding.
 
 ### Template format
 
-All documents use the Springer LNCS class (`llncs.cls`). The template files are in `docs/writing/lncs-template/`.
+The **conference paper** and **progress report** use the Springer LNCS class
+(`llncs.cls`); template files are in `docs/writing/lncs-template/`. The **master's
+thesis** does not — it uses its own article-class format; start from
+`references/thesis-skeleton.tex` (self-contained in this skill) and see the
+"Master's thesis structure" section below.
 
 ```latex
 \documentclass[runningheads]{llncs}
@@ -136,15 +142,47 @@ Use the same LNCS format but with these sections:
 3. **Results** — tables and figures with quantitative metrics. Always include the numbers, not just descriptions.
 4. **Next Steps** — numbered list of planned work, ordered by priority
 
+### Master's thesis structure
+
+Uses its own format (not LNCS — see Template format above). Start from
+`references/thesis-skeleton.tex`; the full annotated skeleton, format deltas, and
+rigor conventions are in **`references/thesis-structure.md`** (read it before
+drafting). Five chapters:
+
+1. **Introduction** — Background & Rationale, Challenges, *numbered* Research
+   Objectives, *numbered and named* Research Contributions, Thesis Organization.
+2. **Literature Review & Theoretical Background** — two halves: prior work grouped
+   by research direction, then the concepts needed to follow the method.
+3. **Proposed Methodology** — system-architecture figure + phase decomposition,
+   then one subsection per phase; formal `algpseudocode` algorithms, ontology
+   tables, numbered equations with every symbol defined.
+4. **Experimental Evaluation** — hardware/software block, dataset prep (properties
+   + statistics tables), experimental setup (baselines with an "Evaluation Purpose"
+   column, metrics tables, per-capability protocols each with a query/knowledge-base
+   split table), results grouped by task with losses reported honestly, ablation as
+   a progression, runtime as a first-class subsection.
+5. **Conclusion & Future Work** — Conclusion, Limitations & Discussion (the honest
+   home for negative results and proven ceilings), Future Work.
+
+Objectives → contributions → methodology subsections → experiments should align
+1:1. Fill results from this project's own `docs/findings.md` and evaluation outputs;
+never copy content or numbers from the redacted reference.
+
 ## Step 5: Output
 
 Save the LaTeX file to `docs/report/` directory. Use descriptive filenames:
 - Progress reports: `progress_report_YYYY_MM_DD.tex`
 - Conference papers: `paper_<short_name>.tex`
+- Master's thesis: `thesis.tex` (a single living document, not dated per revision)
 
 If the `docs/report/` directory doesn't exist, create it.
 
-Copy `llncs.cls` and `splncs04.bst` from `docs/writing/lncs-template/` into `docs/report/` if not already present, so the document compiles.
+For the paper/report types, copy `llncs.cls` and `splncs04.bst` from
+`docs/writing/lncs-template/` into `docs/report/` if not already present, so the
+document compiles. The **thesis** does not use LNCS: copy
+`references/thesis-skeleton.tex` (article class, `IEEEtran` bib) to
+`docs/report/thesis.tex` as the starting point, and place figures in
+`docs/report/figures/` as usual (including the FPT logo the titlepage expects).
 
 Place any figures into `docs/report/figures/` and reference them with `\includegraphics{figures/<name>}`. Reuse existing figures in that folder when applicable.
 

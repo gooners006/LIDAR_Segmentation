@@ -1,0 +1,1587 @@
+\documentclass[a4paper, 11pt]{article} % Sửa 'a4' thành 'a4paper' cho chuẩn
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{caption}
+
+\captionsetup[figure]{position=bottom}
+\captionsetup[table]{position=bottom}
+\captionsetup[lstlisting]{position=bottom}
+\lstset{
+language={},
+basicstyle=\ttfamily\scriptsize,
+numbers=left,
+numberstyle=\tiny,
+frame=single,
+breaklines=true,
+showstringspaces=false,
+columns=fullflexible,
+keepspaces=true,
+backgroundcolor=\color{gray!5}
+}
+\usepackage{amsmath} 
+\usepackage[export]{adjustbox}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+\usepackage{tikz}
+\usepackage{booktabs}      % nếu dùng \toprule
+\usepackage{multirow}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{makecell}      % nếu muốn xuống dòng trong ô
+\usetikzlibrary{shapes.geometric, arrows, positioning}
+\usepackage{xcolor}
+\definecolor{myblue}{HTML}{1b2dd6}
+\usepackage{enumitem}
+\usepackage{url} % Hoặc 
+
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\usepackage{hyperref}
+\bibliographystyle{IEEEtran}
+\usepackage[top=2.5cm, bottom=2.5cm, left=3.0cm, right=2.5cm]{geometry}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{FPT School of Business \& Technology}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0.5pt}
+\hypersetup{
+    colorlinks=true,       % Bật màu cho các link (tắt đi sẽ bị đóng khung vuông rất xấu)
+    linkcolor=myblue,    % Màu cho Mục lục (Table of Contents) và tham chiếu hình/bảng (\ref)
+    citecolor=myblue,    % Màu cho các trích dẫn tài liệu (\cite)
+    urlcolor=myblue,     % Màu cho các đường link web (url)
+    pdftitle={Master Thesis Proposal}, % Metadata tên file PDF
+    pdfauthor={Trinh Thi Mai Huong}
+    }
+
+
+
+\begin{document}
+
+\begin{titlepage}
+\begin{tikzpicture}[remember picture, overlay]
+    % Viền ngoài (nét mảnh)
+    \draw[line width=0.5pt] 
+        ($(current page.north west) + (1.5cm,-1.5cm)$) 
+        rectangle 
+        ($(current page.south east) + (-1.5cm,1.5cm)$);
+    % Viền trong (nét đậm hơn, cách viền ngoài 2mm)
+    \draw[line width=1.5pt] 
+        ($(current page.north west) + (1.7cm,-1.7cm)$) 
+        rectangle 
+        ($(current page.south east) + (-1.7cm,1.7cm)$);
+\end{tikzpicture}
+\begin{center}
+    % 1. CHÈN LOGO (Giữ nguyên của bạn)
+    \includegraphics[scale=0.25]{Images/fpt.png} \\
+    \vspace{0.1in}
+   
+    \noindent\rule{5cm}{0.7pt} % Đường
+    
+    % 2. TÊN TỔ CHỨC/TRƯỜNG ĐẠI HỌC (Căn giữa, viết hoa)
+
+ 
+   \vspace{0.3in}
+    % 3. LOẠI HÌNH BÁO CÁO & CHUYÊN NGÀNH
+    \textbf{ MASTER THESIS ON SOFTWARE ENGINEERING}\\
+
+
+    
+    \vspace{2in} % Khoảng cách phía trên đề tài
+    
+
+\hspace*{-1cm}
+\begin{minipage}{1\textwidth}
+\centering
+{\fontsize{13pt}{24pt}\selectfont\textbf{
+TRAFFIC-RAG: A MULTI-MODAL TRAFFIC SCENE
+ RETRIEVAL \vspace{0.1in} \& HAZARD REASONING  USING SPATIO-TEMPORAL DYNAMIC\vspace{0.1in} GRAPHS}}
+\end{minipage}
+
+
+
+    
+        \vspace{2in} % Khoảng cách phía trên đề tài
+
+    % 5. THÔNG TIN HỌC VIÊN & NGƯỜI HƯỚNG DẪN (Dạng bảng song song căn lề chuẩn)
+    \begin{minipage}{0.85\textwidth}
+        \large
+        \begin{tabular}{ll}
+            \textbf{Student:} & Trinh Thi Mai Huong - MSE13176 \\
+            [0.2cm] % Khoảng cách dòng giữa Học viên và Giảng viên
+            \textbf{Supervisor:} & Dr. Doan Nhat Quang \\
+        \end{tabular}
+    \end{minipage}
+
+          \vspace{2in} % Khoảng cách phía trên đề tài
+
+    
+    % 6. ĐỊA ĐIỂM & THỜI GIAN
+    \text{\large Hanoi, \the\year} % Hiển thị: Hanoi, 2026
+    
+\end{center}
+\end{titlepage}
+
+
+\setcounter{page}{2}
+\newpage
+\tableofcontents
+\newpage
+\listoffigures
+\newpage
+\listoftables
+\newpage
+\section{Introduction}
+\subsection{Background and Rationale}
+
+Intelligent Transportation Systems (ITS) have become one of the fundamental components of modern Smart Cities, supporting traffic monitoring, traffic management, and road safety through the integration of sensing technologies, communication infrastructure, and artificial intelligence \cite{hassan2021intelligent}. By continuously collecting and analyzing traffic information, ITS enables a wide range of intelligent transportation services, including traffic flow optimization, congestion management, accident detection, emergency response, and traffic law enforcement.
+
+The practical benefits of ITS have been widely demonstrated in recent years. Intelligent traffic management systems are capable of reducing urban travel time by up to 25\% while decreasing energy consumption by approximately 15--20\% through adaptive traffic signal control and dynamic traffic optimization \cite{elassy2024intelligent}. Camera-based traffic monitoring systems have also contributed to reducing serious traffic accidents in urban areas by nearly 20\%, whereas Automatic Number Plate Recognition (ANPR) systems have significantly improved the efficiency of traffic law enforcement by automatically detecting traffic violations in real time \cite{hassan2021intelligent,elassy2024intelligent}. These advances illustrate the increasingly important role of intelligent traffic analysis in ensuring safer and more efficient transportation systems.
+
+The rapid deployment of surveillance cameras, roadside sensing infrastructure, and vehicle-mounted dashcams has resulted in an unprecedented growth of traffic video data. Modern Traffic Management Centers (TMCs) continuously receive video streams from thousands of distributed sensing devices operating simultaneously across urban road networks. Besides supporting real-time traffic monitoring, these videos contain valuable information for accident investigation, traffic behavior analysis, infrastructure planning, and hazardous scenario retrieval. Consequently, efficiently searching, understanding, and analyzing traffic scenarios has become an increasingly important capability for next-generation ITS.
+
+\subsection{Challenges in Traffic Monitoring}
+
+As Intelligent Transportation Systems continue to expand, the amount of traffic video collected from roadside surveillance cameras and vehicle-mounted dashcams has increased dramatically. These video streams provide valuable information for traffic monitoring, accident investigation, and road safety analysis. However, the continuously growing volume of visual data has also created significant challenges for traffic management centers.
+
+One major challenge is that manual monitoring is no longer practical. Human operators have limited attention capacity and cannot continuously observe a large number of video streams. Studies on surveillance control rooms report that operators typically monitor a camera for only two to three seconds before switching to another display, while monitoring performance decreases significantly as the number of simultaneously observed cameras increases \cite{debruijn2016human}. Consequently, important traffic events may easily be overlooked, especially when hazardous situations occur unexpectedly.
+
+The problem becomes even more difficult when searching for specific historical traffic scenarios. In practice, hazardous events represent only a very small fraction of all recorded traffic videos. For example, the Road Hazard Stimuli dataset reports that constructing a benchmark containing approximately 3,500 hazardous events required manually screening video recordings equivalent to more than 4,300 years of continuous driving \cite{song2024road}. This observation demonstrates that manually locating behavior-specific traffic events from large-scale video archives is extremely time-consuming and economically impractical.
+
+To overcome these limitations, numerous Artificial Intelligence (AI) techniques have been developed for automatic traffic video analysis. Existing approaches can generally be divided into three research directions.
+
+The first direction employs end-to-end deep learning models, including CNNs, RNNs, 3D CNNs, and more recently Transformer-based architectures, to directly classify traffic events or predict accident risks from video sequences \cite{fang2022dada,santhosh2021vehicular,yurtsever2019risky}. These methods have achieved encouraging performance in traffic event recognition and hazard prediction. However, they primarily learn latent visual representations that are strongly correlated with global appearance information. Consequently, their predictions are difficult to interpret because the learned features do not explicitly describe interactions among traffic participants.
+
+The second direction focuses on semantic retrieval using self-supervised representation learning. Foundation models such as CLIP and SBERT encode traffic images or videos into dense feature vectors, while Approximate Nearest Neighbor (ANN) indexing methods such as FAISS enable efficient large-scale retrieval \cite{radford2021learning,reimers2019sentence,douze2024faiss}. Although this strategy substantially improves retrieval efficiency, compressing an entire traffic scene into a single global embedding inevitably loses detailed interaction information. As a result, visually similar scenes may be retrieved even when they correspond to completely different traffic behaviors, limiting their usefulness for safety-critical traffic analysis.
+
+To better preserve object interactions, recent research has shifted toward graph-based representations of traffic scenes. Instead of describing a scene only by visual appearance, Traffic Scene Graphs explicitly model traffic participants as graph nodes and their spatial or behavioral relationships as graph edges \cite{zhou2024hktsg,malawade2022roadscene2vec}. More recently, Vision-Language Models (VLMs) and Large Language Models (LLMs) have been introduced to automatically generate symbolic traffic graphs from visual observations. Frameworks such as RSG-LLM demonstrate that traffic scenes can be transformed into semantic graph representations and subsequently retrieved using graph matching algorithms \cite{tian2025query}. This line of research significantly improves the interpretability of traffic retrieval by explicitly representing interactions among traffic participants.
+
+Nevertheless, current graph-based retrieval systems still exhibit important limitations. Most existing approaches construct traffic graphs independently for individual frames, making it difficult to represent the temporal evolution of traffic events. In addition, graph retrieval commonly relies on exact subgraph matching algorithms such as VF2. Since graphs generated by Vision-Language Models inevitably contain perception errors, missing relationships, or slight semantic variations, exact graph matching becomes highly sensitive to these imperfections, often leading to retrieval failures even when two traffic scenarios are semantically similar.
+
+\subsection{Research Objectives}
+
+The previous discussion indicates that existing traffic retrieval approaches still face several important limitations. End-to-end deep learning models provide limited interpretability because they rely on latent visual features, while self-supervised vector retrieval often loses fine-grained interactions by representing an entire traffic scene as a single embedding. Although graph-based representations explicitly model traffic participants and their relationships, current methods mainly construct static graphs and rely on exact graph matching algorithms, making them sensitive to the uncertainty introduced by Vision-Language Models.
+
+To address these limitations, this thesis proposes a neuro-symbolic framework, namely \textbf{Traffic-RAG}, for multimodal traffic scenario retrieval and retrieval-based hazard reasoning using Spatio-Temporal Dynamic Graphs. The proposed framework aims to preserve semantic interactions, model the temporal evolution of traffic events, and perform robust graph retrieval under imperfect symbolic representations. The main research objectives are summarized as follows.
+
+\begin{enumerate}
+
+\item \textbf{Multimodal Traffic Query}
+
+Develop a unified traffic retrieval framework that supports text, image, and video queries through a common semantic representation.
+
+\item \textbf{Semantic Traffic Understanding}
+
+Develop a symbolic graph representation that explicitly models spatial relationships and behavioral interactions among traffic participants for interpretable traffic scene understanding.
+
+\item \textbf{Dynamic Event Understanding}
+
+Develop a Spatio-Temporal Dynamic Graph representation to model traffic events and capture the temporal evolution of object interactions across consecutive frames.
+
+\item \textbf{Explainable Traffic Scenario Retrieval}
+
+Develop a semantic graph retrieval framework that performs robust traffic scenario retrieval under noisy symbolic representations and supports evidence-based hazard reasoning using retrieved traffic experiences.
+
+\end{enumerate}
+\subsection{Research Contributions}
+
+This thesis proposes Traffic-RAG, a multimodal framework for traffic scenario retrieval and retrieval-based hazard reasoning using LLM-generated Spatio-Temporal Symbolic Graphs. The main contributions are summarized as follows.
+
+\begin{itemize}
+
+\item \textbf{Multimodal Traffic Query Framework}
+
+Develop a traffic retrieval framework that supports text, image, and video queries through a unified semantic graph representation, enabling flexible multimodal access to traffic scenarios.
+
+\item \textbf{Spatio-Temporal Dynamic Graph Representation}
+
+Develop a spatio-temporal dynamic graph representation by extending static traffic scene graphs across consecutive video frames. The proposed representation models object lifecycles and the temporal evolution of traffic events for dynamic traffic understanding.
+
+\item \textbf{Semantic-Guided Interaction-Centric Hungarian Graph Alignment}
+
+Propose a semantic graph alignment algorithm based on the Hungarian optimization framework. The proposed method matches traffic scenarios using semantic object interactions and graph topology rather than relying solely on spatial similarity or exact graph matching.
+
+\item \textbf{Retrieval-based Hazard Reasoning}
+
+Develop a retrieval-based hazard reasoning framework that utilizes retrieved traffic scenarios to support hazard classification. A ranked weighted voting strategy is introduced to generate evidence-based and explainable hazard predictions from multiple retrieved traffic graphs.
+
+\end{itemize}
+\subsection{Thesis Organization}
+
+The remainder of this thesis is organized into five chapters.
+
+\textbf{Chapter 1: Introduction} presents the research background, motivation, research objectives, research contributions, and the overall organization of the thesis.
+
+\textbf{Chapter 2: Literature Review \& Theoretical Background} reviews existing studies related to traffic scene understanding, traffic scenario retrieval, graph-based representations, and Vision-Language Models (VLMs). It also introduces the theoretical foundations of Intelligent Transportation Systems, symbolic traffic graphs, spatio-temporal graph representations, graph alignment, multimodal retrieval, and retrieval-based traffic hazard analysis.
+
+\textbf{Chapter 3: Proposed Methodology} presents the proposed Traffic-RAG framework. This chapter describes the overall system architecture and explains each component of the framework, including traffic knowledge base construction, spatio-temporal symbolic graph generation, multimodal traffic retrieval, semantic graph alignment, and retrieval-based traffic hazard reasoning.
+
+\textbf{Chapter 4: Experimental Evaluation} presents the experimental evaluation of the proposed framework. It describes the datasets, implementation details, evaluation metrics, and experimental settings, followed by quantitative and qualitative comparisons with existing methods. The effectiveness of Traffic-RAG is further analyzed through retrieval evaluation, hazard classification, runtime analysis, and representative case studies.
+
+\textbf{Chapter 5: Conclusion and Future Work} summarizes the main findings and contributions of this thesis, discusses the limitations of the proposed framework, and outlines potential directions for future research.
+\newpage
+\section{Literature Review \& Theoretical Background}
+
+This chapter reviews the existing studies related to traffic scene understanding, graph-based representations, traffic scenario retrieval, and Vision-Language Models (VLMs). It also introduces the theoretical concepts underlying the proposed framework, including symbolic traffic graphs, spatio-temporal graph representations, graph alignment, multimodal retrieval, and retrieval-based traffic hazard analysis. These studies and theoretical foundations provide the basis for the Traffic-RAG framework presented in the next chapter.
+\subsection{Literature Review}
+
+Traffic scene understanding has attracted extensive attention in recent years due to its fundamental role in Intelligent Transportation Systems, autonomous driving, and traffic safety analysis. Numerous approaches have been proposed to address different aspects of this problem, including traffic event recognition, accident prediction, semantic scene representation, and traffic scenario retrieval. As research objectives have gradually evolved, the underlying methodologies have also changed substantially, moving from purely data-driven visual perception toward structured semantic reasoning.
+
+Rather than reviewing these studies as isolated works, this thesis organizes the literature according to the major research paradigms that have emerged during this evolution. Each paradigm was introduced to overcome specific limitations of previous approaches while simultaneously exposing new challenges that remain unresolved. Consequently, the evolution of traffic scene understanding can be viewed as a progressive transition from pixel-level visual prediction, to semantic representation learning, to graph-based relational modeling, and finally to multimodal reasoning using Large Language Models (LLMs) and Vision-Language Models (VLMs).
+
+Specifically, this review discusses four representative research directions. The first direction investigates end-to-end deep learning models, which directly learn traffic events or accident risks from raw visual observations. The second direction introduces self-supervised representation learning together with large-scale vector retrieval to enable efficient traffic scenario search. The third direction focuses on graph-based representations that explicitly preserve interactions among traffic participants. Finally, the fourth direction integrates foundation models with symbolic graph representations to perform semantic traffic understanding and retrieval.
+
+Figure~\ref{fig:literature_overview} summarizes the overall evolution of these representative research directions. As illustrated, although each research direction successfully addresses particular limitations of its predecessors, none of the existing approaches simultaneously provides structured spatio-temporal representation, robust semantic retrieval, and explainable reasoning. These remaining limitations ultimately motivate the development of the proposed Traffic-RAG framework.
+
+\setlength{\fboxrule}{0.1pt}
+\setlength{\fboxsep}{0pt}
+
+\begin{figure}[H]
+    \centering
+    \fcolorbox{black!25}{white}{
+        \includegraphics[width=0.95\textwidth]{Images/literature_overview.png}
+        }
+
+    \caption{Evolution of representative research directions for traffic scene understanding and semantic traffic scenario retrieval.}
+    \label{fig:literature_overview}
+\end{figure}
+\subsubsection{End-to-End Deep Learning for Traffic Analysis}
+
+Early research on traffic scene understanding primarily formulated traffic analysis as a supervised vision task, where the objective was to directly classify traffic events or predict future collision risks from raw visual observations. This research direction became feasible with the rapid development of deep learning, particularly Convolutional Neural Networks (CNNs), which demonstrated remarkable capability in automatically learning hierarchical visual representations without requiring handcrafted features.
+
+Representative studies addressed traffic event classification by employing CNN-based architectures to recognize driving behaviours and hazardous traffic situations directly from dashcam videos. Taccari \textit{et al.} \cite{taccari2018classification} proposed a CNN-based framework for classifying dangerous driving events, while Santhosh \textit{et al.} \cite{santhosh2021vehicular} further incorporated Variational Autoencoders (VAEs) to improve the representation of abnormal driving behaviours. Instead of manually designing motion descriptors, these approaches learned discriminative visual patterns directly from large-scale driving data, significantly improving recognition accuracy.
+
+Beyond event classification, another major research direction focused on traffic accident prediction. Rather than determining whether an accident had already occurred, these methods attempted to estimate the probability of an upcoming collision several seconds in advance. Since traffic hazards evolve continuously over time, researchers integrated temporal modelling into visual perception using recurrent neural networks. Suzuki \textit{et al.} \cite{suzuki2018anticipating} combined CNNs with Long Short-Term Memory (LSTM) networks to anticipate traffic accidents from dashcam videos. Singh \textit{et al.} \cite{singh2019deep} further introduced stacked autoencoders for learning compact temporal representations, while Fang \textit{et al.} \cite{fang2022dada} developed the DADA benchmark together with deep neural architectures for driver attention prediction and accident anticipation. More recent studies have also explored 3D convolutional networks and transformer-based architectures to capture longer temporal dependencies and richer motion patterns in continuous driving videos \cite{yurtsever2019risky}.
+
+Collectively, these end-to-end deep learning models established the foundation of modern traffic perception. By directly mapping high-dimensional pixel observations to hazard probabilities, they eliminated the need for handcrafted feature engineering and achieved competitive performance across various traffic analysis tasks. Their success also demonstrated the effectiveness of data-driven learning for modelling highly complex visual environments.
+
+Despite these achievements, the underlying learning paradigm presents several inherent limitations when applied to explainable traffic understanding. The first limitation originates from the latent nature of learned representations. The decision-making process remains entirely embedded within high-dimensional feature spaces, making it difficult to explicitly identify why a particular traffic situation is considered hazardous. Although the models may successfully predict an accident, they cannot explicitly explain which traffic participants are involved, what interactions occur among them, or how these interactions collectively lead to the predicted risk \cite{fang2022dada}. Such limited interpretability significantly restricts their applicability in safety-critical systems, where transparent reasoning is often as important as prediction accuracy.
+
+Another important limitation is that these models primarily learn statistical correlations from visual appearance instead of modelling explicit semantic interactions. During training, neural networks tend to associate hazard labels with global scene characteristics, such as weather conditions, illumination, or road layouts, because these visual cues frequently co-occur with hazardous events in the training data. Consequently, predictions may become strongly influenced by background appearance rather than by the actual behaviours of traffic participants. This phenomenon, commonly referred to as \textit{background bias}, reduces the generalization capability of end-to-end models when deployed under unseen environmental conditions.
+
+Furthermore, traffic hazards frequently originate from subtle behavioural changes occurring at relatively long observation distances. Under such conditions, the visual footprint of distant objects occupies only a very small portion of the image. During successive convolution and pooling operations, these fine-grained geometric cues are progressively compressed into increasingly coarse feature maps, eventually becoming indistinguishable from surrounding background information. Recent analyses describe this phenomenon as \textit{resolution collapse}, where small but safety-critical behavioural cues disappear during feature extraction, preventing the network from correctly recognizing early hazardous manoeuvres \cite{zheng2025video}. As a consequence, distant cut-ins, slight steering deviations, or gradual lane changes are often overlooked until the objects become sufficiently large within the image.
+
+These observations indicate that, although end-to-end deep learning provides powerful visual perception capabilities, its internal representations remain appearance-oriented rather than interaction-oriented. The inability to explicitly preserve object relationships and behavioural semantics motivates the next stage of research, which shifts the focus from direct pixel prediction toward learning semantic representations suitable for large-scale traffic scenario retrieval.
+\subsubsection{Self-Supervised Representation Learning and Vector Retrieval}
+
+Although end-to-end deep learning achieved promising performance for traffic event prediction, these models were primarily designed for classification rather than large-scale traffic scenario retrieval. As traffic video repositories continued to grow rapidly with the widespread deployment of surveillance cameras and vehicle-mounted dashcams, researchers gradually shifted their attention from predicting hazards to efficiently retrieving historical traffic scenarios that exhibit similar behaviors. Such retrieval capability is particularly valuable for traffic analysis, case-based reasoning, and accident investigation, where operators often need to search among millions of recorded video frames.
+
+To address this challenge, recent studies increasingly adopt Self-Supervised Learning (SSL) to learn general-purpose visual representations without requiring manually annotated labels. Unlike supervised learning, SSL exploits the intrinsic structure of data to construct pretext learning tasks, enabling models to learn transferable semantic features from large-scale image collections. Representative foundation models include CLIP, which jointly aligns image and language representations through contrastive learning \cite{radford2021learning}, DINO, which learns discriminative visual features via self-distillation without labels, and SBERT, which produces semantically meaningful sentence embeddings suitable for multimodal retrieval \cite{reimers2019sentence}. Owing to their strong generalization capability, these models have become the dominant feature extractors for modern retrieval systems.
+
+Instead of comparing raw images directly, SSL models project images and textual descriptions into a shared high-dimensional embedding space. Semantically similar observations are expected to lie close together, allowing retrieval to be formulated as a nearest-neighbor search problem. Given a textual query such as ``a pedestrian crossing in front of a turning vehicle'' or an example traffic image, the corresponding embedding vector can be compared against millions of stored embeddings to identify visually or semantically related traffic scenarios.
+
+To make such retrieval computationally feasible, the learned embeddings are commonly indexed using Approximate Nearest Neighbor (ANN) algorithms. Among existing indexing methods, FAISS \cite{douze2024faiss} and Hierarchical Navigable Small World (HNSW) graphs \cite{malkov2020hnsw} have become the de facto standards for large-scale similarity search. Rather than performing exhaustive comparisons against every database sample, these algorithms organize embedding vectors into efficient indexing structures that significantly reduce retrieval latency while maintaining high search accuracy. Consequently, the combination of SSL feature extraction and ANN indexing has become the standard retrieval pipeline in modern multimedia search systems, supporting applications such as image retrieval, multimodal search, and Multimodal Retrieval-Augmented Generation (MRAG) \cite{mei2025mrag,zhang2026rethinking}.
+
+Despite their excellent scalability, these retrieval systems exhibit an important limitation when applied to traffic understanding. The root cause lies in the representation itself. Regardless of scene complexity, each traffic image or video segment is ultimately compressed into a single global feature vector. While this compact representation preserves overall semantic similarity, it inevitably aggregates multiple traffic participants and their interactions into a unified latent representation, causing fine-grained relational information to disappear.
+
+Recent studies further reveal that SSL embedding spaces often exhibit anisotropic distributions, where feature variance concentrates along several dominant semantic directions rather than being uniformly distributed throughout the embedding space \cite{geometric2024ssl,chung2026global}. As a consequence, retrieval tends to emphasize globally shared appearance attributes, including weather conditions, road layouts, illumination, or background infrastructure, while underrepresenting localized interactions among traffic participants.
+
+This phenomenon becomes particularly problematic for safety-critical traffic retrieval. Consider two traffic scenes recorded under identical environmental conditions. In one scenario, a truck is approaching a pedestrian before a collision, whereas in the other the truck simply drives past the pedestrian without posing any danger. Because both scenes contain nearly identical visual objects and backgrounds, their global embeddings may occupy nearby positions within the feature space despite representing fundamentally different traffic behaviors. Consequently, ANN retrieval often returns visually similar scenes that do not share the same hazardous interactions.
+
+From a traffic analysis perspective, the primary semantic information lies not in the existence of individual objects but in the relationships among them. Hazard recognition depends on understanding who interacts with whom, how objects move relative to each other, and how these interactions evolve over time. Such structured relational information cannot be explicitly recovered from a single global embedding. Therefore, although SSL-based retrieval provides remarkable computational efficiency and scalability, it lacks the structural representation required for explainable traffic reasoning.
+
+These limitations motivated the next stage of research, in which traffic scenes are no longer represented as global feature vectors but are explicitly modeled as graphs consisting of traffic entities and their semantic relationships.
+\subsubsection{Graph-based Traffic Representation}
+
+The inability of global embedding representations to explicitly preserve interactions among traffic participants motivated researchers to investigate structured scene representations. Instead of encoding an entire traffic scene into a single feature vector, graph-based approaches explicitly model traffic participants as graph nodes and represent their spatial or behavioral relationships as graph edges. This representation naturally preserves the relational structure of a traffic scene, making it more suitable for downstream reasoning and semantic retrieval.
+
+The fundamental idea behind graph-based traffic representation originates from Graph Neural Networks (GNNs), where relational reasoning is performed through message passing between connected nodes \cite{li2020learning}. Compared with conventional CNNs that primarily aggregate local pixel neighborhoods, GNNs explicitly exploit graph topology to model interactions among traffic entities. This capability makes graph representations particularly attractive for intelligent transportation systems, since traffic safety is largely determined by interactions among vehicles, pedestrians, cyclists, and surrounding infrastructure rather than by the appearance of individual objects alone.
+
+Early graph-based studies mainly focused on representing static traffic scenes. RoadScene2Vec \cite{malawade2022roadscene2vec} converts each traffic frame into a symbolic scene graph, where dynamic traffic participants and static road elements are represented as graph nodes, while semantic relationships such as relative position or lane occupancy are encoded as graph edges. Compared with dense visual features, this representation provides a much higher level of interpretability because the graph explicitly describes how traffic participants interact within a scene.
+
+As researchers recognized that traffic events evolve continuously rather than instantaneously, subsequent work extended static scene graphs into temporal graph representations. Instead of analyzing each frame independently, Spatio-Temporal Graph Neural Networks (ST-GNNs) model the temporal evolution of traffic interactions by propagating information both spatially and temporally \cite{bao2020uncertainty}. Such architectures enable the model to capture how relationships among traffic participants change over time, making them particularly suitable for trajectory prediction, behavior understanding, and traffic risk estimation.
+
+Building upon these developments, several recent studies have proposed increasingly sophisticated graph representations specifically designed for intelligent transportation applications. HKTSG \cite{zhou2024hktsg} introduces a hierarchical traffic scene graph that simultaneously models traffic participants, road topology, and contextual semantic information. T2SG \cite{lv2024t2sg} further incorporates temporal dependencies into symbolic graph representations to better characterize evolving traffic events. Similarly, HATS \cite{huang2024hazard} explicitly models hazard-aware semantic relationships to improve traffic risk reasoning. Collectively, these studies demonstrate that graph representations substantially improve the interpretability of traffic scene understanding by preserving explicit semantic interactions that cannot be represented using global feature vectors alone.
+
+Despite these advantages, graph-based traffic representation introduces a different set of practical challenges. First, many existing methods rely on Bird's-Eye View (BEV) reconstruction or three-dimensional scene understanding before graph construction \cite{zhou2024hktsg,lv2024t2sg}. Generating reliable BEV representations typically requires accurate camera calibration, depth estimation, or multi-sensor fusion, considerably increasing computational complexity. Consequently, these approaches are difficult to deploy for large-scale traffic video databases that primarily consist of monocular dashcam recordings.
+
+Another limitation concerns graph construction itself. Existing methods generally assume that the generated graph accurately represents the observed traffic scene. However, graph quality strongly depends on the reliability of upstream perception modules, including object detection, tracking, and relation extraction. Missed detections, identity switches, or incorrectly inferred relationships directly propagate into the graph structure, producing incomplete or noisy scene graphs. Since subsequent reasoning operates entirely on these symbolic structures, errors introduced during graph construction can significantly degrade downstream retrieval performance.
+
+More importantly, most existing graph-based studies primarily focus on graph representation and graph learning rather than graph retrieval. Their objective is to improve graph embeddings or graph-based prediction models instead of efficiently retrieving semantically similar traffic scenarios from large-scale graph databases. Consequently, although graph representations successfully preserve object-level interactions, they do not fully address how symbolic traffic graphs should be queried, aligned, or compared under realistic conditions.
+
+These observations motivated the next stage of research, where recent advances in Large Language Models (LLMs) and Vision-Language Models (VLMs) are integrated with graph representations. Instead of manually constructing symbolic graphs through multiple perception modules, VLMs provide a unified mechanism for directly generating semantic traffic graphs from multimodal observations, opening a new direction toward semantic traffic retrieval and retrieval-based reasoning.
+\subsubsection{LLM/VLM-based Semantic Scene}
+
+The rapid development of Large Language Models (LLMs) and Vision-Language Models (VLMs) has fundamentally changed the research paradigm of traffic scene understanding. Unlike conventional computer vision models that primarily learn visual features, VLMs jointly model visual observations and natural language, enabling semantic reasoning across multiple modalities. Instead of producing only object categories or bounding boxes, these models are capable of describing complex traffic scenes using high-level semantic concepts, making them particularly suitable for explainable traffic analysis and retrieval \cite{zheng2025video}.
+
+Early studies mainly explored the reasoning capability of foundation models for autonomous driving. DriveLM \cite{sima2023drivelm} introduced one of the first large-scale benchmarks for language-guided autonomous driving, demonstrating that LLMs could answer complex driving-related questions by jointly understanding visual scenes and linguistic instructions. Similarly, Reason2Drive \cite{gao2023reason2drive} incorporated chain-of-thought reasoning into driving scenarios, allowing models to infer intermediate reasoning steps before producing final driving decisions. Compared with conventional end-to-end perception models, these frameworks significantly improved interpretability by exposing the reasoning process behind the generated answers.
+
+Beyond general driving assistance, recent studies have further investigated multimodal reasoning for traffic safety analysis. AccidentGPT \cite{wu2024accidentgpt} employs Multimodal Large Language Models (MLLMs) to analyze traffic accidents through visual grounding, enabling the system to describe accident causes and identify hazardous traffic participants directly from traffic videos. Zhang \textit{et al.} \cite{zhang2025when} and Skender \textit{et al.} \cite{skender2025investigating} further demonstrated that modern MLLMs possess strong zero-shot capabilities for traffic anomaly understanding and accident analysis without requiring task-specific retraining. These studies suggest that VLMs are no longer limited to visual recognition but are increasingly capable of semantic reasoning over complex traffic environments.
+
+While these multimodal models substantially improve semantic understanding, free-form natural language remains difficult to integrate into downstream retrieval systems. Traffic scenarios described by unrestricted text cannot be directly compared, indexed, or matched at large scale. Consequently, recent research has gradually shifted from generating natural language descriptions toward generating structured semantic representations.
+
+To bridge this gap, several studies introduce symbolic scene graphs as an intermediate representation. Rather than directly retrieving images or videos, traffic scenes are first converted into symbolic graphs containing traffic participants, semantic relationships, and contextual attributes. Lohner \textit{et al.} \cite{lohner2024enhancing} demonstrated that graph-based representations improve accident understanding by explicitly preserving semantic relationships among traffic participants. Meanwhile, graph construction methods such as HKTSG \cite{zhou2024hktsg}, T2SG \cite{lv2024t2sg}, and HATS \cite{huang2024hazard} further enrich graph representations with hierarchical structures, temporal information, and hazard-aware semantic relationships. These studies clearly demonstrate that symbolic representations provide significantly higher interpretability than purely latent feature embeddings.
+
+The convergence of symbolic representations and retrieval-augmented reasoning has recently given rise to Multimodal Retrieval-Augmented Generation (MRAG) and Graph Retrieval-Augmented Generation (GraphRAG). Rather than relying solely on parametric knowledge stored inside foundation models, these frameworks retrieve relevant external knowledge before generating the final response, substantially improving factual consistency and explainability \cite{mei2025mrag,tan2025paths,song2025plan}. This retrieval-first paradigm has rapidly become one of the dominant research directions for knowledge-intensive reasoning systems.
+
+Applying this concept to autonomous driving, Tian \textit{et al.} proposed the Retrieval-based Scene Graph Large Language Model (RSG-LLM) \cite{tian2025query}. RSG-LLM introduces a complete ``Query by Example'' framework in which a Vision-Language Model first converts an input image into a Traffic Scene Graph (TSG), after which the generated graph is matched against a graph database using the VF2 subgraph isomorphism algorithm. Instead of retrieving scenes based on visual similarity, retrieval is performed according to semantic graph structures, representing one of the earliest attempts to integrate VLM reasoning with graph-based traffic retrieval.
+
+Despite representing a major milestone, several fundamental limitations remain unresolved. First, RSG-LLM constructs independent traffic scene graphs for individual observations, treating each graph as a static representation. Consequently, continuous object trajectories and the temporal evolution of hazardous interactions cannot be explicitly modeled. Dynamic traffic events such as gradual lane changes, overtaking maneuvers, or pedestrian crossings must therefore be decomposed into multiple disconnected graph snapshots, making it difficult to capture the complete evolution of a traffic scenario.
+
+Second, the retrieval stage relies on the VF2 algorithm, which solves the subgraph isomorphism problem through exact graph matching. Although mathematically rigorous, exact matching assumes that the generated query graph is structurally identical to a graph stored in the database. In practice, however, symbolic graphs generated by Vision-Language Models inevitably contain structural noise. Minor variations such as predicting \texttt{near} instead of \texttt{very\_near}, or \texttt{approaching} instead of \texttt{following}, produce structurally different graphs despite describing nearly identical traffic situations. Since VF2 performs binary matching, even a single missing edge or slightly different semantic label causes the entire retrieval process to fail \cite{cordella2004sub,tian2025query}.
+
+Another practical limitation originates from graph topology. To reduce computational complexity during graph matching, existing frameworks often simplify directed interaction graphs into undirected graph structures before retrieval \cite{tian2025query}. While this simplification accelerates graph search, it simultaneously removes the directionality of semantic relationships. As a consequence, important causal information is lost. For example, interactions such as ``vehicle A approaches vehicle B'' and ``vehicle B approaches vehicle A'' become indistinguishable after graph simplification, despite representing completely different traffic situations. This limitation directly affects the explainability required for hazard reasoning.
+
+Finally, existing frameworks largely assume that graph matching is purely a structural problem. Semantic similarity between graph entities, interaction importance, and contextual relevance are rarely considered during node alignment. Consequently, retrieval performance deteriorates significantly when graph structures contain incomplete observations, noisy semantic relations, or imperfect graph generation.
+
+Overall, recent advances in Vision-Language Models successfully bridge perception and symbolic representation, while retrieval-augmented reasoning introduces an effective mechanism for explainable traffic analysis. Nevertheless, current approaches remain constrained by static scene representations, rigid exact graph matching, and limited robustness against semantic uncertainty. These limitations motivate the development of a more flexible neuro-symbolic retrieval framework that jointly models spatial interactions, temporal evolution, and interaction-aware semantic graph alignment, forming the central motivation of the proposed Traffic-RAG framework.
+\subsection{Theoretical Background}
+\subsubsection{ITS Architecture}
+
+Intelligent Transportation Systems (ITS) integrate sensing technologies, communication networks, and intelligent computing techniques to improve the safety, efficiency, and sustainability of transportation systems \cite{hassan2021intelligent}. By continuously collecting and analyzing traffic information, ITS supports a wide range of transportation applications, including traffic monitoring, traffic management, incident detection, traffic control, and road safety.
+
+A typical AI-enabled ITS consists of three main components: the data acquisition layer, the communication layer, and the central processing layer, as illustrated in Figure~\ref{fig:its_architecture}. The data acquisition layer collects traffic information from surveillance cameras, radar, LiDAR, and other Internet of Things (IoT) sensors. The communication layer transfers the collected information through vehicular or wireless communication networks. Finally, the central processing layer analyzes the incoming data and supports traffic management and operational decision making using intelligent algorithms \cite{elassy2024intelligent}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{Images/Architecture_Smart_Traffic.png}
+    \caption{General architecture of an AI-enabled Intelligent Transportation System. Adapted from \cite{astm2024traffic}.}
+    \label{fig:its_architecture}
+\end{figure}
+
+\subsubsection{Traffic Video Sources}
+
+Among the sensing devices deployed in ITS, surveillance cameras and vehicle-mounted dashcams provide the primary source of visual information for traffic analysis. These video sources continuously capture traffic participants, road infrastructure, and surrounding environments, enabling automated traffic monitoring and safety analysis.
+
+Surveillance cameras (CCTV) are fixed on roadside infrastructure such as intersections or highways. They provide a stable and wide-area view of traffic conditions, making them suitable for monitoring traffic flow and detecting large-scale traffic events \cite{astm2024traffic}. In contrast, dashcams are mounted inside vehicles and record traffic scenes from the driver's perspective. This first-person perspective, commonly referred to as ego-view, captures the dynamic visual information experienced by the ego vehicle during driving \cite{song2024road}.
+
+Compared with CCTV, ego-view videos present greater challenges because the camera continuously moves with the vehicle. Consequently, traffic analysis must consider both the ego vehicle motion and the interactions between surrounding traffic participants \cite{mmau2024}.
+
+Throughout this thesis, a traffic scenario refers to a continuous traffic event observed from traffic videos, consisting of traffic participants, road infrastructure, and their spatial and temporal interactions. Hazard analysis is performed by analyzing these traffic scenarios rather than individual video frames.
+\subsubsection{Traffic Management Center}
+
+The Traffic Management Center (TMC) serves as the operational center of an Intelligent Transportation System. It receives traffic information collected from distributed sensing devices, continuously monitors road conditions, coordinates traffic control strategies, and supports emergency response when traffic incidents occur.
+
+As modern ITS continuously generates a large volume of traffic videos, manual monitoring alone is no longer sufficient for efficient traffic analysis. Artificial Intelligence (AI) has therefore become an essential component of modern ITS. AI techniques automatically detect traffic participants, track their movements, recognize traffic events, and extract semantic information from traffic videos. These capabilities enable ITS to process large-scale visual data efficiently while providing timely information for traffic management and road safety \cite{abiresearch2021smartcity,hassan2021intelligent}.
+\subsubsection{Deep Learning for Visual Perception}
+
+Before a traffic scene can be represented as a symbolic graph, the visual information contained in traffic videos must first be converted into structured observations. This perception stage aims to identify traffic participants, estimate their locations, and maintain their identities throughout a video sequence. Modern Intelligent Transportation Systems therefore commonly employ deep learning for object detection together with multi-object tracking to provide reliable geometric information for subsequent semantic analysis.
+
+\textbf{Convolutional Neural Networks and YOLO.} \\
+Convolutional Neural Networks (CNNs) constitute the foundation of modern visual perception by automatically learning hierarchical spatial features directly from raw image pixels. Building upon CNNs, object detection simultaneously identifies the category and spatial location of multiple objects within an image. Among existing object detectors, the YOLO (You Only Look Once) family has become one of the most widely adopted solutions for real-time traffic applications because it formulates object detection as a single regression problem rather than following the conventional two-stage detection paradigm \cite{redmon2016you}. During a single forward pass, YOLO directly predicts object categories together with their corresponding bounding boxes over the entire image, achieving an effective balance between detection accuracy and computational efficiency. Figure~\ref{fig:yolo_pipeline} illustrates the general processing pipeline of YOLO.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.82\textwidth]{Images/yolo.png}
+    \caption{General pipeline of the YOLO object detector. Adapted from \cite{redmon2016you}.}
+    \label{fig:yolo_pipeline}
+\end{figure}
+
+Although YOLO accurately detects traffic participants in individual frames, each frame is processed independently. Consequently, the detector cannot determine whether an object observed in consecutive frames corresponds to the same physical traffic participant. This limitation makes temporal association an essential component for analyzing continuous traffic events.
+
+\textbf{Multi-Object Tracking and DeepSORT.} \\
+Multi-Object Tracking (MOT) extends object detection by associating detected objects across consecutive frames, allowing each traffic participant to maintain a unique identity throughout its lifetime. Among existing MOT algorithms, DeepSORT (Simple Online and Realtime Tracking with a Deep Association Metric) has become one of the most widely adopted tracking frameworks for intelligent transportation applications \cite{wojke2017simple}. Instead of relying solely on geometric proximity, DeepSORT jointly exploits motion prediction and deep appearance descriptors to establish reliable correspondences between existing trajectories and newly detected objects. This combination significantly improves tracking robustness under temporary occlusions, dense traffic, and abrupt object movements. The overall processing pipeline of DeepSORT is illustrated in Figure~\ref{fig:deepsort_pipeline}.
+
+\setlength{\fboxrule}{0.1pt}
+\setlength{\fboxsep}{0pt}
+
+\begin{figure}[H]
+    \centering
+    \fcolorbox{black!25}{white}{
+        \includegraphics[width=0.95\textwidth]{Images/deepsort.png}
+        }
+    \caption{General processing pipeline of DeepSORT for multi-object tracking. Adapted from \cite{learnopencv_deepsort}}
+    \label{fig:deepsort_pipeline}
+\end{figure}
+
+Internally, DeepSORT predicts the future position of each tracked object using a Kalman Filter while simultaneously extracting appearance embeddings through a deep neural network. Motion consistency and appearance similarity are then jointly utilized to associate newly detected objects with existing trajectories, thereby preserving stable tracking identities across video frames. Compared with object detection alone, this temporal association enables continuous trajectory estimation and provides the object-level temporal consistency required for modeling dynamic traffic events.
+
+The outputs generated by YOLO and DeepSORT, including object categories, bounding boxes, and persistent tracking identities, form the geometric foundation for subsequent symbolic traffic scene representation. In the proposed framework, these structured observations are further transformed into semantic entities and relationships, which are subsequently organized into Spatio-Temporal Symbolic Graphs for retrieval and hazard reasoning.
+\subsection{Vision-Language Models and Semantic Parsing}
+
+Vision-Language Models (VLMs) are multimodal foundation models designed to jointly process visual and textual information. Unlike conventional vision models that only learn visual features, VLMs align image representations with natural language, enabling semantic reasoning across different modalities \cite{bordes2024introduction}. A typical VLM consists of a visual encoder that extracts image features and a Large Language Model (LLM) that performs language understanding and reasoning over these visual representations \cite{zhang2023vision}.
+
+The multimodal architecture allows VLMs to receive images or video frames together with textual instructions (prompts) as input and generate natural language descriptions as output. Depending on the prompt, the generated content may range from simple object descriptions to higher-level interpretations of scene context and object interactions \cite{achiam2023gpt4}. Owing to large-scale vision-language pretraining, VLMs also demonstrate strong zero-shot capabilities, allowing them to understand previously unseen traffic scenes without task-specific retraining.
+
+
+
+In traffic scene understanding, VLMs provide semantic interpretations beyond conventional object detection. Rather than recognizing only individual traffic participants, they are able to describe the relationships among vehicles, pedestrians, cyclists, and surrounding road infrastructure, together with contextual information such as weather, road conditions, and ongoing traffic behaviors \cite{zheng2025video,zhang2023vision}. This capability makes VLMs particularly suitable for generating symbolic descriptions of complex traffic scenarios.
+
+Since free-form natural language is difficult to integrate into graph-based retrieval systems, recent studies increasingly employ VLMs as structured semantic parsers. By constraining the output format through prompting, VLMs can directly generate machine-readable representations, such as JSON, in which traffic entities, semantic relationships, and scene attributes are explicitly organized into structured representations suitable for downstream processing \cite{tian2025query}.
+
+Although Vision-Language Models are capable of generating structured semantic descriptions, constructing a complete traffic scene graph requires multiple reasoning steps rather than a single generation process. The model must first identify relevant traffic participants, distinguish multiple object instances, and finally infer the semantic relationships among them. Directly generating the final graph in one step often increases the complexity of the reasoning process and may reduce the consistency of the generated structure.
+
+To improve the reliability of structured graph generation, recent studies combine ontology-guided prompting with Chain-of-Thought (CoT) reasoning \cite{wei2022chain,tian2025query}. Chain-of-Thought is a prompting strategy that encourages large language models to decompose a complex reasoning problem into a sequence of intermediate reasoning steps before producing the final answer \cite{wei2022chain}. Instead of directly generating the complete graph, the model progressively reasons about the scene through several logical stages.
+
+For traffic scene parsing, the reasoning process can be summarized as follows:
+
+\begin{itemize}
+    \item \textbf{Traffic participant identification:} The model first identifies all relevant traffic participants and road elements that appear in the scene, such as vehicles, pedestrians, bicycles, traffic lights, and lane markings.
+
+    \item \textbf{Object instance grounding:} Each detected object is assigned a unique identifier to distinguish multiple instances belonging to the same category (e.g., \textit{car\_1}, \textit{car\_2}).
+
+    \item \textbf{Semantic relation inference:} The model then analyzes interactions among identified objects and predicts semantic relationships, including spatial relations (e.g., \texttt{to\_left\_of}, \texttt{in\_front\_of}) and behavioral relations (e.g., \texttt{following}, \texttt{crossing}, \texttt{turning\_left}).
+
+    \item \textbf{Structured graph generation:} Finally, entities and relationships are organized into a readable representation (e.g., JSON), which can be directly converted into a graph for subsequent retrieval and reasoning.
+\end{itemize}
+
+Meanwhile, ontology-guided prompting constrains the generation space by providing a predefined vocabulary of allowable traffic entities and relationship types \cite{tian2025query}. The combination of ontology constraints and step-by-step reasoning enables the generated symbolic representations to be more structured, semantically consistent, and suitable for graph construction.
+
+\subsection{Symbolic Traffic Scene Graph}
+
+The previous section introduced how Vision-Language Models transform visual observations into structured semantic descriptions. To enable retrieval and reasoning over these semantic descriptions, the information must be represented in a structured form that explicitly describes traffic entities and their relationships. Graph-based representations provide such a representation by organizing traffic scenes into nodes, edges, and their associated semantic attributes. This section introduces the fundamental concepts of graph representation, Traffic Scene Graphs, and Spatio-Temporal Symbolic Graphs.
+
+A graph is a structured representation used to describe objects and the relationships between them. It consists of a collection of nodes representing individual entities and edges representing the relationships connecting these entities. Compared with unstructured data, graph representations explicitly preserve relational information, making them suitable for applications that require reasoning over object interactions.
+
+Each node represents an individual object within a particular domain, while each edge describes a relationship between two nodes. Depending on the application, edges may represent spatial proximity, directional relationships, temporal connections, or other semantic interactions. Nodes and edges may additionally contain descriptive attributes, such as object categories, positions, distances, timestamps, or semantic labels. These attributes enrich the graph representation and provide additional contextual information for downstream reasoning.
+
+According to Hogan et al.~\cite{hogan2021knowledge}, a \textit{Knowledge Graph} (KG) is a graph of data intended to accumulate and convey knowledge about real-world entities and their relationships. Compared with a conventional graph that only stores connectivity, a knowledge graph enriches graph components with semantic information, contextual attributes, ontologies, and reasoning rules, allowing machines to perform semantic querying and logical inference.
+
+Knowledge graphs are commonly represented using two graph models~\cite{hogan2021knowledge}.
+
+\begin{itemize}
+    \item \textbf{Directed Edge-Labelled Graph.} Nodes represent entities, while directed edges represent labelled semantic relationships between entities. This representation focuses on graph topology and directional connectivity.
+    
+    \item \textbf{Property Graph.} Besides graph topology, both nodes and edges can store multiple property--value pairs describing their semantic attributes. These properties may include object categories, spatial locations, timestamps, confidence scores, or other contextual information, making the representation more expressive for complex real-world applications.
+\end{itemize}
+
+Figure~\ref{fig:knowledge_graph_example} illustrates a typical property graph, where semantic attributes are associated directly with graph nodes and edges. Such a representation allows both structural relationships and contextual information to be modeled within a unified graph.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.82\textwidth]{Images/kb.png}
+    \caption{Illustration of a property graph. Nodes represent entities, edges represent semantic relationships, and both graph components may contain multiple property--value pairs.}
+    \label{fig:knowledge_graph_example}
+\end{figure}
+
+In Intelligent Transportation Systems, the property graph model is particularly suitable because traffic participants can be represented as graph nodes together with their semantic attributes, while traffic interactions are represented as directed edges enriched with spatial or temporal information. This representation provides a structured foundation for subsequent traffic scene retrieval and hazard reasoning.
+
+\subsubsection{Traffic Scene Graph Representation}
+
+A Traffic Scene Graph (TSG) is a graph-based representation that applies the property graph model to road traffic environments \cite{zhou2024hktsg,malawade2022roadscene2vec}. Instead of describing a traffic scene solely by its visual appearance, a TSG represents the scene as a collection of traffic entities together with the semantic relationships among them. This representation preserves the interactions between traffic participants while providing a structured description suitable for subsequent retrieval and reasoning.
+
+The graph is composed of three main components.
+
+\begin{itemize}
+    \item \textbf{Traffic entities (Nodes):} Nodes represent dynamic traffic participants, including the ego vehicle, surrounding vehicles, pedestrians, and cyclists, together with static road infrastructure such as lanes, traffic lights, and traffic signs. Each node may additionally contain semantic properties describing the corresponding object, such as its category, color, or hazard status.
+
+    \item \textbf{Traffic interactions (Edges):} Directed edges describe semantic relationships between traffic entities. These relationships include spatial relations (e.g., \texttt{near}, \texttt{to\_left\_of}), road interactions (e.g., \texttt{driving\_on}), and behavioral interactions (e.g., \texttt{following}, \texttt{crossing}) \cite{tian2025query,zhou2024hktsg}.
+
+    \item \textbf{Semantic properties:} Following the property graph model, both nodes and edges may contain additional property--value pairs that provide contextual information, such as confidence scores, timestamps, motion attributes, or object-specific metadata.
+\end{itemize}
+
+Compared with conventional image representations, a Traffic Scene Graph explicitly models the semantic relationships among traffic participants while remaining independent of low-level visual appearance. Such structured representations provide a suitable foundation for graph retrieval, traffic scene understanding, and subsequent hazard reasoning.
+
+\subsubsection{Spatio-Temporal Symbolic Graph}
+
+A Traffic Scene Graph represents the semantic relationships among traffic participants within a single observation. Although such a representation effectively captures the spatial topology of an individual frame, it cannot describe how traffic interactions evolve over time. In road traffic, many critical events, such as lane changes, pedestrian crossings, collision risks, and overtaking maneuvers, are characterized by the continuous evolution of object behaviors rather than by a single visual snapshot \cite{bao2020uncertainty,zhou2024hktsg}. Consequently, incorporating temporal information becomes essential for representing dynamic traffic scenarios.
+
+A temporal graph extends a conventional graph by associating graph components with temporal information. Instead of representing only the existence of entities and their relationships, temporal graphs additionally describe when these entities and relationships appear, disappear, or change throughout a sequence of observations. As a result, the graph continuously evolves as the underlying scene changes over time, enabling the representation of dynamic systems \cite{bao2020uncertainty}.
+
+Building upon this concept, a \textbf{Spatio-Temporal Symbolic Graph (STSG)} integrates spatial topology with temporal evolution into a unified graph representation. Besides preserving the semantic relationships among traffic participants at each time instant, an STSG explicitly models how these relationships evolve across consecutive frames. Rather than treating a video as a collection of independent snapshots, the graph represents the continuity of traffic participants and their interactions throughout the entire traffic event.
+
+In general, an STSG consists of three complementary components:
+
+\begin{itemize}
+    \item \textbf{Spatial entities:} Traffic participants and road infrastructure are represented as graph nodes together with their semantic attributes.
+
+    \item \textbf{Spatial interactions:} Directed graph edges describe semantic relationships among traffic entities, including spatial relationships (e.g., \texttt{to\_left\_of}, \texttt{near}), road interactions (e.g., \texttt{driving\_on}), and behavioral relationships (e.g., \texttt{following}, \texttt{crossing}).
+
+    \item \textbf{Temporal information:} Nodes and edges are associated with temporal information describing when an entity or interaction appears, changes, or disappears throughout the observation period. This temporal dimension enables the graph to represent the evolution of traffic behaviors across consecutive frames.
+\end{itemize}
+
+Compared with conventional Traffic Scene Graphs, the primary objective of an STSG is not only to describe the spatial configuration of a traffic scene but also to preserve the temporal continuity of traffic behaviors. Such representations provide a structured foundation for modeling dynamic traffic events and support downstream tasks including traffic scene retrieval, behavior analysis, and hazard reasoning \cite{song2024road,bao2020uncertainty}.
+\subsubsection{Graph Matching}
+
+Graph matching aims to establish correspondences between the elements of two graphs while preserving their structural and semantic relationships. Given two graphs, a query graph
+\(
+G_Q=(V_Q,E_Q)
+\)
+and a target graph
+\(
+G_T=(V_T,E_T),
+\)
+the objective is to determine whether the two graphs describe the same semantic structure or to quantify their degree of similarity.
+
+Depending on the application, graph matching can be formulated as either an exact matching problem, where the graph topology must be preserved perfectly, or an approximate matching problem, where structural inconsistencies and semantic variations are tolerated. Graph matching has been widely adopted in computer vision, pattern recognition, knowledge graphs, and scene understanding because relational information often carries richer semantic meaning than isolated object features.
+
+\textbf{Exact Graph Matching and Subgraph Isomorphism.}
+
+Exact graph matching requires a one-to-one correspondence between the vertices and edges of two graphs while preserving their adjacency relationships. Formally, two graphs are isomorphic if there exists a bijection
+
+\[
+f:V_Q \rightarrow V_T
+\]
+
+such that
+
+\[
+(u,v)\in E_Q
+\iff
+(f(u),f(v))\in E_T.
+\]
+
+For retrieval applications, the query graph is usually smaller than the target graph. Consequently, the matching problem becomes a \emph{subgraph isomorphism} problem, which determines whether the query graph is exactly embedded inside a larger graph.
+
+One of the most widely adopted algorithms for solving subgraph isomorphism is the VF2 algorithm proposed by Cordella \textit{et al.} \cite{cordella2004sub}. VF2 performs a depth-first search over possible node correspondences while progressively pruning infeasible candidates using structural consistency rules. The algorithm guarantees an exact solution whenever an isomorphic mapping exists.
+
+Despite its mathematical rigor, subgraph isomorphism is an NP-complete problem. In the worst case, the computational complexity grows exponentially with the number of graph vertices, making exact matching computationally expensive for large traffic scene graphs containing numerous interacting objects.
+
+\textbf{Assignment Problem.}
+
+Instead of searching over every possible graph permutation, graph alignment can alternatively be formulated as an assignment problem. The objective is to assign each node in the query graph to one corresponding node in the target graph while minimizing the overall matching cost.
+
+Given a cost matrix \[C=[C_{ij}],\] where \(C_{ij}\) represents the matching cost between node
+\(i\)
+and node
+\(j\),
+the assignment problem seeks an optimal correspondence that minimizes the total assignment cost\[\min\sum_{i=1}^{n}\sum_{j=1}^{n}C_{ij}X_{ij},\] subject to
+
+\[
+\sum_{j=1}^{n}X_{ij}=1,
+\]
+
+\[
+\sum_{i=1}^{n}X_{ij}=1,
+\]
+
+where
+
+\[
+X_{ij}=
+\begin{cases}
+1,&\text{if node }i\text{ is assigned to node }j,\\
+0,&\text{otherwise}.
+\end{cases}
+\]
+
+Unlike exact graph isomorphism, the assignment formulation optimizes node correspondences directly through a predefined similarity measure, providing significantly lower computational complexity.
+
+\textbf{Hungarian Algorithm.}
+
+The Hungarian algorithm, originally proposed by Harold William Kuhn \cite{kuhn1955hungarian}, provides the optimal solution to the linear sum assignment problem in polynomial time. Rather than exhaustively enumerating every possible correspondence, the algorithm repeatedly transforms the cost matrix through row reduction, column reduction, and augmenting assignments until the globally minimum assignment is obtained.
+
+Compared with exhaustive graph search, the Hungarian algorithm has a computational complexity of
+
+\[
+\mathcal{O}(n^3),
+\]
+
+making it substantially more scalable than subgraph isomorphism for practical optimization problems.
+
+Originally, the Hungarian algorithm was widely adopted for object association in multi-object tracking, where detected objects are matched with existing trajectories based on motion and appearance costs. More generally, the same optimization principle can be extended to graph alignment by redefining the matching cost as semantic similarity rather than geometric distance.
+
+\textbf{Graph Similarity.}
+
+Real-world graphs generated from computer vision systems rarely exhibit identical structures because object detection errors, tracking failures, and semantic ambiguities frequently introduce missing or incorrect nodes and edges. Consequently, practical graph retrieval systems often rely on graph similarity rather than exact graph equivalence.
+
+Graph similarity measures evaluate how closely two graphs resemble each other while allowing partial structural mismatches. Instead of producing a binary decision, the matching process returns a continuous similarity score
+
+\[
+S(G_Q,G_T)\in[0,1],
+\]
+
+where a value closer to one indicates stronger structural and semantic consistency.
+
+Approximate graph matching therefore provides greater robustness against noisy graph construction and imperfect semantic parsing, making it particularly suitable for traffic scene understanding, where object detections and inferred relationships are often uncertain.
+\newpage
+\section{Proposed Methodology}
+
+This section presents the proposed \textbf{Traffic-RAG} framework for traffic scenario retrieval and retrieval-based hazard reasoning. Building upon the theoretical background discussed in the previous section, the proposed framework represents traffic scenes using Spatio-Temporal Symbolic Graphs to explicitly model traffic participants, their semantic interactions, and the temporal evolution of traffic events.
+
+\subsection{System Architecture}
+
+Traffic-RAG organizes traffic scenes into structured symbolic representations to support multimodal traffic retrieval and retrieval-based hazard reasoning. Traffic scenes are first transformed into Spatio-Temporal Symbolic Graphs and organized into a traffic knowledge base. Given a multimodal query in the form of text, image, or video, the framework converts the query into the same symbolic representation and retrieves semantically similar traffic scenarios through graph-based matching. The retrieved traffic scenarios are subsequently utilized to support hazard reasoning by providing interpretable evidence for the final hazard assessment.
+
+\setlength{\fboxrule}{0.1pt}
+\setlength{\fboxsep}{0pt}
+
+\begin{figure}[H]
+    \centering
+    \fcolorbox{black!25}{white}{
+        \includegraphics[width=0.95\textwidth]{Images/overview.png}
+        }
+    
+    \caption{Overall architecture of the proposed Traffic-RAG framework.}
+    \label{fig:overview}
+\end{figure}
+
+Figure~\ref{fig:overview} illustrates the overall architecture of the proposed Traffic-RAG framework. The framework consists of four main phases: (1) offline traffic knowledge base construction, (2) multimodal query parsing and symbolic graph generation, (3) semantic-guided graph retrieval and alignment, and (4) retrieval-based hazard reasoning. The following subsections describe each phase of the proposed framework in detail.
+\subsection{Traffic Knowledge Base Construction}
+
+The proposed Traffic-RAG framework is built upon a structured traffic knowledge base, where each traffic scenario is represented as a Spatio-Temporal Symbolic Graph. Constructing this knowledge base requires transforming raw traffic videos into structured symbolic representations while preserving both the spatial interactions among traffic participants and the temporal evolution of traffic events.
+
+As shown in Figure~\ref{fig:offline_construction}, the offline construction process consists of four main steps: object detection and tracking, visual-language semantic description, static graph construction, and spatio-temporal graph construction.
+The first three steps generate a Spatial Symbolic Graph for each video frame. The final step integrates the spatial graphs from multiple frames to construct a Spatio-Temporal Symbolic Graph. The generated spatio-temporal graphs are then stored in the traffic knowledge base and used for subsequent traffic scenario retrieval.
+\setlength{\fboxrule}{0.1pt}
+\setlength{\fboxsep}{0pt}
+
+\begin{figure}[H]
+    \centering
+    \fcolorbox{black!25}{white}{
+        \includegraphics[width=0.95\textwidth]{Images/Database_Construction_Pipeline.png}
+    }
+    \caption{Overview of the offline traffic knowledge base construction pipeline.}
+    \label{fig:offline_construction}
+\end{figure}
+
+The process begins with object detection and tracking. Each video frame is processed using YOLOv8 \cite{redmon2016you} to detect traffic participants, including vehicles, pedestrians, cyclists, and traffic infrastructure. For each detected object, a bounding box and a tracking identifier are maintained across frames. These tracking identities allow the same traffic participant to be consistently represented throughout the video, even when temporary occlusions occur.
+After object detection, the visual information is combined with the detected bounding boxes and tracking identities to generate a semantic description of the scene. A Vision-Language Model (VLM), such as GPT-4o \cite{achiam2023gpt4}, receives the annotated frame and produces a structured textual description of the traffic environment. The generated description includes the traffic participants, their spatial relationships, and relevant environmental information while preserving the tracking identities assigned during the previous step.
+The generated scene description is subsequently converted into a symbolic graph representation. Instead of generating graphs directly from images, the framework employs a Large Language Model (LLM) as a semantic parser to translate the textual description into a predefined JSON schema. The parser follows a fixed graph structure and traffic ontology to ensure that all generated graphs are formed in a consistent representation.
+Each static graph contains three major components:
+
+\begin{itemize}
+    \item \textbf{Nodes}, representing traffic participants and road infrastructure, such as vehicles, pedestrians, cyclists, traffic lights, and road elements.
+    \item \textbf{Edges}, representing semantic relationships among traffic participants, including spatial relationships (e.g., \texttt{to\_left\_of}, \texttt{in\_front\_of}, \texttt{very\_near}) and road relationships (e.g., \texttt{driving\_on}).
+    \item \textbf{Attributes}, describing scene-level information and object properties, such as weather conditions, road types, or traffic light states.
+\end{itemize}
+Tables below summarize the ontology adopted by the proposed Spatial Symbolic Graph, including the major node categories, spatial relations, and scene attributes used throughout the framework.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.15}
+
+\begin{tabularx}{\textwidth}{|c|>{\ttfamily}l|X|}
+\hline
+\textbf{No.} & \textbf{Spatial Relation} & \textbf{Description} \\
+\hline
+1 & very\_near & Very close spatial distance. \\ \hline
+2 & near & Close spatial distance. \\ \hline
+3 & visible & Object is visible from the ego vehicle. \\ \hline
+4 & getting\_close\_to & Distance between two objects is decreasing. \\ \hline
+5 & approaching & Moving toward another object. \\ \hline
+6 & direct\_front & Located directly in front of another object. \\ \hline
+7 & on\_the\_left & Located on the left side. \\ \hline
+8 & on\_the\_right & Located on the right side. \\ \hline
+9 & locate\_here & Current object location. \\ \hline
+10 & successor & Sequential road connectivity. \\ \hline
+11 & driving\_on & Driving on a road or lane. \\ \hline
+12 & parking\_on / waiting\_on & Parking or waiting on a road segment. \\ \hline
+13 & following & Following another traffic participant. \\ \hline
+14 & overtaking & Passing another vehicle. \\ \hline
+15 & turn\_left & Performing a left turn. \\ \hline
+16 & turn\_right & Performing a right turn. \\ \hline
+17 & go\_straight & Continuing straight ahead. \\ \hline
+18 & crossing & Crossing the road or lane. \\ \hline
+19 & walking\_along & Walking along the road. \\ \hline
+20 & on\_same\_lane & Sharing the same lane. \\ \hline
+21 & may\_intersect & Potential trajectory intersection. \\ \hline
+22 & yielding\_to & Giving priority to another participant. \\ \hline
+23 & waiting\_at\_crossroad & Waiting at an intersection. \\ \hline
+24 & on\_the\_opposite & Located in the opposite direction. \\ \hline
+\end{tabularx}
+
+\caption{Ontology of spatial relations used in the Spatial Symbolic Graph.}
+\label{tab:spatial_relation}
+\end{table}
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+
+\begin{tabularx}{\textwidth}{|c|l|>{\ttfamily}c|X|}
+\hline
+\textbf{No.} & \textbf{Entity Type} & \textbf{Node} & \textbf{Description} \\
+\hline
+1 & Ego vehicle & ego\_veh & Reference autonomous vehicle. \\ \hline
+2 & Road & road & Road surface and lane structure. \\ \hline
+3 & Traffic light & tl & Traffic signal infrastructure. \\ \hline
+4 & Vehicle (car, van, truck) & veh & Moving road vehicles. \\ \hline
+5 & Cyclist & cyc & Bicycle and motorcycle riders. \\ \hline
+6 & Pedestrian & ped & Human road users on foot. \\ \hline
+7 & Obstacle (animal, unknown object) & obs & Static or dynamic road obstacles. \\ \hline
+8 & Barrier & bar & Traffic barriers and cones. \\ \hline
+\end{tabularx}
+
+\caption{Ontology of node types used in the Spatial Symbolic Graph.}
+\label{tab:node_ontology}
+\end{table}
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+
+\begin{tabularx}{\textwidth}{|c|l|X|}
+\hline
+\textbf{No.} & \textbf{Category} & \textbf{Attributes / Keywords} \\
+\hline
+
+1 & Weather &
+Sunny, Rain, Snow, Fog, Sandstorm, Haze, Cloudy. \\
+\hline
+
+2 & Lighting &
+Day, Night, Dusk, Dawn. \\
+\hline
+
+3 & Road Type &
+Highway, Urban road, Rural road, Mountain road, Intersection, Bridge, Tunnel. \\
+\hline
+
+4 & Traffic &
+Heavy traffic, Light traffic. \\
+\hline
+
+5 & Environment &
+Urban area, Suburbs, Countryside, Intersection zone. \\
+\hline
+
+6 & Unusual Driving Behavior &
+Lane change, Highway merge, Exit highway, Lose control, Crash, Brake, Driving fast. \\
+\hline
+
+\end{tabularx}
+
+\caption{Scene attribute ontology used in the Spatial Symbolic Graph.}
+\label{tab:scene_attribute}
+\end{table}
+
+The resulting graph provides a structured symbolic representation of the traffic scene at a single video frame.
+Although a static graph describes the spatial relationships within a single frame, traffic events naturally evolve over time. Therefore, the sequence of static graphs is further integrated into a unified Spatio-Temporal Symbolic Graph that captures both spatial interactions and temporal event evolution.
+
+\textbf{Temporal Graph Aggregation.}
+
+Although each spatial symbolic graph accurately represents the traffic scene at an individual video frame, traffic understanding requires modeling how the scene evolves over time. Therefore, the sequence of spatial graphs is processed by a temporal aggregation module, referred to as the \texttt{VideoGraphAggregator}, to construct a unified Spatio-Temporal Symbolic Graph.
+
+The \texttt{VideoGraphAggregator} maintains the identities of traffic participants across consecutive frames using the tracking identifiers inherited from the object detection stage. These persistent identities allow the same traffic participant to be represented consistently throughout the video, even in the presence of temporary occlusions or short-term detection failures. To improve robustness against missing detections, inactive objects are retained within a predefined temporal window before being removed from the graph. As a result, each traffic participant is represented as a continuous trajectory across the video sequence, providing the structural foundation for subsequent temporal reasoning.
+
+The overall temporal graph aggregation procedure is summarized in Algorithm~\ref{alg:temporal_graph_generator}. Starting from the sequence of spatial graphs, the algorithm first associates tracked objects across consecutive frames, then compares their spatial relations with respect to the \texttt{ego\_veh}, and finally records the detected temporal events as temporal edges in the Spatio-Temporal Symbolic Graph. This procedure establishes a continuous graph representation that preserves both object trajectories and the temporal evolution of traffic interactions.
+\begin{algorithm}[H]
+\caption{Temporal Graph Construction and Event Aggregation}
+\label{alg:temporal_graph_generator}
+
+\begin{algorithmic}[1]
+
+\Require Sequence of spatial graphs $\{G_1,G_2,\ldots,G_T\}$
+\Ensure Spatio-temporal graph $G_{\mathrm{temp}}$
+
+\State Initialize an empty temporal graph $G_{\mathrm{temp}}$
+
+\For{$t=2$ to $T$}
+
+    \State $O_t \gets \textsc{GetActiveObjects}(G_t,G_{t-1})$
+
+    \ForAll{$u\in O_t$}
+
+        \State $r_{\mathrm{prev}}
+            \gets
+            \textsc{GetRelation}(u,\texttt{ego\_veh},G_{t-1})$
+
+        \State $r_{\mathrm{curr}}
+            \gets
+            \textsc{GetRelation}(u,\texttt{ego\_veh},G_t)$
+
+        \Comment{Infer temporal event from relation transition}
+
+        \State $E
+            \gets
+            \textsc{LookupEventOntology}
+            (r_{\mathrm{prev}},r_{\mathrm{curr}})$
+
+        \If{$E\neq\texttt{None}$}
+            \State Add temporal event
+            $(u,\texttt{ego\_veh},E,[t-1,t])$
+            to $G_{\mathrm{temp}}$
+        \EndIf
+
+    \EndFor
+
+\EndFor
+
+\State \Return $G_{\mathrm{temp}}$
+
+\end{algorithmic}
+\end{algorithm}
+\textbf{Temporal Event Construction.}
+
+After the trajectories of traffic participants have been established, the framework analyzes the evolution of their spatial relationships to infer higher-level traffic events. Instead of recognizing events directly from raw visual features, the proposed framework performs graph-based temporal reasoning by comparing the spatial relations of tracked objects between consecutive graph states.
+
+For each tracked object, its spatial relation with respect to the \texttt{ego\_veh} is retrieved from two consecutive spatial graphs. The relation transition is then examined to determine whether it satisfies one of the predefined event generation rules. Whenever a valid transition is detected, a corresponding temporal event is generated and inserted into the Spatio-Temporal Symbolic Graph as a temporal edge associated with its occurrence interval. In this way, the graph explicitly models not only the spatial interactions between traffic participants but also the temporal evolution of these interactions throughout the video.
+
+The overall temporal graph construction procedure is summarized in Algorithm~\ref{alg:temporal_graph_generator}. Starting from the sequence of spatial graphs, the algorithm continuously tracks traffic participants, compares their spatial relations across consecutive frames, detects valid relation transitions, and appends the corresponding temporal events into the temporal graph.
+
+The detected events are represented using a predefined event ontology. Table~\ref{tab:event_ontology} summarizes the event types currently supported by the proposed framework together with the corresponding spatial relation transitions used during rule-based temporal reasoning.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+
+\begin{tabular}{|c|p{4.2cm}|p{9.5cm}|}
+\hline
+\textbf{No.} &
+\textbf{Event Type} &
+\textbf{Spatial Transition Pattern} \\
+\hline
+
+1 &
+\texttt{vehicle\_crossing} &
+\texttt{left/right/approaching/None $\rightarrow$ front} \\
+\hline
+
+2 &
+\texttt{vehicle\_overtake\_ego} &
+\texttt{rear $\rightarrow$ front} (overtaking),\\
+&
+&
+\texttt{front $\rightarrow$ left/right} (moving aside),\\
+&
+&
+\texttt{front/left/right $\rightarrow$ None} (ego passes or the vehicle leaves the field of view).\\
+&
+&
+Associated with the spatial relations \texttt{passing\_by} or \texttt{overtaking}. \\
+\hline
+
+3 &
+\texttt{pedestrian\_crossing} &
+\texttt{left/right $\rightarrow$ front} \\
+\hline
+
+4 &
+\texttt{vehicle\_lane\_change} &
+\texttt{left $\rightarrow$ right} or
+\texttt{right $\rightarrow$ left} \\
+\hline
+
+5 &
+\texttt{object\_appeared\_front} &
+\texttt{None $\rightarrow$ front} \\
+\hline
+
+6 &
+\texttt{exited\_lane} &
+The object disappears from the camera view after previously occupying the ego lane (i.e., satisfying the \texttt{is\_in} relation). \\
+\hline
+
+7 &
+\texttt{disappeared} &
+The object is absent from the camera view for more than a predefined number of consecutive frames. \\
+\hline
+8 &
+\texttt{hazard\_approaching} &
+The hazard object moves close to the ego vehicle. \\
+\hline
+
+
+\end{tabular}
+
+\caption{Rule-based temporal event ontology used for constructing the Spatio-Temporal Symbolic Graph.}
+\label{tab:event_ontology}
+
+\end{table}
+
+\subsection{Multimodal Query Parsing}
+
+The offline phase constructs a traffic knowledge base in which every traffic scenario is represented as a Spatio-Temporal Symbolic Graph. Therefore, before a user query can be matched against the knowledge base, it must first be converted into the same symbolic representation. Since users may submit queries in different modalities, including natural language, images, or videos, the proposed framework performs a unified query parsing process that transforms heterogeneous inputs into a standardized Symbolic Query Graph.
+
+Figure~\ref{fig:query_parsing_pipeline} illustrates the overall multimodal query parsing pipeline. Unlike the offline knowledge base construction process, which converts traffic videos into searchable symbolic graphs, this online pipeline focuses on converting user queries into symbolic representations that follow the same graph schema as the knowledge base. This unified representation allows the retrieval engine to compare user queries directly with stored traffic scenarios without additional data transformation.
+
+\setlength{\fboxrule}{0.1pt}
+\setlength{\fboxsep}{0pt}
+
+\begin{figure}[H]
+    \centering
+    \fcolorbox{black!25}{white}{
+    \includegraphics[width=0.95\textwidth]{Images/Query_Parsing_Pipeline.png}
+    }
+    \caption{Overview of the multimodal query parsing pipeline.}
+    \label{fig:query_parsing_pipeline}
+\end{figure}
+
+The proposed query parsing pipeline consists of three processing stages.
+
+\textbf{Step 1: Query Routing and Input Preparation.}
+
+The system first identifies the modality of the incoming query and selects the corresponding processing branch.
+
+\begin{itemize}
+    \item \textit{Text queries} are directly forwarded to the language model for semantic parsing since they already provide semantic information in textual form. Users may describe a traffic scenario, specify a traffic event, or search for hazardous situations using natural language. For example, a query such as ``Find scenes where a pedestrian suddenly crosses in front of the ego vehicle'' is parsed into a structured symbolic query graph.
+
+    \item \textit{Image queries} are first processed by the object detector to identify traffic participants and generate their bounding boxes. The detected objects and their spatial relationships are then converted into a symbolic graph representing the traffic scene depicted in the image.
+
+    \item \textit{Video queries} are first converted into representative key frames before object detection is performed on each selected frame. The extracted frame-level graphs are subsequently integrated to capture temporal interactions, enabling the system to retrieve traffic scenarios involving dynamic events such as lane changes, overtaking, or pedestrian crossings.
+\end{itemize}
+For visual inputs, YOLOv8 is employed to detect traffic participants and assign consistent object identities through tracking \cite{redmon2016you}. This step provides explicit geometric information that serves as the physical foundation for subsequent semantic understanding.
+The extracted semantic information is subsequently converted into a Symbolic Query Graph following the predefined traffic ontology. During this process, the parser also identifies the retrieval intent of the query. Depending on the semantic content, the query graph may represent a spatial traffic scene, a temporal traffic event, or a hazard-related scenario. Using a unified graph representation enables the subsequent retrieval module to process different query modalities through the same graph matching mechanism.
+
+\vspace{0.5em}
+
+\textbf{Step 2: Visual Semantic Understanding.}
+
+For image and video queries, the detected objects together with their bounding boxes are provided to a Vision-Language Model (VLM). Instead of directly generating symbolic graphs from raw visual inputs, the VLM first produces a structured natural language description of the traffic scene. The generated description summarizes the traffic participants, their spatial relationships, and the surrounding road environment while preserving the object identities obtained from the detection stage.
+
+For text queries, this step is skipped because the semantic description is already provided by the user.
+
+\vspace{0.5em}
+
+\textbf{Step 3: Symbolic Query Graph Generation.}
+
+The semantic description generated in the previous stage (or the original user text for text queries) is then processed by a Large Language Model configured as a graph parser. Guided by a predefined traffic ontology, the parser converts the textual description into a standardized Symbolic Query Graph.
+
+The ontology restricts the generated graph to predefined node categories, relation types, and graph attributes that are consistent with the offline knowledge base. During this process, entity names are normalized into standard traffic classes, semantic relations are converted into graph edges, and contextual information is represented as graph attributes. These constraints ensure that different query modalities produce a consistent symbolic representation suitable for graph-based retrieval.
+
+The final output of this pipeline is a Symbolic Query Graph that follows exactly the same representation schema as the traffic knowledge base. This graph serves as the input to the semantic-guided graph alignment module presented in the following section.
+
+\subsection{Semantic-Guided Graph Retrieval}
+
+After a symbolic query graph has been generated, the next step is to retrieve the most relevant traffic scenarios from the traffic knowledge base. This retrieval task is formulated as a graph alignment problem, where the objective is to establish the correspondence between the query graph and the symbolic traffic graphs stored in the database before estimating their structural similarity.
+
+Existing graph retrieval methods commonly rely on exact graph matching algorithms, such as VF2, to identify graph correspondences \cite{cordella2004sub,tian2025query}. Although these methods perform well when two graphs share identical structures, they are highly sensitive to imperfect graph construction. In practical traffic scenes, perception errors may introduce missing objects, incomplete relations, or slight variations in semantic labels. Consequently, two traffic scenarios that describe the same driving situation may fail to satisfy the strict constraints required by exact graph isomorphism, leading to unsuccessful retrieval. To improve retrieval robustness, this research proposes the \textbf{Interaction-Centric Hungarian Graph Alignment (IA-HGA)} algorithm. Instead of searching for an exact graph isomorphism, IA-HGA formulates graph alignment as an optimal assignment problem. The algorithm evaluates the semantic compatibility between graph entities by jointly considering their semantic categories and local interaction contexts. These similarities are organized into a node similarity matrix, which is subsequently optimized using the Hungarian algorithm to determine a globally consistent one-to-one correspondence between the nodes of the two graphs.
+
+
+
+
+The proposed retrieval framework consists of two complementary stages. The first stage performs Spatial Graph Retrieval, where IA-HGA is applied to align the interaction topology surrounding the ego vehicle and identify candidate traffic scenarios with similar spatial structures. Based on the resulting node correspondence, the second stage performs Temporal Graph Retrieval, which evaluates the temporal consistency of traffic events and computes the final retrieval similarity. The following subsections describe these two stages in detail.
+\subsubsection{Spatial Graph Retrieval}
+
+The spatial graph retrieval stage aims to identify candidate traffic scenarios that exhibit interaction patterns similar to those of the query graph. Rather than directly comparing the complete scene graphs, the proposed retrieval process focuses on the local interaction context surrounding the ego vehicle. As illustrated in Figure~\ref{fig:spatial_retrieval}, the spatial retrieval procedure consists of four consecutive steps: ego-centric graph pruning, semantic-guided node similarity computation, interaction-centric Hungarian graph alignment, and spatial similarity calculation.
+
+\begin{figure}[H]
+    \centering
+    \setlength{\fboxrule}{0.1pt}
+    \setlength{\fboxsep}{0pt}
+    \fcolorbox{black!25}{white}{
+        \includegraphics[width=0.95\textwidth]{Images/Spatial_Graph_Retrieval.png}
+    }
+    \caption{Overview of the proposed spatial graph retrieval process using the Interaction-Centric Hungarian Graph Alignment (IA-HGA) algorithm.}
+    \label{fig:spatial_retrieval}
+\end{figure}
+
+\textbf{Step 1: Ego-Centric Graph Pruning.}
+Traffic scene graphs usually contain many objects that are unrelated to the interaction being queried, such as distant vehicles, buildings, or roadside infrastructure. Matching the entire graph therefore increases computational complexity while contributing little to retrieval accuracy. To reduce the search space, the proposed method first extracts an ego-centric subgraph by preserving only the ego vehicle and the traffic participants within a predefined interaction neighborhood. This pruning process removes unrelated background objects while retaining the local interaction structure that is most relevant to traffic scenario retrieval.
+
+\textbf{Step 2: Semantic-Guided Node Similarity Computation.}
+After graph pruning, node similarities are computed between the query graph and each candidate graph. Instead of comparing only object labels, IA-HGA evaluates both semantic consistency and local interaction context. Each node is represented by its semantic category together with its one-hop neighborhood, including neighboring object types and their spatial relations. The predefined traffic ontology further allows semantically related object categories, such as \texttt{car}, \texttt{truck}, and \texttt{van}, to be matched with high similarity, making the retrieval process more robust to perception inconsistencies.
+
+\textbf{Step 3: Interaction-Centric Hungarian Graph Alignment.}
+The computed node similarities are organized into a similarity matrix, which serves as the input to the Hungarian algorithm. The Hungarian optimization establishes an optimal one-to-one correspondence between the traffic participants in the query graph and those in the candidate graph. Unlike conventional graph matching methods that emphasize exact node identities, IA-HGA optimizes the consistency of semantic interactions among traffic participants. Consequently, structurally similar traffic scenes can still be aligned even when minor differences exist in object categories or graph construction.
+
+\textbf{Step 4: Spatial Graph Similarity Computation.}
+
+After the optimal node correspondence has been established by IA-HGA, the spatial similarity between the query graph and each candidate graph is computed by comparing the spatial relations between the aligned traffic participants. The spatial similarity score is defined as
+
+\begin{equation}
+S_{\text{spatial}}
+=
+\frac{1}{|E_{q,\text{spatial}}|}
+\sum_{(u,v)\in E_{q,\text{spatial}}}
+S_{\text{edge}}
+\left(
+r_q(u,v),
+r_c(X^*(u),X^*(v))
+\right),
+\label{eq:s_spatial}
+\end{equation}
+
+where $E_{q,\text{spatial}}$ denotes the set of spatial relations in the query graph, $r_q(u,v)$ and $r_c(X^*(u),X^*(v))$ denote the corresponding spatial relations in the query and candidate graphs, respectively, and $S_{\text{edge}}(\cdot,\cdot)$ measures the semantic similarity between two spatial relations according to the predefined traffic ontology.
+
+The resulting spatial similarity score reflects how well the interaction topology of the candidate graph matches that of the query graph. This score is subsequently used during temporal graph retrieval to evaluate the temporal evolution of the aligned traffic participants.
+\subsubsection{Temporal Graph Retrieval}
+
+Once the spatial correspondences between traffic participants have been established, the temporal graph retrieval stage evaluates how the traffic scenario evolves over time. Rather than comparing only static graph structures, this stage compares the sequence of dynamic events represented in the Spatio-Temporal Symbolic Graph.
+
+\begin{figure}[H]
+    \centering
+    \setlength{\fboxrule}{0.1pt}
+    \setlength{\fboxsep}{0pt}
+    \fcolorbox{black!25}{white}{
+        \includegraphics[width=0.95\textwidth]{Images/Temporal_Graph_Retrieval.png}
+    }
+    \caption{Overview of temporal graph retrieval based on dynamic event alignment.}
+    \label{fig:temporal_retrieval}
+\end{figure}
+\textbf{Risk-Weighted Event Matching.}
+
+Using the node correspondences obtained during spatial graph retrieval, the proposed method compares the dynamic events recorded in the query graph with those in each candidate graph. Since different traffic events contribute differently to hazard assessment, temporal retrieval evaluates event similarity using a weighted matching strategy rather than treating all events equally.
+
+The temporal similarity score is computed as
+
+\begin{equation}
+S_{\text{temporal}}
+=
+\frac{
+\sum\limits_{e \in E_{q,\text{event}}}
+w(e)\,
+S_{\text{match}}(e,G_c|X^*)
+}
+{
+\sum\limits_{e \in E_{q,\text{event}}}
+w(e)
+},
+\label{eq:temporal_score}
+\end{equation}
+
+where $E_{q,\text{event}}$ denotes the set of event edges in the query graph, $w(e)$ represents the importance of each event during retrieval, and $S_{\text{match}}(e,G_c|X^*)$ measures the similarity between the query event and its corresponding event in the candidate graph under the optimal node correspondence $X^*$ generated by IA-HGA.
+
+The event weights are assigned according to the semantic importance of different traffic events and their relevance to the ego vehicle, allowing safety-critical interactions to contribute more strongly to the temporal similarity than ordinary traffic behaviors.
+
+\textbf{Temporal Consistency Verification.}
+
+Besides comparing individual events, the proposed method further evaluates whether the temporal evolution of the retrieved scenario is consistent with that of the query. For each matched event, the algorithm verifies the chronological order in which events occur and checks whether the sequence of interactions follows a similar temporal progression.
+
+The event matching function $S_{\text{match}}$ jointly considers three aspects: the semantic consistency of the event type, the correspondence of the participating traffic entities established by IA-HGA, and the temporal consistency of the event sequence. Events that satisfy these conditions contribute more strongly to the temporal similarity, whereas mismatched or missing events receive lower similarity scores.
+
+Finally, the temporal similarity score is combined with the spatial similarity obtained from IA-HGA to compute the overall graph retrieval score. Candidate traffic scenarios are then ranked according to this final similarity and the highest-ranked scenarios are forwarded to the retrieval-based hazard reasoning module.
+\subsection{Retrieval-Based Hazard Reasoning}
+
+The graph retrieval stage returns a ranked list of traffic scenarios together with their corresponding graph similarity scores. Rather than treating these retrieved results as the final output, the proposed Traffic-RAG framework further utilizes them as evidence to infer the hazard level of the query scene.
+
+Unlike conventional deep learning approaches that directly predict a hazard label from visual observations, the proposed framework adopts a retrieval-based hazard reasoning strategy. The final prediction is generated by reasoning over previously observed traffic scenarios stored in the knowledge base instead of performing end-to-end classification. This design follows the principle of case-based reasoning, where traffic scenarios with similar interaction patterns are expected to exhibit similar safety outcomes.
+
+An important advantage of this reasoning strategy is its explainability. Instead of producing only a binary prediction, the framework can explicitly present the retrieved traffic scenarios together with their graph similarity scores. Consequently, users can inspect which historical traffic cases contribute to the final decision and understand why a particular hazard label is assigned.
+
+To aggregate the evidence provided by multiple retrieved scenarios, this work employs a \textbf{Score-Weighted Voting} strategy. Instead of allowing every retrieved scenario to contribute equally, each candidate is assigned a voting weight according to its graph similarity with the query graph. Therefore, traffic scenarios that are structurally more similar are expected to provide stronger evidence for hazard reasoning and consequently contribute more to the final decision than weakly matched scenarios.
+
+\textbf{Score-Weighted Voting.}
+
+Assume that the graph retrieval module returns the Top-$K$ candidate traffic scenarios
+
+\[
+\mathcal{R}
+=
+\{c_1,c_2,\ldots,c_K\},
+\]
+
+where each candidate $c_k$ is associated with a graph similarity score $S(c_k)$ obtained from the proposed graph retrieval algorithm.
+
+The normalized voting weight assigned to each retrieved candidate is computed as
+
+\begin{equation}
+w_k
+=
+\frac{S(c_k)}
+{\sum_{j=1}^{K}S(c_j)},
+\label{eq:voting_weight}
+\end{equation}
+
+where $w_k$ represents the contribution of candidate $c_k$ to the final reasoning process.
+
+Based on these voting weights, the hazard reasoning score of the query scene is computed by aggregating the hazard labels of all retrieved candidates:
+
+\begin{equation}
+H
+=
+\sum_{k=1}^{K}
+w_k
+\cdot
+\mathbb{I}(c_k),
+\label{eq:hazard_index}
+\end{equation}
+
+where $\mathbb{I}(c_k)$ denotes the hazard label of the retrieved traffic scenario and is defined as
+
+\[
+\mathbb{I}(c_k)
+=
+\begin{cases}
+1,& \text{if } c_k \text{ is a hazardous traffic scenario},\\
+0,& \text{otherwise}.
+\end{cases}
+\]
+
+Finally, the hazard category of the query graph is determined by comparing the aggregated hazard reasoning score with a predefined decision threshold:
+
+\begin{equation}
+\mathrm{Classify}(G_q)
+=
+\begin{cases}
+\texttt{HAZARD}, & H \ge \delta,\\
+\texttt{SAFE}, & \text{otherwise},
+\end{cases}
+\label{eq:hazard_decision}
+\end{equation}
+
+where $\delta$ denotes the decision threshold.
+
+Compared with conventional end-to-end classifiers, the proposed retrieval-based reasoning framework provides both prediction and supporting evidence simultaneously. Every hazard decision is supported by a set of retrieved historical traffic scenarios together with their corresponding graph similarities. This allows the complete reasoning process to be traced and interpreted, thereby improving the transparency and explainability of the proposed Traffic-RAG framework.
+\newpage
+\section{Experimental Evaluation}
+
+All experiments were conducted under the following hardware and software environment:
+
+\begin{itemize}
+    \item \textbf{Hardware:}
+    \begin{itemize}
+        \item Device: MacBook Pro
+        \item Processor: Apple M1 Pro
+        \item Memory: 16 GB Unified Memory
+    \end{itemize}
+
+    \item \textbf{Software:}
+    \begin{itemize}
+        \item Operating System: macOS Ventura
+        \item Programming Language: Python 3.10.10
+    \end{itemize}
+\end{itemize}
+
+All evaluated methods were executed under the same hardware and software environment to ensure a fair and reproducible comparison.
+
+This chapter presents the experimental evaluation of the proposed Traffic-RAG framework. It first describes the preparation of the traffic knowledge base, including the traffic video dataset and the offline knowledge base construction process. Next, the experimental setup is introduced, including the baseline methods, evaluation metrics, and evaluation protocol. Finally, the retrieval performance, hazard reasoning performance, runtime evaluation, and ablation studies are presented and discussed.
+\subsection{Traffic Knowledge Base Preparation}
+
+The performance of a retrieval-based reasoning framework largely depends on the quality of the underlying knowledge base. Therefore, this section describes the traffic video dataset adopted in this study and the offline process used to construct the Spatio-Temporal Symbolic Graph knowledge base.
+
+\subsubsection{Dataset Preparation }
+
+The experiments are conducted using the \textbf{Road Hazard Stimuli} dataset \cite{song2024road}, a publicly available collection of real-world dashcam videos containing diverse traffic scenarios under various road, weather, and traffic conditions. The dataset includes both hazardous and non-hazardous driving situations, making it suitable for evaluating traffic scene retrieval and hazard reasoning algorithms.
+
+The original dataset contains 750 video clips, including 434 hazardous videos and 316 safe videos. To construct the traffic knowledge base used in this study, a representative subset of 300 videos is selected, consisting of 200 hazardous scenarios and 100 safe scenarios. Each video has a duration of approximately 8--11 seconds with resolutions ranging from 720p to 1080p. Table~\ref{tab:dataset_properties} summarizes the dataset used throughout the experiments.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{|p{5cm}|p{8cm}|}
+\hline
+\textbf{Property} & \textbf{Value} \\
+\hline
+Dataset Name & Road Hazard Stimuli \cite{song2024road} \\
+\hline
+Original Dataset & 750 video clips \\
+\hline
+Selected Subset & 300 video clips \\
+\hline
+Hazard Videos & 200 \\
+\hline
+Safe Videos & 100 \\
+\hline
+Video Duration & Approximately 8--11 seconds \\
+\hline
+Resolution & 720p / 1080p \\
+\hline
+\end{tabular}
+\caption{Properties of the traffic video dataset.}
+\label{tab:dataset_properties}
+\end{table}
+
+The traffic knowledge base is constructed using the offline processing pipeline proposed in Chapter~3. Each traffic video is first transformed into a sequence of Spatial Symbolic Graphs through object detection, tracking, visual-language scene understanding, and graph generation. The spatial graphs are subsequently aggregated into a Spatio-Temporal Symbolic Graph that captures both the spatial interactions among traffic participants and the temporal evolution of traffic events.
+
+Although the graph construction process is largely automated, errors may still arise due to object detection failures, inaccurate visual-language descriptions, or graph parsing inconsistencies. To improve the quality of the knowledge base, every automatically generated graph is manually inspected and refined. The manual refinement process verifies object categories, spatial relations, temporal events, and graph consistency, resulting in a high-quality annotated knowledge base used as the ground truth throughout the experimental evaluation.
+
+The final knowledge base consists of both frame-level spatial graphs and video-level temporal graphs. Table~\ref{tab:graph_statistics} summarizes the statistics of the generated graph database.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{|p{6cm}|c|c|}
+\hline
+\textbf{Graph Type} & \textbf{Videos} & \textbf{Generated Graphs} \\
+\hline
+Spatial Graphs (frame-level) & 300 & 9,575 \\
+\hline
+\quad Hazard Frames & 200 & 8,275 \\
+\hline
+\quad Safe Frames & 100 & 1,300 \\
+\hline
+Temporal Graphs (video-level) & 300 & 300 \\
+\hline
+\quad Hazard Graphs & 200 & 200 \\
+\hline
+\quad Safe Graphs & 100 & 100 \\
+\hline
+\end{tabular}
+\caption{Statistics of the generated traffic scene graphs.}
+\label{tab:graph_statistics}
+\end{table}
+\subsubsection{Traffic Ontology Statistics}
+
+To characterize the composition of the constructed traffic knowledge base, the distribution of semantic object categories is analyzed. Since every traffic scene is represented as a Spatio-Temporal Symbolic Graph, the frequency of different node types directly influences the structural complexity of graph construction and the subsequent graph retrieval process.
+
+Figure~\ref{fig:ontology_stats} summarizes the distribution of traffic entities extracted from the 300 annotated videos according to the predefined traffic ontology. Each node is assigned to one of the semantic categories introduced in Chapter~3, including vehicles, pedestrians, cyclists, traffic lights, obstacles, and road infrastructure.
+
+As illustrated in Figure~\ref{fig:ontology_stats}, vehicles constitute the majority of graph nodes, with a total of 4,021 instances. This observation is consistent with real-world urban traffic, where surrounding vehicles dominate most driving scenarios. Traffic lights represent the second most frequent category (446 instances), reflecting the large number of urban intersections included in the dataset. In contrast, vulnerable road users and uncommon traffic participants appear less frequently, including 110 pedestrians, 85 obstacles, and 15 cyclists. Although these categories account for a relatively small proportion of the dataset, they are frequently associated with hazardous traffic situations and therefore play an important role in traffic scene retrieval and hazard reasoning.
+
+Overall, the ontology statistics demonstrate that the constructed knowledge base covers both common traffic participants and safety-critical objects, providing sufficient semantic diversity for evaluating the proposed graph retrieval and retrieval-based hazard reasoning framework.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{Images/Ontology_Statistics.png}
+    \caption{Distribution of semantic object categories in the constructed traffic knowledge base.}
+    \label{fig:ontology_stats}
+\end{figure}
+\subsubsection{Knowledge Base Representation}
+
+To facilitate multimodal retrieval and explainable hazard reasoning, each traffic video is transformed into a structured knowledge representation. Rather than storing only raw visual observations, the proposed knowledge base represents every traffic scenario using three complementary representations: a structured text description, a frame-level spatial symbolic graph, and a video-level spatio-temporal dynamic graph.
+
+\textbf{Structured Text Description.}
+
+The structured text description serves as an intermediate semantic representation between raw images and symbolic graphs. To ensure consistency during graph generation, every description follows a predefined template consisting of three logical components:
+
+\begin{itemize}
+    \item \textbf{Global Context \& Ego Initialization}, including \textit{Weather \& Temporal Attributes} and \textit{Road \& Infrastructure Characteristics}.
+    \item \textbf{Background / Normal Traffic Agents}, describing \textit{Entity Descriptors}, \textit{Relative Spatial Positioning}, and \textit{Activity / Relation} of surrounding traffic participants.
+    \item \textbf{Primary Hazard \& Safety Reasoning}, containing the \textit{Detail Hazard Description} together with the corresponding \textit{Reason and Driving Advice}.
+\end{itemize}
+
+Figure~\ref{fig:text_description_example} illustrates an example of a traffic frame together with its generated structured text description.
+
+\begin{figure}[H]
+\centering
+
+\begin{minipage}[t]{0.40\textwidth}
+\vspace{0pt}
+\centering
+\includegraphics[width=\linewidth]{Images/frame_0129.png}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.58\textwidth}
+\vspace{0pt}
+
+\small
+\textbf{Generated Text Description}
+
+\vspace{0.2em}
+
+\textit{
+Under hazy daytime conditions on a one-way urban road, the ego vehicle
+(\texttt{ego\_veh}) is driving normally. Directly ahead, two black cars
+(\texttt{veh\_10} and \texttt{veh\_11}) are driving, with
+\texttt{veh\_10} in front of \texttt{veh\_11}. On the left side, a black
+SUV (\texttt{veh\_8}) is travelling very close to the ego vehicle,
+representing the primary hazard because the short lateral distance
+significantly increases the risk of a side collision if the ego vehicle
+drifts left. The recommended action is to maintain a safe distance,
+remain alert to the adjacent vehicle, and avoid unnecessary leftward
+lane movement.
+}
+
+\end{minipage}
+
+\caption{Example of a real traffic frame and its generated structured text description. The description is organized into global context, surrounding traffic participants, and hazard reasoning, providing the semantic representation used for subsequent graph construction.}
+\label{fig:text_description_example}
+
+\end{figure}
+
+
+\textbf{Spatial Symbolic Graph.}
+
+Each video frame is converted into a frame-level Spatial Symbolic Graph. The graph is stored as a JSON object containing the global scene attributes together with three primary components: \texttt{nodes}, \texttt{edges}, and \texttt{attributes}. Listing~\ref{lst:spatial_graph} presents an example of the generated spatial graph.
+
+\begin{lstlisting}[
+caption={Example of a Spatial Symbolic Graph (frame-level).},
+label={lst:spatial_graph}
+]
+{
+ "video_id":"critical_162","frame_id":"frame_0165",
+ "global_attributes":["Haze","Night","Urban road"],
+ "graph":{
+  "nodes":[{"name":"ego_veh","type":"ego_veh"},{"name":"veh_5","type":"vehicle"}],
+  "attributes":[{"belong_to":"veh_5","value":"intent:maintain safe distance"}],
+  "edges":[
+   {"object_1":"veh_5","object_2":"ego_veh","type":"sidely_front"},
+   {"object_1":"veh_5","object_2":"ego_veh","type":"very_near"}
+  ]
+ }
+}
+\end{lstlisting}
+
+\textbf{Spatio-Temporal Dynamic Graph.}
+
+While the spatial graph represents a single frame, the Spatio-Temporal Dynamic Graph aggregates all spatial graphs throughout the video sequence. Besides preserving the static graph structure, it additionally records the temporal evolution of traffic interactions through the \texttt{hazard\_timeline} and \texttt{events} components. Listing~\ref{lst:temporal_graph} illustrates an example of the generated temporal graph.
+
+\begin{lstlisting}[caption={Example of a Spatio-Temporal Dynamic Graph (video-level).},label={lst:temporal_graph}]
+{
+ "global_attributes":["Sunny","Urban road"],
+ "hazard_timeline":[{"start_frame":141,"end_frame":157,"object_id":"veh_10","object_type":"truck"}],
+ "graph":{
+  "nodes":[{"name":"road","type":"road"},{"name":"ego_veh","type":"ego_veh"},{"name":"veh_10","type":"truck"}],
+  "edges":[{"object_1":"veh_10","object_2":"ego_veh","type":"getting_close_to","start_frame":141,"end_frame":150}],
+  "attributes":[{"belong_to":"veh_10","value":"is_hazard","start_frame":141,"end_frame":157}],
+  "events":[{"event_type":"hazard_approaching","actor":"veh_10","target":"ego_veh","trigger_frame":141}]
+ }
+}
+
+\end{lstlisting}
+
+\subsection{Experimental Setup}
+
+This section describes the experimental configuration used to evaluate the proposed Traffic-RAG framework. It first introduces the baseline methods selected for comparison, followed by the evaluation metrics and the data split protocol adopted for retrieval and hazard reasoning experiments.
+\subsubsection{Baseline Methods}
+
+To comprehensively evaluate the proposed framework, four representative baseline methods are selected. These methods represent different paradigms for traffic scene understanding, including semantic text retrieval, static graph retrieval, end-to-end video classification, and spatio-temporal graph learning. Their characteristics are summarized in Table~\ref{tab:baselines}.
+\begin{table}[H]
+\centering
+\begin{tabular}{|p{3.2cm}|p{3.8cm}|p{3.0cm}|p{5.2cm}|}
+\hline
+\textbf{Method} &
+\textbf{Category} &
+\textbf{Input} &
+\textbf{Evaluation Purpose}
+\\
+\hline
+
+Sentence-BERT (SBERT) \cite{reimers2019sentence}
+&
+Semantic vector retrieval
+&
+Text queries
+&
+Evaluate semantic retrieval without explicit structural reasoning.
+\\
+\hline
+
+RSG-LLM \cite{tian2025query}
+&
+Static graph retrieval
+&
+Spatial scene graphs
+&
+Evaluate retrieval using static graph matching without temporal modeling.
+\\
+\hline
+
+ResNet50 + LSTM \cite{malawade2022roadscene2vec}
+&
+Video classification
+&
+Raw video frames
+&
+Evaluate end-to-end hazard classification from visual observations.
+\\
+\hline
+
+UString \cite{bao2020uncertainty}
+&
+Spatio-temporal graph learning
+&
+Object trajectories
+&
+Evaluate graph-based hazard prediction using learned spatio-temporal representations.
+\\
+\hline
+
+\end{tabular}
+\caption{Baseline methods used for experimental comparison.}
+\label{tab:baselines}
+\end{table}
+\subsubsection{Evaluation Metrics}
+
+The proposed framework performs both traffic scenario retrieval and hazard reasoning. Therefore, two groups of evaluation metrics are adopted: retrieval metrics for measuring search quality and classification metrics for assessing hazard prediction performance.
+\begin{table}[H]
+\centering
+\begin{tabular}{|p{3.8cm}|p{10.2cm}|}
+\hline
+\textbf{Metric} & \textbf{Description} \\
+\hline
+
+Hits@K &
+Percentage of queries whose correct target appears within the top-K retrieved results.
+\\
+\hline
+
+Recall@K &
+Percentage of relevant traffic scenarios successfully retrieved within the top-K results.
+\\
+\hline
+
+MRR &
+Mean Reciprocal Rank of the first correctly retrieved traffic scenario.
+\\
+\hline
+
+F1@K &
+Harmonic mean of Precision@K and Recall@K.
+\\
+\hline
+
+\end{tabular}
+\caption{Retrieval metrics used for traffic scenario retrieval evaluation.}
+\label{tab:metrics_retrieval}
+\end{table}
+\begin{table}[H]
+\centering
+\begin{tabular}{|p{3.8cm}|p{10.2cm}|}
+\hline
+\textbf{Metric} & \textbf{Description} \\
+\hline
+
+Accuracy &
+Overall percentage of correctly classified traffic scenarios.
+\\
+\hline
+
+Precision &
+Percentage of predicted hazardous scenes that are truly hazardous.
+\\
+\hline
+
+Recall &
+Percentage of hazardous scenes correctly identified by the system.
+\\
+\hline
+
+F1-score &
+Harmonic mean of Precision and Recall.
+\\
+\hline
+
+\end{tabular}
+\caption{Classification metrics used for hazard reasoning evaluation.}
+\label{tab:metrics_classification}
+\end{table}
+\subsubsection{Implementation Details}
+
+Two different experimental protocols are designed for this study because the retrieval task and the hazard reasoning task evaluate fundamentally different capabilities of the proposed framework. The first protocol evaluates the accuracy of the graph retrieval algorithm by measuring whether the system can retrieve the correct traffic scenario from highly similar graph structures. The second protocol evaluates the generalization ability of the complete Traffic-RAG framework by performing hazard reasoning on entirely unseen traffic scenarios. Therefore, different data split strategies are adopted for the two evaluation tasks.
+\\
+\textbf{Scenario Retrieval Evaluation}
+
+The retrieval evaluation aims to assess whether the proposed graph matching algorithm can accurately retrieve the correct traffic scenario from the knowledge base. To ensure that retrieval performance is evaluated independently from hazard reasoning, the query graphs are intentionally constructed to remain structurally similar to the graphs stored in the database while not being identical.
+
+For the spatial graph retrieval task, one representative frame is randomly sampled from each video to form the query set, resulting in 300 query graphs. All remaining frames from the same videos are stored in the knowledge base. Since adjacent video frames preserve nearly identical spatial topology while containing slight variations in object positions and interactions, this protocol evaluates whether the retrieval algorithm can correctly identify the corresponding traffic scenario despite minor structural differences.
+
+For the temporal graph retrieval task, an interleaved sampling strategy (stride = 1) is adopted. Alternate frames are assigned to the query sequence, while the remaining frames are used to construct the temporal graph stored in the knowledge base. Consequently, both temporal graphs originate from the same traffic scenario but are constructed from different frame subsets, ensuring that they exhibit highly similar temporal evolution without being identical. This protocol provides a fair evaluation of the proposed IA-HGA retrieval algorithm under realistic structural variations.
+
+This protocol is used to evaluate the retrieval performance of Traffic-RAG, SBERT, RSG-LLM, and the proposed ablation studies.
+\\
+\textbf{Hazard Classification Evaluation}
+
+After validating the retrieval capability, the second protocol evaluates the hazard reasoning performance of the complete Traffic-RAG framework. Unlike the retrieval evaluation, this protocol does not intentionally preserve structural similarity between the query and the knowledge base. Instead, the objective is to evaluate whether the system can retrieve semantically similar historical scenarios from completely unseen traffic environments and infer the correct hazard label.
+
+For the spatial graph evaluation, 100 representative frames are selected from 100 independent videos (70 hazardous and 30 safe) to form the test set. All remaining frames belonging to these 100 videos are completely excluded from the knowledge base. The database is constructed exclusively from the remaining 200 videos, thereby eliminating any background or contextual overlap between the query and database.
+
+For the temporal graph evaluation, complete video-level isolation is adopted. One hundred complete video graphs are reserved for testing, while the remaining 200 video graphs constitute the knowledge base. Consequently, no spatial, temporal, or contextual information is shared between the test videos and the database.
+
+This protocol evaluates the complete retrieval-based hazard reasoning framework and provides a fair comparison against predictive baselines, including ResNet50+LSTM and UString.
+\\
+Table~\ref{tab:data_split} summarizes the data split for the retrieval evaluation and hazard classification experiments.
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{|p{4.2cm}|p{2.2cm}|p{4cm}|p{4cm}|}
+\hline
+\textbf{Evaluation Task} &
+\textbf{Graph Type} &
+\textbf{Query / Test Set} &
+\textbf{Knowledge Base} \\
+\hline
+
+\multirow{2}{*}{Scenario Retrieval Results}
+&
+Spatial
+&
+300 frames
+&
+9,275 frames
+\\
+\cline{2-4}
+
+&
+Temporal
+&
+4,652 frames
+&
+4,923 frames
+\\
+\hline
+
+\multirow{2}{*}{Hazard Classification
+\\Results}
+&
+Spatial
+&
+100 frames
+
+(70 Hazard, 30 Safe)
+&
+6,396 frames
+\\
+\cline{2-4}
+
+&
+Temporal
+&
+100 video graphs
+
+(70 Hazard, 30 Safe)
+&
+200 video graphs
+\\
+\hline
+
+\end{tabular}
+\caption{Summary of the data split strategy adopted for retrieval and hazard classification experiments.}
+\label{tab:data_split}
+\end{table}
+\subsection{Scenario Retrieval Results}
+
+This section evaluates the retrieval performance of the proposed Traffic-RAG framework and compares it with the selected baseline methods. Two retrieval tasks are considered. The first evaluates the retrieval of static traffic scenes using spatial symbolic graphs, while the second evaluates the retrieval of dynamic traffic scenarios using spatio-temporal graphs.
+\subsubsection{Spatial Retrieval Performance}
+
+
+
+The results indicate that the proposed framework achieves the highest retrieval performance across all reported metrics. Traffic-RAG obtains a Hits@1 score of 0.750 and an MRR of 0.819, indicating that the correct traffic scene is ranked first for most queries. SBERT also achieves competitive performance for spatial retrieval because semantic sentence embeddings effectively capture the overall scene description. However, the retrieval process is based mainly on textual similarity and does not explicitly model the structural relationships among traffic participants.
+
+RSG-LLM represents traffic scenes as symbolic graphs and performs graph matching using exact structural correspondence. This representation preserves explicit spatial relationships, but the matching process is sensitive to small structural differences introduced during graph construction. In comparison, the interaction-centric graph alignment adopted by Traffic-RAG allows semantically similar graph structures to be aligned even when minor structural variations exist. This leads to more stable retrieval performance while preserving the interaction patterns among traffic participants.
+
+
+\subsubsection{Temporal Retrieval Performance}
+
+\subsection{Hazard Classification Results}
+
+Besides retrieving relevant traffic scenarios, the proposed framework is also evaluated on its ability to determine whether a traffic situation is safe or hazardous. The comparison includes representative vision-based and graph-based baseline methods under both static and temporal evaluation settings.
+
+\subsubsection{Hazard Classification Performance}
+
+The hazard classification task is evaluated under two different settings. The first considers individual frames, where the decision is made from a single traffic scene. The second considers complete video sequences, allowing the models to utilize temporal information. Table \ref{tab:hazard_classification} summarizes the quantitative results.
+
+
+\textbf{Static Task Analysis.}
+
+For the single-frame evaluation, UString achieves the highest overall Accuracy (0.860) and F1-score (0.908), indicating that graph neural network representations effectively capture spatial interactions from individual traffic scenes. Traffic-RAG achieves an Accuracy of 0.810 and an F1-score of 0.843 while obtaining the highest Precision (1.000). This result indicates that every hazardous prediction produced by the proposed framework is correct on the evaluation set, although some hazardous scenes are not detected, resulting in a lower Recall (0.729). The ResNet-50 + LSTM baseline reports lower performance across all evaluation metrics, suggesting that visual appearance alone provides limited information for hazard reasoning when temporal context is unavailable.
+
+\textbf{Temporal Task Analysis.}
+
+When complete video sequences are evaluated, the overall performance of all methods improves because temporal information becomes available. Traffic-RAG achieves the highest Accuracy (0.960) and F1-score (0.971), showing that the proposed spatio-temporal graph representation effectively models the evolution of traffic interactions over time. UString also maintains competitive performance, with an Accuracy of 0.830 and an F1-score of 0.890. The ResNet-50 + LSTM baseline performs better than in the static setting, indicating that sequential visual features contribute to hazard recognition, although its overall performance remains lower than the graph-based approaches.
+
+\subsubsection{Classification Result Analysis}
+
+\subsection{Runtime Evaluation}
+
+
+
+\subsubsection{Classification Runtime}
+
+
+\subsubsection{Comparison of Graph Alignment Strategies}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Quantitative Results}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Performance Analysis}
+
+The ablation study demonstrates that retrieval performance is determined not only by semantic similarity but also by how graph correspondence is established. As the matching strategy evolves from exact graph isomorphism to semantic-aware alignment and finally to globally optimized graph matching, both retrieval accuracy and downstream hazard reasoning improve consistently. This observation indicates that the robustness of traffic retrieval depends on achieving an appropriate balance between semantic flexibility and structural consistency.
+
+\textbf{Strict Subgraph Isomorphism (SSI).}
+
+SSI performs reasonably well on the spatial graph dataset, where graph structures are relatively simple and object interactions are limited. However, its performance deteriorates dramatically on temporal graphs, particularly with a Recall of only 0.020 and an F1-score of 0.039.
+
+The primary reason is that SSI treats graph matching as a binary decision: two graphs either satisfy exact subgraph isomorphism or they do not. In practice, however, traffic graphs generated from perception systems inevitably contain small imperfections caused by object detection errors, temporary tracking failures, or uncertainty in VLM-generated semantic relations. Even a minor discrepancy, such as one missing edge or one incorrectly predicted relation, causes the entire matching process to fail. This problem becomes increasingly severe in temporal graphs because object interactions continuously evolve across frames, making perfect structural correspondence almost impossible to maintain throughout a complete traffic event.
+
+These results indicate that exact graph matching is fundamentally incompatible with noisy graph representations generated from real-world traffic videos.
+
+\textbf{Independent Semantic Relation Alignment (ISRA).}
+
+Compared with SSI, ISRA significantly improves retrieval performance by replacing binary graph matching with semantic similarity evaluation. Instead of requiring two relations to be identical, ISRA measures their semantic similarity and accepts sufficiently similar relations as valid matches. Consequently, the method becomes considerably more tolerant to perception noise and semantic variations introduced by Vision-Language Models.
+
+
+\section{Conclusion and Future Work}
+
+This chapter concludes the thesis by summarizing the main research contributions, discussing the limitations of the proposed framework, reflecting on the significance of the experimental findings, and outlining potential directions for future research. Collectively, these discussions highlight both the achievements of the proposed Traffic-RAG framework and the opportunities for further advancement toward practical Intelligent Transportation Systems (ITS).
+
+\subsection{Conclusion}
+
+This thesis proposed \textbf{Traffic-RAG}, a neuro-symbolic retrieval framework for multimodal traffic scene understanding that integrates text, image, and video retrieval into a unified semantic representation. By combining explicit graph-based knowledge representation with retrieval-based reasoning, the proposed framework addresses several limitations of existing traffic scene understanding approaches, particularly their limited temporal reasoning capability and lack of interpretability.
+
+
+\subsection{Limitations and Discussion}
+
+
+The experimental results demonstrate that representing traffic scenes as explicit spatio-temporal graphs provides an effective foundation for multimodal traffic scenario retrieval and retrieval-based hazard reasoning. Unlike conventional end-to-end vision models that encode scene information into latent feature representations, Traffic-RAG preserves object semantics, spatial relationships, and temporal interactions in a structured graph representation. This explicit representation makes the retrieval process transparent and allows the reasoning behind each retrieved scenario to be directly interpreted.
+
+An important finding of this research is the effectiveness of the proposed Interaction-Aware Hungarian Graph Alignment (IA-HGA) algorithm. Instead of requiring exact graph matching, IA-HGA performs interaction-centric graph alignment by emphasizing behaviorally important objects while pruning structurally irrelevant graph components. This strategy reduces the influence of background objects and structural noise, enabling the retrieval process to focus on the interactions that are most relevant to traffic events. Consequently, Traffic-RAG achieves more robust retrieval performance in complex traffic environments where different scenes may share similar visual appearances but exhibit substantially different behavioral interactions.
+
+The results also demonstrate the potential of retrieval-based reasoning as an alternative paradigm for traffic scene understanding. Rather than directly predicting hazard labels from visual observations, Traffic-RAG identifies semantically similar historical scenarios through graph retrieval and performs hazard reasoning based on explicit structural evidence. This retrieval-driven approach provides a transparent reasoning process that can be verified by examining the retrieved graphs, making it particularly suitable for safety-critical Intelligent Transportation Systems where both prediction accuracy and explainability are essential.
+
+\subsection{Future Work}
+
+
+
+\bibliography{sources}
+\end{document}
