@@ -982,3 +982,198 @@ P 0.984 / R 0.761 / F1 0.859 / mIoU 0.942; seq 08 P 0.903 / R 0.699 / F1 0.788 /
 mIoU 0.895. The final pipeline trains the classifier on real SemanticKITTI data
 only; Stage A is retained as the thesis sim-to-real ablation (#7, #25, #30).
 `stage_b_best.pth` (fine-tuned) is kept on disk for reproducibility.
+
+## 33. Pipeline Runtime Optimization — Tier 1 (Exact-Output) (2026-07-23)
+
+**Context:** The advisor asked for inference time. Full seq 08 runs
+**921 ms/frame** (stride-20 harness: 934.5 ms), ≈ 1.1 fps
+(`timing_seq08_full_n4068.json`). Stage breakdown: HDBSCAN 502 ms (56%), RANSAC
+ground 163 ms (18%), preprocessing 127 ms (z 55 + denoise 55 + voxel 17),
+classifier 74 ms (8%). Goal (`docs/perf/plan.md`): ≤ 400 ms/frame with detection
+metrics unchanged. Regression budget locked as a **two-class rule**: Class 1
+(implementation-only) must reproduce per-frame TP/FP/FN bit-for-bit; Class 2
+(algorithm) lives behind a config flag + `--out-tag`, promoted only if F1 improves
+or speedup ≥ 3× at ΔF1 ≥ −0.005.
+
+**Tier 1 changes (all Class 1, exact-output):**
+1. **Batched classifier inference** (`classify_clusters_batch` in
+   `classifier.py`): one GPU forward per ~41-cluster frame instead of 41
+   per-cluster calls. Preprocessing is byte-identical to `classify_cluster`
+   (`sample_or_pad` re-seeds `default_rng(0)` per cluster → order-independent;
+   model in eval mode → BatchNorm uses running stats → per-sample outputs
+   independent of batch composition).
+2. **`core_dist_n_jobs=-1`** on both HDBSCAN constructors (config-keyed).
+3. z-filter numpy→Open3D copy made contiguous float64 (lossless).
+
+**Correctness (the important result):** guaranteed old-code vs new-code eval on
+seq 08, 300 frames — **per-frame TP/FP/FN identical bit-for-bit across all 300
+frames** (aggregate 1306 / 161 / 429; P 0.890 / R 0.753 / F1 0.816 / mIoU 0.905
+both). Zero cuBLAS FP argmax/threshold flips. The batch path is provably
+equivalent. (Verification required regenerating a clean old-code reference via
+`git stash` — the first attempt's baseline file was corrupted by an orphaned
+double-writer from a mis-backgrounded `&` command.)
+
+**Timing (stride-20, n=201, RTX 3070 Ti + 7800X3D):**
+
+| stage | baseline | Tier 1 | Δ |
+|-------|---------:|-------:|--:|
+| classifier | 74.7 | 40.9 (med 24.4) | **−34 mean** |
+| hdbscan | 510.8 | 506.7 | ~0 |
+| **TOTAL** | **934.5** | **910.4** | −24 (−2.6%) |
+
+**Deviation from plan:** `core_dist_n_jobs=-1` was projected to give 1.2–1.5× on
+HDBSCAN. It gave **nothing** (506.7 vs 510.8 ms, within noise). HDBSCAN wall-time
+is dominated by the single-threaded mutual-reachability MST + cluster-hierarchy
+condensation, not the parallelizable core-distance kNN. Kept anyway (exact-output,
+harmless, uses all cores). **Consequence:** Tier 1's real win is the classifier
+(−34 ms); the two dominant stages are untouched, so the ≤ 400 ms target now rests
+on Tier 3 (coarse-voxel HDBSCAN) — RANSAC + preprocessing cuts alone (~−190 ms)
+cannot reach it from 910 ms.
+
+**Artifacts:** `output/experiments/perf/oldref_seq08_f300.txt` (clean old-code
+reference), `tier1_seq08_f300.txt`; `timing_seq08_stride20_tier1.json` (baseline
+`timing_seq08_stride20.json` preserved). Tier 1 changes are uncommitted pending
+the full Tier 1–3 sequence.
+
+## 34. Runtime Optimization — Tier 2/3 Promoted: −30% Runtime *and* Better Detection; ≤400 ms Wall (2026-07-23)
+
+**Context:** Continues #33. Tier 1 (exact-output) only shaved the classifier and
+left the two dominant stages (HDBSCAN, RANSAC) intact, so the ≤ 400 ms goal rested
+on Tier 2/3 — behavior-changing (Class 2) speedups judged by the A1 two-class rule
+(promote if F1 improves, or speedup ≥ 3× at ΔF1 ≥ −0.005). Three knobs, added
+behind `PIPELINE_CONFIG` flags + `--out-tag`, validated individually then combined.
+
+**Guard baseline (full seq 08, pre-Tier-2):** P 0.903 / R 0.699 / F1 0.788 /
+mIoU 0.895 (TP 23823 / FP 2565 / FN 10240).
+
+**The three changes (per-tier, seq 08 300-frame screen vs Tier-1 F1 0.816):**
+1. **`voxel_before_denoise=True`** (Tier 2, A4) — statistical outlier removal runs
+   on the ~10× smaller post-voxel cloud. F1 0.816 → 0.821.
+2. **`ransac_iterations=300`** (Tier 2, A3, 1000 → 300) — plane fit converges well
+   before 1000 iters. F1 0.816 → 0.819.
+3. **`cluster_voxel_size=0.10`** (Tier 3, A2) — HDBSCAN runs on a 0.10 m re-voxel
+   of the object cloud; labels propagate back to the 0.05 m points by `cKDTree`
+   nearest neighbour (`objects_pcd`-aligned, downstream untouched). F1 0.816 →
+   0.822, mIoU 0.905 → 0.922.
+
+Combined they are **super-additive** (300-frame F1 0.816 → 0.838, no interaction
+penalty; 1369/141/388).
+
+**Full seq 08 guard confirmation (the result that matters), combined config:**
+
+| Metric | Baseline | Combined | Δ |
+|---|---:|---:|---:|
+| Precision | 0.903 | **0.905** | +0.002 |
+| Recall | 0.699 | **0.730** | **+0.031** |
+| F1 | 0.788 | **0.808** | **+0.020** |
+| mIoU | 0.895 | **0.912** | +0.017 |
+| TP / FP / FN | 23823 / 2565 / 10240 | 25478 / 2676 / 9444 | +1655 / +111 / −796 |
+
+**Every guard metric improves, none regresses** — so the combined config is
+promoted to the production `PIPELINE_CONFIG` defaults, no ΔF1 tradeoff to weigh.
+
+**Why detection *improved* (split-rate, `analyze_clustering.py` seq 08, 100 frames,
+810 GT-car instances):** coarser clustering closes the intra-car density gaps that
+fragment cars (#23), **without** over-merging:
+
+| | full-res (0.05 m) | cv = 0.10 m |
+|---|---:|---:|
+| clustered "ok" | 504 (62.2%) | **566 (69.9%)** |
+| **split** | 305 (37.7%) | **242 (29.9%)** |
+| merged | 0 (0.0%) | 0 (0.0%) |
+| mean clusters per split car | 3.3 | 2.7 |
+
+Split rate drops 7.8 pts and merges stay at zero → more GT cars survive as one
+filter-passing cluster (+TP, +recall) while precision holds. This is a *research*
+result, not just a speedup: the same coarsening that makes HDBSCAN cheaper also
+repairs the dominant recall-loss mode (#23).
+
+**Timing (stride-20, n=201, RTX 3070 Ti + 7800X3D),
+`timing_seq08_stride20_combined.json`:**
+
+| stage | baseline | combined | Δ |
+|-------|---------:|---------:|--:|
+| hdbscan | 510.8 | 393.2 | −118 |
+| ransac_ground | ~163 | 64.6 | −98 |
+| denoise | 52.9 | 52.9 | ~0 (already on small cloud) |
+| classifier | 74.7 | 22.9 | −52 (Tier 1) |
+| **TOTAL** | **934.5** | **650.6** | **−284 (−30%)** |
+
+Effective rate 1.1 → **1.54 fps**.
+
+**The ≤ 400 ms wall (target missed, and proven unreachable via the authorized
+tiers):** a per-stage diagnostic showed coarse-voxel gives only **~1.3×** on
+HDBSCAN, not the projected 3–5×, because the *post-ground object cloud is
+intrinsically sparse* — surface points already sit ~0.10 m apart, so re-voxelising
+0.05 → 0.10 m removes only ~18% of points (0.20 m: ~44%). Python HDBSCAN's
+mutual-reachability MST has a hard ~185 ms floor on this data (matching #33: the
+MST/condensation, not the parallelisable core-distance kNN, dominates). The only
+paths below 400 ms are the **deferred** ones — cuML GPU HDBSCAN (preserves
+semantics; WSL2/RAPIDS setup friction) or Open3D DBSCAN (C++, but fixed-eps risks
+recall on variable-density cars). **User decision (2026-07-23): accept 650 ms** —
+real-time execution is explicitly out of scope (CLAUDE.md), and we now beat the
+baseline on *both* speed (−30%) and accuracy (F1 +0.020). Deferred paths not
+pursued.
+
+**Deviation from plan:** the budget projected Tier 3 reaching ~350–420 ms. It did
+not — the sparse-cloud wall above is the reason. Net outcome is still a clear win
+(the plan's fallback framing: "a real gain with metrics improved").
+
+**Artifacts:** `output/experiments/perf/{tier2_voxfirst,tier3_cv010,combined}_seq08_f300.txt`,
+`combined_seq08_full.txt` (full-seq guard, 4071 frames),
+`splitrate_{fullres,cv010}_seq08_f100.txt`;
+`output/experiments/timing/timing_seq08_stride20_combined.json`.
+
+**Completion re-check — isolate-config (2026-07-23, promotion duty):** re-ran
+#29 (`completion_box_eval`) and #32 (`donor_metric`) against the promoted
+`PIPELINE_CONFIG`, each keeping **its own published classifier** (#29 →
+`stage_b_best.pth`, #32 → `stage_b_scratch_best.pth`) so only the promoted config
+differs — answering "did the runtime-optimization config shift the completion
+findings?" in isolation. Both experiments re-run detection live, so they never
+depended on `output/08` PLYs. Verdict: **neither finding shifts.**
+
+*#29 amodal-box quality* (COMPLETED comp_mean; n_pairs 2075 → 2262):
+
+| metric | published | re-run | Δ |
+|--------|----------:|-------:|--:|
+| bev_iou | 0.7469 | 0.7393 | −0.0076 |
+| adW | 0.1701 | 0.1770 | +0.0069 |
+| adH | 0.1305 | 0.1322 | +0.0017 |
+| adL | 0.4563 | 0.4633 | +0.0070 |
+| center_err | 0.2339 | 0.2304 | −0.0035 |
+| yaw_err (°) | 4.455 | 4.406 | −0.049 |
+
+*#32 donor coverage* (COMPLETED; n_cars 39 → 40, qualified pairs 1337 → 1508):
+
+| τ | cov pub | cov re-run | Δ | med_dist pub | re-run | Δ |
+|--:|--------:|-----------:|--:|-------------:|-------:|--:|
+| 0.10 | 0.3455 | 0.3380 | −0.0075 | 0.147 | 0.146 | −0.001 |
+| 0.15 | 0.3036 | 0.3017 | −0.0019 | 0.161 | 0.164 | +0.004 |
+| 0.20 | 0.2810 | 0.2686 | −0.0124 | 0.171 | 0.180 | +0.009 |
+
+All deltas are within noise (< 0.01 on the normalized box metrics; ≤ 0.012 on
+coverage), and completion's headline advantage is fully preserved: #29 still shows
+the large raw→completed box-quality gain, #32 still shows completed coverage
+~0.30–0.34 vs raw 0.0 and mirrored ~0.05. **Caveat:** these are *not paired* —
+the promoted config detects more cars (recall +0.031 on the full-seq guard), so
+n_pairs (#29) and n_cars/qualified-pairs (#32) both grew; read the deltas as
+*population-level* ("benefit preserved across the new, larger detected set"), not
+as same-car degradation. Artifacts (baselines preserved): re-run under
+`output/experiments/completion_box_eval/step2_metrics_08_perf.json` and
+`output/experiments/donor_metric_perf/`; comparison via
+`scratchpad/compare_completion_isolate_config.py`.
+
+*Note (pre-existing, out of scope here):* #29's published table used the
+fine-tuned `stage_b_best.pth`, classifier-inconsistent with production
+`stage_b_scratch_best.pth` since #31; the isolate-config design deliberately holds
+each experiment's own classifier fixed, so this drift is untouched — flagged as a
+separate item, not a perf-work regression.
+
+**`output/08` regenerated (2026-07-23):** re-ran `main.py --seq 08` under the
+promoted config → 1040 accepted tracks (518 PCN-completed), 1558 PLYs (up from
+1523, consistent with the recall gain). GT artifacts (`amodal_gt.json`,
+`amodal_gt_check.png` — not produced by `main.py`) copied in; old output preserved
+at `output/08_preperf_backup/` (reversible swap, nothing deleted).
+
+**Still pending:** docx inference-section refresh (not authorized this round). All
+Tier-1/2/3 code changes uncommitted.

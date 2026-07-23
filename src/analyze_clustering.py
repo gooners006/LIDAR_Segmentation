@@ -202,9 +202,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--seq", default="00")
     parser.add_argument("--frames", type=int, default=100)
+    parser.add_argument("--cluster-voxel-size", type=float, default=None,
+                        help="Perf Tier 3: cluster on a coarser voxel grid "
+                             "(split-rate comparison vs full-res clustering)")
     args = parser.parse_args()
 
     cfg = PIPELINE_CONFIG
+    if args.cluster_voxel_size is not None:
+        cfg["cluster_voxel_size"] = args.cluster_voxel_size
     seq_dir = os.path.join(PROJECT_ROOT, f"dataset/sequences/{args.seq}")
     bin_paths = sorted(glob.glob(os.path.join(seq_dir, "velodyne/*.bin")))[:args.frames]
     label_paths = sorted(glob.glob(os.path.join(seq_dir, "labels/*.label")))[:args.frames]

@@ -1628,3 +1628,69 @@ those findings.)*
   exact-output verification against a frozen TP/FP/FN reference).
 - Carried: Direction 2 (far-end under-completion), pipeline diagram, thesis
   writing.
+
+---
+# Session — 2026-07-23 (runtime optimization landed; full post-opt report refresh + honesty pass)
+
+## What was done
+
+### Pipeline runtime optimization (Findings #33, #34)
+Executed the locked perf plan (`.claude/plans/2-fluffy-crown.md`, `docs/perf/plan.md`).
+- **Tier 1 (exact-output, per-frame TP/FP/FN bit-for-bit, #33):** batched classifier
+  inference, `hdbscan_core_dist_n_jobs=-1`, trimmed the z-filter numpy→Open3D copy.
+- **Tier 2/3 (behavior-changing, promoted, #34):** `ransac_iterations` 1000→300,
+  `voxel_before_denoise=True`, `cluster_voxel_size=0.10` — now the `PIPELINE_CONFIG` defaults.
+- Runtime **934.5 → 650.6 ms/frame (−30%, ≈1.54 fps)**. ≤400 ms target proven unreachable
+  via the authorized tiers (sparse object cloud compresses only ~18%; ~185 ms Python-HDBSCAN
+  floor). User accepted 650 ms — real-time out of scope; GPU HDBSCAN (cuML) / DBSCAN deferred.
+- Detection improved on full seq 08: P 0.903→0.905, R 0.699→**0.730**, F1 0.788→**0.808**,
+  mIoU 0.895→0.912 (TP 23823→25478). cv=0.10 closes intra-car density gaps (#23) → +1,655 TP —
+  a research result, not just a speedup.
+- `output/08` regenerated under the promoted config (old preserved at `output/08_preperf_backup/`);
+  #29/#32 re-checked (isolate-config) — neither finding shifts.
+
+### Report refresh: docs/report/results_overview_2026_07_23.docx
+Created from the 07-19 overview; full refresh of §1–§6 + Summary to the promoted post-opt
+operating point so the whole report sits at one consistent operating point.
+- **§1 inference:** 921→623 ms figures + optimization narrative; disclaimer flipped
+  ("§2–§5 reflect this optimized operating point").
+- **§2 detection:** seq 08 → 0.905/0.730/0.808/0.912, TP/FP/FN 25,478/2,676/9,444;
+  seq 00 → fresh 100-frame post-opt eval (0.967/0.777/0.862/0.962); per-car unit n=40 / 2,262 TP.
+- **§5 completion (Table 4, post-opt):** BEV IoU 0.718→0.739 (p=.013), |ΔW| 0.252→0.177,
+  |ΔH| 0.230→0.132, center 0.273→0.230, **|ΔL| 0.428→0.463 (p=.034, worse)**, yaw 3.3/3.3
+  (neutral); Table 5 donor coverage raw 0.000 / mirror 0.051 / PCN 0.302; sparse BEV
+  0.459→0.606; far-end coverage 0.125.
+
+### Honesty pass (user: "be honest… softened framing seems hypocritic")
+- **§3 Recall Ceiling — fully rewritten.** Dropped the obsolete "~0.74 hard ceiling / five
+  mitigations all negative" framing. Now leads with the correction: five *post-hoc* repairs
+  failed, but coarsening the clustering resolution (cv=0.10, production) cut the split rate
+  37.7→29.9% (zero merges), raised the clean-cluster fraction 62→70%, lifted recall 0.699→0.730
+  (+1,655 TP). "The earlier '~0.74 hard ceiling' was overstated." Residual structural limit
+  kept but "smaller than first claimed." Summary bullet (1) rewritten to match.
+- **Item 2 (§5.4):** prose now states completion *significantly worsens* length
+  (|ΔL| 0.428→0.463 m, p=0.034), matching Table 4's "worse" verdict; conservative-bias
+  mitigation retained.
+- **Item 3a ([22]):** track-filter ablation "F1 0.762→0.801" kept (not re-run) + provenance
+  caveat — pre-optimization operating point, isolates the filter's contribution, current endpoint 0.808.
+- **Item 3b (#29 fine-tuned `stage_b_best.pth`):** deliberately left undisclosed — the paired
+  raw-vs-completed design makes classifier drift immaterial to the delta; user scoped out.
+
+## Files changed
+Modified (uncommitted): `src/pipeline.py`, `src/classifier.py`, `src/evaluate.py`, `src/main.py`,
+`src/analyze_clustering.py`, `docs/findings.md` (#33/#34), `docs/project_state.md`,
+`.claude/skills/latex-report/SKILL.md`
+New (untracked): `docs/report/results_overview_2026_07_23.docx`, `docs/approved_version.tex`,
+`.claude/skills/latex-report/references/`, `.claude/skills/humanizer/`
+(All 2026-07-23 code + report work is uncommitted.)
+
+## Results / findings
+- Runtime 934.5→650.6 ms/frame (−30%); detection F1 0.788→0.808, recall 0.699→0.730 (#33/#34).
+- Report is now internally consistent at the post-opt operating point, with the recall-ceiling
+  story corrected (partly a resolution artifact, not a hard limit).
+
+## Next
+- Pending user approval: correct `docs/findings.md` #24 wording (still says "hard limit").
+- Commit the uncommitted 2026-07-23 runtime-opt + report work when asked.
+- Resume Direction 2 (improve `complete()` geometry: far-end under-completion, coverage 0.125;
+  signed ΔL −0.550 m).

@@ -9,7 +9,7 @@ import numpy as np
 import open3d as o3d
 import torch
 
-from classifier import classify_bbox_heuristic, classify_cluster, load_classifier
+from classifier import classify_bbox_heuristic, classify_clusters_batch, load_classifier
 from pipeline import (
     PIPELINE_CONFIG,
     cluster_objects,
@@ -216,18 +216,19 @@ def main():
         assert len(labels) == len(np.asarray(objects_pcd.points)), \
             "Cluster labels must align with objects_pcd.points"
 
-        for bbox, cluster_label in clusters:
-            if use_learned_classifier:
-                mask = labels == cluster_label
-                cluster_points = np.asarray(objects_pcd.points)[mask]
-                result = classify_cluster(
-                    cluster_points, cls_model, cls_device, cls_bbox_stats,
-                    unknown_threshold=args.classifier_unknown_threshold,
-                )
-            else:
-                result = classify_bbox_heuristic(bbox.extent, bbox.get_center())
-            cluster_classes.append(result.label)
+        if use_learned_classifier:
+            obj_points = np.asarray(objects_pcd.points)
+            cluster_points_list = [obj_points[labels == cl] for _, cl in clusters]
+            results = classify_clusters_batch(
+                cluster_points_list, cls_model, cls_device, cls_bbox_stats,
+                unknown_threshold=args.classifier_unknown_threshold,
+            )
+        else:
+            results = [classify_bbox_heuristic(bbox.extent, bbox.get_center())
+                       for bbox, _ in clusters]
 
+        for (bbox, cluster_label), result in zip(clusters, results):
+            cluster_classes.append(result.label)
             bbox_cluster_labels.append(cluster_label)
             bbox_objects.append(bbox)
 

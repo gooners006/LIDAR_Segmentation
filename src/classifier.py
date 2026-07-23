@@ -306,6 +306,92 @@ def classify_cluster(
     return ClassificationResult(CLASS_LABELS[pred_idx], confidence)
 
 
+def classify_clusters_batch(
+    clusters_points: list[np.ndarray],
+    model: PointNetClassifier,
+    device: torch.device,
+    bbox_stats: dict,
+    unknown_threshold: float = 0.50,
+    chunk_size: int = 256,
+) -> list[ClassificationResult]:
+    """Classify many clusters with batched forward passes.
+
+    Numerically equivalent to calling :func:`classify_cluster` on each
+    cluster individually: the per-cluster preprocessing is identical
+    (``sample_or_pad`` re-seeds ``default_rng(0)`` per cluster, so it is
+    order-independent) and the model runs in eval mode, where BatchNorm
+    uses running statistics — so each sample's output is independent of
+    batch composition.  This replaces one GPU call per cluster with one
+    call per ``chunk_size`` clusters.
+
+    Args:
+        clusters_points: List of (N, 3) raw cluster point arrays in
+            metric scale.
+        model: Loaded PointNetClassifier (already in eval mode).
+        device: Torch device for inference.
+        bbox_stats: Dict with ``"mean"`` and ``"std"`` (8,) arrays.
+        unknown_threshold: Confidence below which a cluster is labeled
+            ``"not-car"``.
+        chunk_size: Maximum clusters per forward pass (VRAM cap).
+
+    Returns:
+        List of ClassificationResult, one per input cluster, in order.
+    """
+    results: list[ClassificationResult | None] = [None] * len(clusters_points)
+
+    pts_list: list[np.ndarray] = []
+    bbox_list: list[np.ndarray] = []
+    valid_idx: list[int] = []  # output positions that go through the model
+
+    for i, points in enumerate(clusters_points):
+        points = np.asarray(points, dtype=np.float32)
+        finite_mask = np.isfinite(points).all(axis=1)
+        points = points[finite_mask]
+
+        if len(points) < MIN_POINTS_FOR_CLASSIFIER:
+            results[i] = ClassificationResult("not-car", 0.0)
+            continue
+
+        bbox_feats = extract_bbox_features(points)
+        bbox_feats = (bbox_feats - bbox_stats["mean"]) / (bbox_stats["std"] + 1e-6)
+        bbox_feats = np.clip(bbox_feats, -BBOX_CLIP, BBOX_CLIP)
+
+        pts = sample_or_pad(points, NUM_POINTS)
+        pts = normalize_unit_sphere(pts)
+
+        pts_list.append(pts)
+        bbox_list.append(bbox_feats)
+        valid_idx.append(i)
+
+    if valid_idx:
+        pts_all = torch.from_numpy(np.stack(pts_list)).to(device)    # (M, NUM_POINTS, 3)
+        bbox_all = torch.from_numpy(np.stack(bbox_list)).to(device)  # (M, BBOX_FEAT_DIM)
+
+        conf_chunks: list[torch.Tensor] = []
+        pred_chunks: list[torch.Tensor] = []
+        with torch.no_grad():
+            for start in range(0, len(valid_idx), chunk_size):
+                logits = model(pts_all[start:start + chunk_size],
+                               bbox_all[start:start + chunk_size])
+                probs = torch.softmax(logits, dim=1)
+                conf, pred = probs.max(dim=1)
+                conf_chunks.append(conf)
+                pred_chunks.append(pred)
+
+        confidences = torch.cat(conf_chunks).cpu().numpy()
+        preds = torch.cat(pred_chunks).cpu().numpy()
+
+        for j, i in enumerate(valid_idx):
+            confidence = float(confidences[j])
+            pred_idx = int(preds[j])
+            if confidence < unknown_threshold:
+                results[i] = ClassificationResult("not-car", confidence)
+            else:
+                results[i] = ClassificationResult(CLASS_LABELS[pred_idx], confidence)
+
+    return results  # type: ignore[return-value]
+
+
 def load_classifier(ckpt_path: str, device: torch.device):
     """Load a classifier model and bbox normalization stats from a checkpoint.
 

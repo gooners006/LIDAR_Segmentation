@@ -2,6 +2,7 @@ import numpy as np
 import open3d as o3d
 import hdbscan
 from scipy.ndimage import binary_dilation, binary_erosion, label as ndimage_label
+from scipy.spatial import cKDTree
 from typing import List, Tuple
 
 PIPELINE_CONFIG = {
@@ -11,15 +12,30 @@ PIPELINE_CONFIG = {
     # denoising
     "denoise_nb_neighbors": 20,
     "denoise_std_ratio": 2.0,
+    # perf Tier 2: voxel-downsample before denoise (denoise on ~10x fewer
+    # points). Behavior-changing but PROMOTED (full seq 08: F1 0.788->0.808,
+    # R 0.699->0.730, all guard metrics up; Finding #34).
+    "voxel_before_denoise": True,
     # ransac ground fitting
     "ransac_distance_threshold": 0.2,
     "ransac_n": 3,
-    "ransac_iterations": 1000,
+    # perf Tier 2: 1000 -> 300 iters. Plane fit converges well before 1000 on
+    # this data; part of the promoted combined config (Finding #34).
+    "ransac_iterations": 300,
     "ransac_min_normal_z": 0.5,
     # clustering
     "clustering_method": "hdbscan",
     "hdbscan_min_cluster_size": 10,
     "hdbscan_min_samples": 5,
+    # parallel core-distance computation (-1 = all cores). Does not change
+    # cluster labels vs the library default of 4 (Tier-1 exact-output speedup).
+    "hdbscan_core_dist_n_jobs": -1,
+    # perf Tier 3: run HDBSCAN on a coarser voxel grid, then propagate labels
+    # back to the 0.05 m points by nearest neighbour (HDBSCAN is superlinear in
+    # N). None = off (cluster at full resolution). Behavior-changing but
+    # PROMOTED: 0.10 closes intra-car density gaps -> fewer split cars ->
+    # +1655 TP on full seq 08 (Finding #34, and #23 for the split mechanism).
+    "cluster_voxel_size": 0.10,
     "bev_resolution": 0.2,
     "bev_morph_kernel": 3,
     # post-clustering fragment merge
@@ -115,10 +131,22 @@ def preprocess_frame(
         Cleaned and downsampled Open3D point cloud.
     """
     mask = xyz[:, 2] > config["z_threshold"]
-    xyz_filtered = xyz[mask]
+    # Hand Open3D a contiguous float64 buffer (its native dtype) so the
+    # Vector3dVector copy skips per-element upcasting. float32->float64 is
+    # lossless, so the stored points are identical to the previous path.
+    xyz_filtered = np.ascontiguousarray(xyz[mask], dtype=np.float64)
 
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(xyz_filtered)
+
+    if config.get("voxel_before_denoise", False):
+        pcd_voxel = pcd.voxel_down_sample(voxel_size=config["voxel_size"])
+        pcd_denoised, _ = pcd_voxel.remove_statistical_outlier(
+            nb_neighbors=config["denoise_nb_neighbors"],
+            std_ratio=config["denoise_std_ratio"],
+        )
+        return pcd_denoised
+
     pcd_denoised, _ = pcd.remove_statistical_outlier(
         nb_neighbors=config["denoise_nb_neighbors"],
         std_ratio=config["denoise_std_ratio"],
@@ -192,6 +220,7 @@ def _cluster_hdbscan(points: np.ndarray, config: dict) -> np.ndarray:
     clusterer = hdbscan.HDBSCAN(
         min_cluster_size=config["hdbscan_min_cluster_size"],
         min_samples=config["hdbscan_min_samples"],
+        core_dist_n_jobs=config.get("hdbscan_core_dist_n_jobs", -1),
     )
     return clusterer.fit_predict(points)
 
@@ -215,6 +244,7 @@ def _cluster_adaptive_hdbscan(points: np.ndarray, config: dict) -> np.ndarray:
         clusterer = hdbscan.HDBSCAN(
             min_cluster_size=mcs_list[i],
             min_samples=min_samples,
+            core_dist_n_jobs=config.get("hdbscan_core_dist_n_jobs", -1),
         )
         ring_labels = clusterer.fit_predict(ring_pts)
 
@@ -332,18 +362,34 @@ def cluster_objects(
     if len(points) == 0:
         return np.array([], dtype=np.int32)
 
-    method = config.get("clustering_method", "hdbscan")
-    if method == "bev":
-        labels = _cluster_bev(points, config)
-    elif config.get("adaptive_hdbscan", False):
-        labels = _cluster_adaptive_hdbscan(points, config)
+    cluster_voxel = config.get("cluster_voxel_size", None)
+    if cluster_voxel:
+        # Tier 3: cluster on a coarser grid, propagate labels to full res.
+        coarse_pcd = objects_pcd.voxel_down_sample(voxel_size=cluster_voxel)
+        coarse_points = np.asarray(coarse_pcd.points)
+        if len(coarse_points) == 0:
+            return np.full(len(points), -1, dtype=np.int32)
+        coarse_labels = _dispatch_clustering(coarse_points, config)
+        # Nearest coarse point (by 3D distance) donates its label.
+        _, nn = cKDTree(coarse_points).query(points, k=1)
+        labels = coarse_labels[nn].astype(np.int32, copy=True)
     else:
-        labels = _cluster_hdbscan(points, config)
+        labels = _dispatch_clustering(points, config)
 
     if config.get("merge_fragments", False):
         labels = _merge_nearby_clusters(points, labels, config)
 
     return labels
+
+
+def _dispatch_clustering(points: np.ndarray, config: dict) -> np.ndarray:
+    """Run the configured clustering method on ``points``."""
+    method = config.get("clustering_method", "hdbscan")
+    if method == "bev":
+        return _cluster_bev(points, config)
+    if config.get("adaptive_hdbscan", False):
+        return _cluster_adaptive_hdbscan(points, config)
+    return _cluster_hdbscan(points, config)
 
 
 def _center_height_above_ground(center: np.ndarray, ground_plane) -> float:

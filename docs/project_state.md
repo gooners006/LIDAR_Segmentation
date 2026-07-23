@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-07-19
+Last updated: 2026-07-23
 
 ## Current Architecture
 
@@ -44,24 +44,35 @@ prior fine-tuned-checkpoint numbers preserved there).
 | Mean IoU | 0.942 |
 
 TP=1242 FP=20 FN=389. RANSAC is deterministic (`np.random.default_rng(42)`). Results reproducible across runs.
+Promoted-config 100-frame eval (2026-07-23, report refresh): P 0.967 / R 0.777 / F1 0.862 / mIoU 0.962 (exact TP/FP/FN not separately recorded this session).
 
-### Seq 08 (full, 4071 frames) — generalization check (updated 2026-07-14)
+### Seq 08 (full, 4071 frames) — generalization check (promoted config, updated 2026-07-23)
 
 | Metric | Value |
 |--------|-------|
-| Precision | 0.903 |
-| Recall | 0.699 |
-| F1 | 0.788 |
-| Mean IoU | 0.895 |
+| Precision | 0.905 |
+| Recall | 0.730 |
+| F1 | 0.808 |
+| Mean IoU | 0.912 |
 
-TP=23823 FP=2565 FN=10240. Command: `python src/evaluate.py --seq 08 --frames 5000`.
+TP=25478 FP=2676 FN=9444. Promoted `PIPELINE_CONFIG` (voxel_before_denoise,
+ransac_iterations=300, cluster_voxel_size=0.10; Finding #34). Pre-opt numbers
+(0.903/0.699/0.788/0.895, TP=23823 FP=2565 FN=10240) preserved in #34.
+Command: `.venv\Scripts\python.exe src/evaluate.py --seq 08 --frames 5000`.
 Confirms the seq-00 story at 40× scale: precision-saturated, recall-limited;
 per-frame recall anti-correlated with GT-car density, FP flat ~1/frame.
 Figures: `output/figures/seq08_{bev_detections,failure_zooms,timeseries}.png`.
 
-## Recall Bottleneck — Fully Characterized
+## Recall Bottleneck — Characterized; partly lifted by coarse-voxel clustering (#34)
 
-The ~0.74 recall ceiling is a **hard limit of density-based clustering** on voxelized LiDAR. Extensively investigated across two sessions:
+The recall shortfall was root-caused to HDBSCAN **splitting cars into fragments**
+(not a classifier problem). Five *post-hoc* repair strategies all failed on
+held-out data — **but** coarsening the clustering resolution (cv=0.10, promoted
+2026-07-23, Finding #34) closed some intra-car density gaps and lifted recall
+0.699→0.730, so the earlier "~0.74 hard limit" was **partly a resolution
+artifact**, not fundamental. A smaller structural limit remains (density-based
+clustering has no notion of objectness; coarser voxels would start merging
+adjacent cars). Extensively investigated across multiple sessions:
 
 ### Root cause: HDBSCAN splitting (Finding #23)
 - 31-37% of GT cars are split across multiple HDBSCAN clusters
@@ -81,7 +92,10 @@ The ~0.74 recall ceiling is a **hard limit of density-based clustering** on voxe
 - **Temporal aggregation (prior session):** HDBSCAN on accumulated points → F1 collapsed to 0.073.
 - **Lower cluster thresholds:** zero TP change.
 
-**Conclusion:** All clustering-level interventions exhausted. Accept ~0.74 recall and focus on other thesis contributions.
+**Conclusion:** Post-hoc (reassemble-after-splitting) interventions exhausted —
+all negative. The one lever that worked was clustering *resolution* itself
+(cv=0.10, now in production, #34), which recovered part of the loss (recall
+0.699→0.730). Residual ~0.73 recall accepted; focus on other thesis contributions.
 
 ## Alternative clustering implementations in `pipeline.py`
 
@@ -210,14 +224,55 @@ design tolerates reference noise (#29), construction guards (viewpoint
 coverage + zero motion), and dimension sanity check (median L 4.14 / W 1.75 /
 H 1.47 m vs published car statistics). Written up in rev2 §6.2.
 
-### Queued: pipeline runtime optimization (decisions pending)
+### DONE: pipeline runtime optimization (Findings #33, #34; 2026-07-23)
 
-`docs/perf/plan.md` (2026-07-19). Baseline: full seq 08 timing = **921 ms/frame**
-(`output/experiments/timing/timing_seq08_full_n4068.json`); target ≤ 400 ms with
-detection metrics unchanged. **Section A (A1 regression budget, A2 HDBSCAN, A3
-ground removal, A4 preprocessing) awaits user decisions — resolve at next
-session start before any implementation.** Frame-level parallelism already
-rejected by user.
+`docs/perf/plan.md` + locked plan (Section A resolved). Baseline: full seq 08 =
+**934.5 ms/frame** (stride-20 harness; 921 ms full-run). Tier 1 (exact-output,
+per-frame TP/FP/FN bit-for-bit, #33) + Tier 2/3 (behavior-changing, promoted,
+#34) landed. **Promoted combined config** (now the `PIPELINE_CONFIG` defaults):
+`voxel_before_denoise=True`, `ransac_iterations=300`, `cluster_voxel_size=0.10`.
+
+- **Runtime: 934.5 → 650.6 ms/frame (−30%, ≈1.54 fps)** — stride-20 benchmark
+  `output/experiments/timing/timing_seq08_stride20_combined.json`.
+- **Detection improved on full seq 08** (guard metrics, all up, none regressed):
+  P 0.903→0.905, R 0.699→**0.730**, F1 0.788→**0.808**, mIoU 0.895→0.912
+  (TP 23823→25478, FP 2565→2676, FN 10240→9444). cv=0.10 closes intra-car
+  density gaps (#23) → +1655 TP.
+- **≤400 ms target NOT reached, and proven unreachable via the authorized tiers:**
+  the post-ground object cloud is intrinsically sparse, so coarse-voxel compresses
+  it only ~18% and Python HDBSCAN has a ~185 ms floor on it. User decision
+  (2026-07-23): **accept 650 ms** (real-time is out of scope); deferred GPU HDBSCAN
+  (cuML/WSL2) and Open3D DBSCAN paths NOT pursued.
+
+**Completion re-check DONE (isolate-config, 2026-07-23):** re-ran #29/#32 against
+the promoted config, each keeping its own published classifier (#29 `stage_b_best`,
+#32 `stage_b_scratch`) so only the config differs. **Neither finding shifts** —
+#29 box quality unchanged (BEV IoU 0.747→0.739, |ΔW/H/L| within ±0.008), #32 donor
+coverage barely moved (τ=0.10 0.346→0.338, τ=0.15 0.304→0.302), both still far
+above their raw/mirrored baselines. Deltas within noise; n grew (n_pairs 2075→2262,
+n_cars 39→40) because detection recall improved, so read population-level, not
+paired. Detail + tables in Finding #34. Baselines preserved (`*_perf` outputs).
+The #29 classifier drift (fine-tuned vs production scratch, pre-#31) is untouched
+by design — flagged as a separate pre-existing item.
+
+**`output/08` regenerated DONE (2026-07-23):** re-ran under the promoted config
+(1040 tracks, 518 completed, 1558 PLYs); GT artifacts copied in; old output
+preserved at `output/08_preperf_backup/` (reversible).
+
+**Report refresh DONE (2026-07-23):** created
+`docs/report/results_overview_2026_07_23.docx` — full refresh of §1–§6 + Summary
+to the promoted operating point (one consistent operating point throughout), plus
+an **honesty pass**: §3 reframed (dropped the obsolete "~0.74 hard ceiling"; the
+cv=0.10 recall lift 0.699→0.730 is now first-class, ceiling "smaller than first
+claimed"); §5.4 length prose made to match Table 4's "worse" verdict
+(|ΔL| 0.428→0.463 m, p=0.034); [22] track-filter ablation given a provenance
+caveat (0.762→0.801 is pre-opt; endpoint now 0.808). Item 3b (#29 fine-tuned vs
+production scratch checkpoint) left undisclosed by design — immaterial to the
+paired raw-vs-completed delta. All Tier-1/2/3 code edits + findings/state/report
+remain **uncommitted**.
+
+**Pending (user approval):** correct `docs/findings.md` #24 wording — it still
+reads "~0.74 recall ceiling is a hard limit," now contradicted by #34.
 
 ### Deferred
 - Thesis writing (pipeline description, experiment results, recall-ceiling discussion).

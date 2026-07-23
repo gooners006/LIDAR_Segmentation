@@ -17,7 +17,7 @@ import open3d as o3d
 import torch
 from scipy.spatial import cKDTree
 
-from classifier import classify_cluster, load_classifier
+from classifier import classify_clusters_batch, load_classifier
 from pipeline import (
     PIPELINE_CONFIG,
     cluster_objects,
@@ -181,22 +181,38 @@ def get_frame_detections(bin_path: str, label_path: str,
 
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(xyz_filtered)
-    pcd_denoised, ind_denoise = pcd.remove_statistical_outlier(
-        nb_neighbors=cfg["denoise_nb_neighbors"],
-        std_ratio=cfg["denoise_std_ratio"],
-    )
 
-    sem_denoised = sem_filtered[ind_denoise]
-    inst_denoised = inst_filtered[ind_denoise]
-    xyz_denoised = np.asarray(pcd_denoised.points)
+    if cfg.get("voxel_before_denoise", False):
+        # Perf Tier 2: voxel first, then denoise the ~10x smaller cloud.
+        # Behavior-changing (surviving point set differs). Labels propagate
+        # from the nearest z-filtered original point to each surviving point.
+        pcd_voxel = pcd.voxel_down_sample(voxel_size=cfg["voxel_size"])
+        pcd_down, _ = pcd_voxel.remove_statistical_outlier(
+            nb_neighbors=cfg["denoise_nb_neighbors"],
+            std_ratio=cfg["denoise_std_ratio"],
+        )
+        xyz_down = np.asarray(pcd_down.points)
+        tree = cKDTree(xyz_filtered)
+        _, nn_idx = tree.query(xyz_down)
+        sem_down = sem_filtered[nn_idx]
+        inst_down = inst_filtered[nn_idx]
+    else:
+        pcd_denoised, ind_denoise = pcd.remove_statistical_outlier(
+            nb_neighbors=cfg["denoise_nb_neighbors"],
+            std_ratio=cfg["denoise_std_ratio"],
+        )
 
-    pcd_down = pcd_denoised.voxel_down_sample(voxel_size=cfg["voxel_size"])
-    xyz_down = np.asarray(pcd_down.points)
+        sem_denoised = sem_filtered[ind_denoise]
+        inst_denoised = inst_filtered[ind_denoise]
+        xyz_denoised = np.asarray(pcd_denoised.points)
 
-    tree = cKDTree(xyz_denoised)
-    _, nn_idx = tree.query(xyz_down)
-    sem_down = sem_denoised[nn_idx]
-    inst_down = inst_denoised[nn_idx]
+        pcd_down = pcd_denoised.voxel_down_sample(voxel_size=cfg["voxel_size"])
+        xyz_down = np.asarray(pcd_down.points)
+
+        tree = cKDTree(xyz_denoised)
+        _, nn_idx = tree.query(xyz_down)
+        sem_down = sem_denoised[nn_idx]
+        inst_down = inst_denoised[nn_idx]
 
     # --- 3-5. Shared pipeline: ground removal, clustering, filtering ---
     ground_pcd, objects_pcd, ground_plane, ground_inliers = remove_ground(pcd_down)
@@ -217,13 +233,12 @@ def get_frame_detections(bin_path: str, label_path: str,
 
     if cls_model is not None:
         obj_points = np.asarray(objects_pcd.points)
-        for bbox, cl in clusters:
-            mask = cluster_labels == cl
-            cluster_points = obj_points[mask]
-            result = classify_cluster(
-                cluster_points, cls_model, cls_device, cls_bbox_stats,
-                unknown_threshold=unknown_threshold,
-            )
+        cluster_points_list = [obj_points[cluster_labels == cl] for _, cl in clusters]
+        results = classify_clusters_batch(
+            cluster_points_list, cls_model, cls_device, cls_bbox_stats,
+            unknown_threshold=unknown_threshold,
+        )
+        for (bbox, cl), result in zip(clusters, results):
             if keep_unknown or result.label != "not-car":
                 bboxes.append(bbox)
                 det_cluster_ids.append(cl)
@@ -348,6 +363,19 @@ if __name__ == "__main__":
         help="Override ransac_distance_threshold (for sweeps)",
     )
     parser.add_argument(
+        "--ransac-iterations", type=int, default=None,
+        help="Override ransac_iterations (perf Tier 2; default 1000)",
+    )
+    parser.add_argument(
+        "--voxel-before-denoise", action="store_true",
+        help="Perf Tier 2: voxel-downsample before denoise (behavior-changing)",
+    )
+    parser.add_argument(
+        "--cluster-voxel-size", type=float, default=None,
+        help="Perf Tier 3: cluster on a coarser voxel grid then propagate "
+             "labels back by nearest neighbour (behavior-changing; e.g. 0.10)",
+    )
+    parser.add_argument(
         "--clustering-method", type=str, default=None,
         choices=["hdbscan", "bev"],
         help="Override clustering method (hdbscan or bev)",
@@ -424,6 +452,12 @@ if __name__ == "__main__":
         cfg["tracker_max_disappeared"] = args.tracker_max_disappeared
     if args.ransac_distance_threshold is not None:
         cfg["ransac_distance_threshold"] = args.ransac_distance_threshold
+    if args.ransac_iterations is not None:
+        cfg["ransac_iterations"] = args.ransac_iterations
+    if args.voxel_before_denoise:
+        cfg["voxel_before_denoise"] = True
+    if args.cluster_voxel_size is not None:
+        cfg["cluster_voxel_size"] = args.cluster_voxel_size
     if args.clustering_method is not None:
         cfg["clustering_method"] = args.clustering_method
     if args.bev_resolution is not None:
