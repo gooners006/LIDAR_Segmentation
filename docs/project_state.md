@@ -269,7 +269,8 @@ claimed"); §5.4 length prose made to match Table 4's "worse" verdict
 caveat (0.762→0.801 is pre-opt; endpoint now 0.808). Item 3b (#29 fine-tuned vs
 production scratch checkpoint) left undisclosed by design — immaterial to the
 paired raw-vs-completed delta. All Tier-1/2/3 code edits + findings/state/report
-remain **uncommitted**.
+**committed and pushed** (2026-07-24) in `97fb75b` (perf + report refresh) and
+`a25455b` (Finding #24 correction); working tree clean, `main` == `origin/main`.
 
 **Finding #24 wording corrected DONE (2026-07-24):** appended a dated
 `**Correction**` note (house style, cf. #28) superseding the "~0.74 hard limit"
