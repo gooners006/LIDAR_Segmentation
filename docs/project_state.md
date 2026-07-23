@@ -271,8 +271,11 @@ production scratch checkpoint) left undisclosed by design — immaterial to the
 paired raw-vs-completed delta. All Tier-1/2/3 code edits + findings/state/report
 remain **uncommitted**.
 
-**Pending (user approval):** correct `docs/findings.md` #24 wording — it still
-reads "~0.74 recall ceiling is a hard limit," now contradicted by #34.
+**Finding #24 wording corrected DONE (2026-07-24):** appended a dated
+`**Correction**` note (house style, cf. #28) superseding the "~0.74 hard limit"
+conclusion — the failed strategies were all *post-hoc*; changing clustering
+*resolution* (cv=0.10) recovered part of the loss (recall 0.699→0.730, #34).
+Original 2026-06-24 reasoning preserved as historical record.
 
 ### Deferred
 - Thesis writing (pipeline description, experiment results, recall-ceiling discussion).

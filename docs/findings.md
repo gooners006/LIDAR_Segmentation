@@ -547,7 +547,7 @@ Key insights:
 
 **Decision:** The recall ceiling is fundamentally limited by HDBSCAN splitting large cars. Potential mitigations: post-clustering merge of nearby fragments, adaptive HDBSCAN parameters by distance, or accept the ceiling and focus thesis on other contributions.
 
-## 24. Recall Improvement Strategies — Both Negative (2026-06-24)
+## 24. Recall Improvement Strategies — Both Negative (2026-06-24; conclusion corrected 2026-07-24)
 
 **Context:** Finding #23 identified HDBSCAN splitting as the recall bottleneck (~0.74 ceiling). Explored two mitigation strategies: (1) post-clustering fragment merge, (2) distance-adaptive HDBSCAN `min_cluster_size`.
 
@@ -572,6 +572,8 @@ Full pipeline evaluation (with classifier + track filter):
 MCS=20 appeared best on seq 00 (F1 0.852), but **does not generalize** — F1 drops from 0.829 to 0.801 on held-out seq 08. All variants trade precision for recall, with net-negative F1 on the held-out set. Fragment merge absorbs nearby non-car clusters (walls, poles). Higher MCS loses distant sparse cars.
 
 **Decision:** Neither strategy improves the pipeline reliably. The ~0.74 recall ceiling is a hard limit of density-based clustering on voxelized LiDAR without learned object priors. Code for both strategies kept in `pipeline.py` (disabled by default, CLI-toggleable via `--merge-fragments`, `--adaptive-hdbscan`). Recommend accepting this ceiling and focusing thesis effort elsewhere.
+
+> **Correction (2026-07-24, superseded by Finding #34):** The "hard limit" conclusion above was overstated. Both strategies here are *post-hoc* — they reassemble or re-cluster fragments *after* HDBSCAN splits them, and they do all fail. But changing the clustering *resolution* itself does help: coarsening the object cloud to a 0.10 m voxel grid *before* HDBSCAN (adopted in the runtime optimization, #33/#34) prevents many splits from forming in the first place. On full seq 08 the split rate drops 37.7% → 29.9% with zero new merges, the cleanly-clustered fraction rises 62% → 70%, and recall improves 0.699 → 0.730 (+1,655 TP, precision unchanged). So ~0.74 was partly a *resolution artifact*, not a fundamental ceiling. A smaller structural limit does remain — density-based clustering has no notion of objectness, and coarsening further starts merging adjacent cars — so recall still cannot be pushed to a learned detector's level this way; but the standing recommendation is now `cluster_voxel_size=0.10` in production (#34), **not** "accept ~0.74."
 
 ## 25. Stage A Pretraining Ablation — Synthetic Prior Is Redundant (2026-06-25)
 
