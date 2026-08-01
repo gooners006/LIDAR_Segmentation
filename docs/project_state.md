@@ -235,6 +235,13 @@ estimate would remove this (Step-1b idea). Tables in Finding #35;
 outputs `output/experiments/donor_perf_len{off,on}/`,
 `completion_box_eval/step2_metrics_08_len{off,on}.json`.
 
+### Step 1b — compact-overshoot fix (optional, not started)
+
+The fixed 4.14 m prior over-extends compacts (< 3.6 m: signed ΔL −0.10 → +0.25).
+A per-car length estimate (e.g. from the L-shape fit / observed span) instead of
+the fixed median prior would remove the overshoot without losing the normal-car
+gain. Measure with the same donor + #29 box metrics, split by GT length.
+
 ### Step 2 — remaining Direction-2 target: heading/center on diagonal/sparse views
 
 The other #29/#32 weakness (worst donor figure panels + out-of-box flags): the

@@ -1694,3 +1694,76 @@ New (untracked): `docs/report/results_overview_2026_07_23.docx`, `docs/approved_
 - Commit the uncommitted 2026-07-23 runtime-opt + report work when asked.
 - Resume Direction 2 (improve `complete()` geometry: far-end under-completion, coverage 0.125;
   signed ΔL −0.550 m).
+
+---
+# Session — 2026-08-01
+
+## What was done
+
+### Direction 2, Step 1 — longitudinal length prior for complete() (Finding #35)
+- Root cause of far-end under-completion (#32 far_end cov 0.133; #29 signed ΔL
+  −0.49→−0.55): `estimate_canonical_frame()` had width (X) + up (Y) priors but no
+  length (Z) correction, so a partial truncated at the occluded far end normalizes
+  around its near portion and PCN stops short of the unseen end.
+- Fix (inference-only, no retraining): extend-only Z push toward the ego-far end,
+  `center[2] += sign(center[2])·max(0.5·L_prior − 0.5·observed_len, 0)`,
+  `COMPLETION_CAR_LENGTH_PRIOR = 4.14 m` (amodal-GT median). Mirrors the width
+  prior. `src/completion.py`. Shipped ON (constructor `length_prior` default =
+  constant; `None` disables for A/B). Planned via /tweakable-plan (A1 length prior,
+  A2 ego-sign, A3 extend-only, A4 synthetic-first).
+
+### Evidence — three paired lines, all positive
+- Synthetic true-GT (`scratchpad/length_prior_synth_check.py`, n=40): far-quarter
+  cov 0.42→0.59, CD/F improve, under-reach halved. Prior must be near true length
+  (4.5≈ceiling on 4.5 m synthetic cars; 4.14 under-serves them).
+- Real donor #32, A/B (`donor_metric_recompute.py` + step2/3 on
+  `donor_metric_len_{off,414,450}`; #32-era detection, n=39, τ=0.15): far_end cov
+  0.123→0.324, overall 0.307→0.428, out_of_box 0.0004→0.0014. **4.5 rejected** —
+  out_of_box 0.0122 breaks the ≤ mirrored 0.0083 guard. Ship 4.14.
+- Real box #29 (`length_prior_box_recheck.py`, n=39): signed ΔL −0.44→−0.32
+  (completed now beats raw), |ΔL| 0.44→0.35. Ego-sign self-validated (donor
+  far_end region is ego-defined; wrong sign would have lowered it).
+
+### output/08 regenerated under the prior
+- `main.py --seq 08 --frames 5000 --no-gui --save-output --out-tag _lenprior`
+  (production defaults). 1040 tracks / 518 completed / 1558 PLYs. md5: only the 518
+  completed clouds changed. Swapped by rename; old at `output/08_noprior_backup/`;
+  GT artifacts copied in.
+
+### #29/#32 production-config table refresh (prior OFF vs ON)
+- Recomputed completions from `donor_metric_perf` (promoted config, stage_b_scratch)
+  → `donor_perf_len{off,on}` (n=40 / 1508 pairs); donor step2/3 + box records via
+  `build_box_records_from_donor.py` → `completion_box_eval_step2`. stage_b_scratch
+  for both (resolves the #29 drift, published on stage_b_best); recompute-off
+  reproduces the #34 `_perf` baselines.
+- #32 donor: overall cov 0.301→0.403, far_end 0.121→0.346, out_of_box
+  0.0004→0.0020 (guard holds).
+- #29 box: |ΔL| 0.476→0.354 (off-prior completion worsens length, p=0.027; on
+  reverses it), BEV IoU 0.743→0.747, width/center flat, height −1.2 cm.
+- Compact-overshoot caveat: fixed 4.14 prior over-extends compacts (<3.6 m: signed
+  ΔL −0.10→+0.25) while fixing normal cars (−0.55→−0.34).
+
+## Files changed
+Committed: `b7e2a4f` (`src/completion.py`, `docs/findings.md` #35,
+`docs/project_state.md`, `docs/completion/plan.md`); `9f569d8`
+(`docs/findings.md`, `docs/project_state.md` — production-config refresh).
+New scratchpad scripts (gitignored, local): `length_prior_synth_check.py`,
+`donor_metric_recompute.py`, `length_prior_box_recheck.py`,
+`build_box_records_from_donor.py`.
+New experiment outputs (gitignored, local):
+`output/experiments/donor_metric_len_{off,414,450}/`, `donor_perf_len{off,on}/`,
+`completion_box_eval/step{1_records,2_metrics}_08_len{off,on}.json`;
+`output/08` regenerated (`output/08_noprior_backup/` preserved).
+
+## Results / findings
+- Finding #35: the length prior fixes far-end under-completion — far_end cov
+  0.12→0.35, |ΔL| flips from a regression to a gain, guardrails intact, at both the
+  #32-era and production operating points. First Direction-2 win; synthetic + two
+  real-data metrics all agree.
+
+## Next
+- Direction 2 Step 1b (optional): per-car length estimate to remove the
+  compact-overshoot (fixed 4.14 prior over-extends <3.6 m cars).
+- Direction 2 Step 2: heading/center errors on diagonal/sparse views.
+- Backlog ③: HDBSCAN vs DBSCAN vs Euclidean clustering benchmark.
+- User plan: do ① (Direction 2) and ③ before ② (thesis writing).
