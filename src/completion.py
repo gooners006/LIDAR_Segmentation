@@ -183,6 +183,28 @@ COMPLETION_SCALE_CORRECTION = 1.137
 COMPLETION_CAR_WIDTH_PRIOR = 1.9
 COMPLETION_UP_SHIFT = 0.25
 
+# Longitudinal (length-axis, Z) center prior — Direction 2 (far-end under-completion).
+# The width prior (X) and up-shift (Y) recenter the occluded lateral side and the
+# ground-cut, but there is no length correction: a partial truncated at the
+# occluded far *end* gets normalized around its observed (near) portion, so PCN's
+# full-car output stops short of the far end (donor metric #32: far_end cov 0.133,
+# the worst region). Mirror the width prior along Z — extend-only, toward the
+# ego-far end — to push the center out so the completion reaches the unseen end.
+# Shipped ON by default (constructor length_prior default = this constant; pass
+# length_prior=None to A/B it off). 4.14 m = real amodal-GT median car length
+# (#29); it is the "full car length" analogue of the 1.9 m width prior above.
+# Evidence (Direction 2, seq 08, all paired):
+#   - synthetic true-GT (scratchpad/length_prior_synth_check.py): far-end coverage
+#     0.42 -> 0.59, CD/F both improve, far-end under-reach halved;
+#   - donor metric #32 (per-car median, tau=0.15): far_end cov 0.123 -> 0.324,
+#     overall cov 0.307 -> 0.428, out-of-box 0.0004 -> 0.0014 (<< 0.0083 guard);
+#   - box metric #29: reverses length under-completion (signed dL -0.44 -> -0.32,
+#     completed now beats raw), |dL| 0.44 -> 0.35, width flat, |dH| +1.8 cm.
+# 4.5 m was rejected: higher coverage but out-of-box 0.0122 breaks the guard
+# (over-extends real compacts). Extend-only, so full-length observations are
+# untouched. See docs/findings.md (#35) and docs/completion/donor_metric.md.
+COMPLETION_CAR_LENGTH_PRIOR = 4.14
+
 # Heading estimation for the canonical-frame reorientation. The major horizontal
 # PCA axis is ambiguous on near-square / two-face / merged BEV footprints (dense
 # but poorly-completed tracks, e.g. seq-08 tid 301/762/884): the eigenvectors no
@@ -216,11 +238,13 @@ class PointCloudCompleter:
         heading_method: str = COMPLETION_HEADING_METHOD,
         merge_max_width: Optional[float] = COMPLETION_MERGE_MAX_WIDTH,
         fragment_min_length: Optional[float] = COMPLETION_FRAGMENT_MIN_LENGTH,
+        length_prior: Optional[float] = COMPLETION_CAR_LENGTH_PRIOR,
     ):
         self.model_path = model_path
         self.heading_method = heading_method
         self.merge_max_width = merge_max_width
         self.fragment_min_length = fragment_min_length
+        self.length_prior = length_prior
         self._model = None
         self._device = None
         self._rng = np.random.default_rng(seed)
@@ -393,6 +417,15 @@ class PointCloudCompleter:
         sign = np.sign(center[0]) if abs(center[0]) > 1e-9 else 1.0
         observed_w = pts_c[:, 0].max() - pts_c[:, 0].min()
         center[0] += sign * max(0.5 * COMPLETION_CAR_WIDTH_PRIOR - 0.5 * observed_w, 0.0)
+
+        # length axis (Z): extend-only push toward the occluded far end. Same
+        # mechanism as the width prior — sign(center[2]) is the car's position
+        # along length relative to ego (origin), so the far-from-ego end is the
+        # occluded one. Disabled unless length_prior is set (Direction 2, #32).
+        if self.length_prior is not None:
+            sign_z = np.sign(center[2]) if abs(center[2]) > 1e-9 else 1.0
+            observed_len = pts_c[:, 2].max() - pts_c[:, 2].min()
+            center[2] += sign_z * max(0.5 * self.length_prior - 0.5 * observed_len, 0.0)
 
         radius = float(np.linalg.norm(pts_c - center, axis=1).max()) / COMPLETION_SCALE_CORRECTION
         if radius < 1e-6:

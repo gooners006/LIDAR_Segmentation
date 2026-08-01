@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-07-23
+Last updated: 2026-08-01
 
 ## Current Architecture
 
@@ -11,7 +11,7 @@ Last updated: 2026-07-23
 | 5 | Geometric filtering (ground-plane-relative) | `src/pipeline.py` | Tuned |
 | 6 | Classification (dual-branch PointNet, binary car/not-car) | `src/classifier.py` | Binary Stage B trained |
 | — | Centroid tracker + track-level filtering | `src/tracker.py`, `src/evaluate.py` | Working |
-| 7 | Point completion | `src/pcn.py`, `src/completion.py` | Fixed inference (#26); single-frame completion in `main.py`; L-shape input gate (#27) → completion precision 38%→69% |
+| 7 | Point completion | `src/pcn.py`, `src/completion.py` | Fixed inference (#26); single-frame completion in `main.py`; L-shape input gate (#27) → completion precision 38%→69%; length prior (#35) → far_end cov 0.13→0.32 |
 
 Key files: `src/main.py` (runner), `src/evaluate.py` (metrics + sweep flags), `src/visualize_gt.py` (GT vs pipeline toggle viz), `src/train_classifier.py`, `src/mine_stage_b.py`, `src/analyze_clustering.py` (filter ablation + merge/split), `src/explore_merge_strategies.py` (recall strategy exploration).
 
@@ -199,12 +199,34 @@ surface (7× the symmetry-mirror baseline). Weakest region = far end (cov
 `estimate_canonical_frame()` extracted from `complete()` (behavior-preserving).
 Figure: `output/figures/donor_metric_08.png`.
 
-## Immediate Next Steps — Direction 2: improve `complete()` geometry
+## Direction 2 — improve `complete()` geometry
 
-Targets (from #29 + #32 breakdowns): (a) far-end under-completion — move
-far_end cov 0.133; (b) heading/center errors on diagonal/sparse views.
-Measure with the donor metric (per-car-median cov@0.1 @ τ=0.15, Wilcoxon,
-far_end split) + the #29 box metrics. Idea backlog:
+### Step 1 — far-end under-completion: DONE (2026-08-01, Finding #35)
+
+Longitudinal length prior added to `estimate_canonical_frame()` (extend-only Z
+push toward the ego-far end, `COMPLETION_CAR_LENGTH_PRIOR = 4.14 m`, mirrors the
+width prior; shipped ON, `length_prior=None` to A/B off). Inference-only, no
+retraining. **Paired seq-08 result (donor metric, per-car median, τ=0.15, n=39):
+far_end cov 0.123 → 0.324 (2.6×), overall cov 0.307 → 0.428, med-dist 0.162 →
+0.117; out_of_box 0.0004 → 0.0014 (≪ 0.0083 guard).** Box metric (#29):
+reverses the length regression — signed ΔL −0.44 → −0.32 (completed now beats
+raw), |ΔL| 0.44 → 0.35, width flat, |ΔH| +1.8 cm. L_prior=4.5 rejected
+(out_of_box 0.0122 breaks the guard — over-extends compacts). Synthetic true-GT
+check corroborates (far-quarter cov 0.42 → 0.59). Scripts:
+`scratchpad/length_prior_{synth_check,box_recheck}.py`,
+`scratchpad/donor_metric_recompute.py`; A/B outputs in
+`output/experiments/donor_metric_len_{off,414,450}/`.
+
+**Follow-on (not done):** production `output/08` completions + the #29/#32
+*production-config* tables still reflect the no-prior geometry — regenerate under
+the shipped default when refreshing thesis artifacts.
+
+### Step 2 — remaining Direction-2 target: heading/center on diagonal/sparse views
+
+The other #29/#32 weakness (worst donor figure panels + out-of-box flags): the
+completed cloud rotates off the box on diagonal/sparse inputs. Candidate levers:
+symmetry-derived center/heading (`next_ideas.md` #2), symmetry-mirror input
+(#1). Measure with the same donor metric + #29 boxes. Idea backlog:
 `docs/completion/next_ideas.md`. Plan: `docs/completion/plan.md`.
 
 Far-end plan (written up in

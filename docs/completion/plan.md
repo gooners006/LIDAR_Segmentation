@@ -123,3 +123,38 @@ errors on diagonal/sparse views (worst figure panels + out-of-box flags).
 
 **Next: Direction 2 — improve `complete()` geometry**, measured with this
 metric (report per-car-median cov@0.1 @ τ=0.15 + Wilcoxon, far_end split).
+
+## Direction 2 — improve `complete()` geometry
+
+### Step 1 — far-end under-completion: DONE (2026-08-01, Finding #35)
+
+- [x] **Longitudinal length prior** in `estimate_canonical_frame()` (extend-only
+  Z push toward the ego-far end; `COMPLETION_CAR_LENGTH_PRIOR = 4.14 m`; mirrors
+  the width prior's `sign(center[·])` ego-direction mechanism; inference-only).
+  Shipped ON (constructor `length_prior` default = constant; `None` disables).
+- [x] **Synthetic mechanism check** (true GT, `length_prior_synth_check.py`):
+  far-quarter cov 0.42 → 0.59, CD/F improve, under-reach halved. Prior must be
+  near true full length (4.5 ≈ ceiling on 4.5 m synthetic cars).
+- [x] **Real donor metric, paired A/B** (`donor_metric_recompute.py` +
+  step2/step3 on `donor_metric_len_{off,414,450}`): far_end cov 0.123 → **0.324**
+  at 4.14, overall cov 0.307 → 0.428, out_of_box 0.0004 → 0.0014 (guard holds).
+  **4.5 rejected** — out_of_box 0.0122 breaks the ≤ mirrored 0.0083 guard
+  (over-extends compacts). Decision criterion (far_end ↑, no guard regression)
+  met at 4.14 only.
+- [x] **Real box metric** (`length_prior_box_recheck.py`): reverses #29's length
+  regression — signed ΔL −0.44 → −0.32 (completed now beats raw), |ΔL| 0.44 →
+  0.35, width flat, |ΔH| +1.8 cm.
+
+Sign choice (ego direction) self-validated on real data: the donor `far_end`
+region is ego-defined, so a wrong sign would have lowered far_end cov — it rose.
+
+**Follow-on (not done):** regenerate production `output/08` completions + the
+#29/#32 production-config tables under the shipped prior when refreshing thesis
+artifacts.
+
+### Step 2 — heading/center on diagonal/sparse views (remaining target)
+
+The other #29/#32 weakness (worst donor panels + out-of-box flags): completed
+cloud rotated off the box on diagonal/sparse inputs. Candidate levers:
+symmetry-derived center/heading, symmetry-mirror input (`next_ideas.md` #1/#2).
+Same donor + #29 box metrics.

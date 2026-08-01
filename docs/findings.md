@@ -1179,3 +1179,99 @@ at `output/08_preperf_backup/` (reversible swap, nothing deleted).
 
 **Still pending:** docx inference-section refresh (not authorized this round). All
 Tier-1/2/3 code changes uncommitted.
+
+## 35. Longitudinal Length Prior — Fixes Far-End Under-Completion (Direction 2, Step 1) (2026-08-01)
+
+**Context:** Direction 2 (improve `complete()` geometry). #32's donor metric
+localized the weakest completion region to the **far end** (cov 0.133 vs far_side
+0.321), and #29 logged completion making box *length* worse than the raw partial
+(signed ΔL −0.49 → −0.55). Root cause in `estimate_canonical_frame()`: the
+canonical center has a width prior (X) and up-shift (Y) but **no length correction
+(Z)** — a partial truncated at the occluded far end is normalized around its
+observed near portion, so PCN's full-car output stops short of the unseen end.
+
+**Change (inference-only, no retraining):** mirror the width-prior mechanism along
+the length axis — extend-only push of `center[2]` toward the ego-far end to a
+car-length prior:
+`center[2] += sign(center[2]) · max(0.5·L_prior − 0.5·observed_len, 0)`,
+`L_prior = COMPLETION_CAR_LENGTH_PRIOR = 4.14 m` (real amodal-GT median length,
+#29). `sign(center[2])` = the car's position along length relative to ego
+(origin), so the far-from-ego end is the occluded one — exactly as the width prior
+uses `sign(center[0])`. Shipped ON (constructor `length_prior` default = the
+constant; pass `None` to A/B off); behavior-preserving when disabled.
+
+**Hypothesis / expected metric:** far_end cov ↑ (from 0.133), overall cov not
+down, out_of_box guard not broken; box signed ΔL toward 0.
+
+**(1) Synthetic mechanism check** (`scratchpad/length_prior_synth_check.py`;
+KITTI-like val cars, true GT, n=40, *true* far-end sign; per-car medians):
+
+| L_prior | CD (m) | F@0.1 | far-quarter cov | far-reach err (m) |
+|---|---:|---:|---:|---:|
+| none (production) | 0.195 | 0.641 | 0.423 | −0.233 |
+| true GT length | 0.183 | 0.661 | 0.589 | −0.127 |
+| 4.5 | 0.183 | 0.664 | 0.595 | −0.120 |
+| 4.14 | 0.192 | 0.643 | 0.475 | −0.233 |
+
+Extending toward the far end improves CD, F, far-end coverage, and halves
+under-reach; the gain needs a prior near the true full length (4.5 ≈ ceiling on
+4.5 m synthetic cars; 4.14 under-serves them). Mechanism sound.
+
+**(2) Real donor metric** (#32, seq 08, **paired A/B** — same cached raw clusters +
+identical per-pair subsample, only the length prior differs; per-car medians,
+n=39, τ=0.15):
+
+| Metric | off | **4.14** | 4.5 |
+|---|---:|---:|---:|
+| overall cov@0.1 | 0.307 | **0.428** | 0.503 |
+| far_end cov | 0.123 | **0.324** | 0.544 |
+| far_side cov | 0.329 | 0.446 | 0.505 |
+| top cov | 0.203 | 0.261 | 0.303 |
+| med novel-dist (m) | 0.162 | 0.117 | 0.099 |
+| out_of_box (guard) | 0.0004 | 0.0014 | 0.0122 |
+| gate (d) ≤ mirrored 0.0083 | pass | pass | **FAIL** |
+
+Baseline reproduces #32 (far_end 0.123 vs 0.1325) → pairing clean. **4.14 lifts
+far_end cov 2.6× (0.123 → 0.324) and overall cov +0.12**, every region up,
+med-dist down, out_of_box staying ≪ the mirrored-baseline guard. **4.5 rejected:**
+more coverage but out_of_box 0.0122 breaks the guard (over-extends real 3.0–3.5 m
+compacts toward 4.5 m). The guard *discriminated* the two priors — validating the
+guard itself.
+
+**(3) Real box metric** (#29 downstream utility; oriented boxes fit to the same
+cached clouds, `scratchpad/length_prior_box_recheck.py`; per-car medians, n=39):
+
+| box metric (m) | raw | completed off | completed 4.14 | on vs off |
+|---|---:|---:|---:|---|
+| signed ΔL | −0.419 | −0.440 | **−0.319** | p=5.4e-7 |
+| \|ΔL\| | 0.457 | 0.440 | **0.348** | p=3.6e-3 |
+| \|ΔW\| | 0.207 | 0.121 | 0.116 | p=0.36 |
+| \|ΔH\| | 0.249 | 0.127 | 0.145 | p=0.035 |
+
+**Reverses #29's length regression:** completion now *extends* the far end —
+completed length beats raw (signed ΔL −0.44 → −0.32; completion previously hurt
+length) and |ΔL| drops 0.44 → 0.35. Width untouched (the Z push is orthogonal to
+X); |ΔH| +1.8 cm (minor, still ≪ raw 0.249).
+
+**Decision:** ship **4.14** (now the production default). First Direction-2 win:
+two independent real-data metrics (donor coverage + box length) *and* the synthetic
+true-GT check all improve, guardrails intact. The prior value is principled (the
+measured median car length), not tuned to the guard.
+
+**Deviation from plan:** A4 said run the synthetic check first "to de-risk the
+sign." Synthetic did run first (mechanism + magnitude), but it is mesh-centered
+(no ego) so it cannot test the *ego* sign (A2-i). That sign is instead
+**self-validated on real data**: the donor `far_end` region is itself ego-defined
+(`len_c·e_len < 0`), so a wrong sign would have *lowered* far_end cov — it rose
+2.6×.
+
+**Artifacts:** `src/completion.py` (`COMPLETION_CAR_LENGTH_PRIOR`,
+`estimate_canonical_frame` Z push); scratchpad `length_prior_synth_check.py`,
+`donor_metric_recompute.py`, `length_prior_box_recheck.py`;
+`output/experiments/donor_metric_len_{off,414,450}/` (the paired baseline; #32
+preserved at `donor_metric/`).
+
+**Follow-on (not this session):** production `output/08` completions still reflect
+the no-prior geometry — regenerate under the shipped default for thesis artifacts;
+the #29/#32 *production-config* tables (promoted `PIPELINE_CONFIG`, live detection)
+can be refreshed with the prior on. Code uncommitted.
