@@ -217,9 +217,23 @@ check corroborates (far-quarter cov 0.42 → 0.59). Scripts:
 `scratchpad/donor_metric_recompute.py`; A/B outputs in
 `output/experiments/donor_metric_len_{off,414,450}/`.
 
-**Follow-on (not done):** production `output/08` completions + the #29/#32
-*production-config* tables still reflect the no-prior geometry — regenerate under
-the shipped default when refreshing thesis artifacts.
+**Follow-on:** `output/08` **regenerated under the shipped prior (2026-08-01)** —
+1040 tracks / 518 completed / 1558 PLYs; only the 518 completed clouds changed
+(detection/tracking + `_partial.ply` inputs byte-identical, verified by md5), GT
+artifacts (`amodal_gt.json`, `amodal_gt_check.png`) copied in. No-prior version
+preserved at `output/08_noprior_backup/` (reversible; older `output/08_preperf_backup/`
+also kept).
+
+**#29/#32 production-config tables refreshed (2026-08-01, prior OFF vs ON,
+promoted `PIPELINE_CONFIG`, `stage_b_scratch` for both — also resolves the #29
+classifier drift; n=40 cars / 1508 pairs, paired):** #32 donor far_end cov 0.121
+→ 0.346, overall cov 0.301 → 0.403, out_of_box 0.0004 → 0.0020 (guard holds); #29
+box |ΔL| 0.476 → 0.354 (reverses the length regression), BEV IoU 0.743 → 0.747.
+**Caveat:** the fixed 4.14 m prior over-extends compacts (< 3.6 m: signed ΔL
+−0.10 → +0.25) while fixing normal cars (−0.55 → −0.34) — a per-car length
+estimate would remove this (Step-1b idea). Tables in Finding #35;
+outputs `output/experiments/donor_perf_len{off,on}/`,
+`completion_box_eval/step2_metrics_08_len{off,on}.json`.
 
 ### Step 2 — remaining Direction-2 target: heading/center on diagonal/sparse views
 

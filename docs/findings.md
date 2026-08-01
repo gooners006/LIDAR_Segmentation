@@ -1271,7 +1271,52 @@ sign." Synthetic did run first (mechanism + magnitude), but it is mesh-centered
 `output/experiments/donor_metric_len_{off,414,450}/` (the paired baseline; #32
 preserved at `donor_metric/`).
 
-**Follow-on (not this session):** production `output/08` completions still reflect
-the no-prior geometry — regenerate under the shipped default for thesis artifacts;
-the #29/#32 *production-config* tables (promoted `PIPELINE_CONFIG`, live detection)
-can be refreshed with the prior on. Code uncommitted.
+**Follow-on:** `output/08` regenerated under the shipped prior (2026-08-01) —
+1040 tracks / 518 completed / 1558 PLYs; md5 confirms only the 518 completed
+clouds changed (detection + `_partial.ply` inputs byte-identical), no-prior
+version preserved at `output/08_noprior_backup/`.
+
+**Production-config table refresh (2026-08-01):** re-ran #29 and #32 under the
+promoted `PIPELINE_CONFIG` with production detection (the #34 `_perf` cached
+clusters; `stage_b_scratch` for BOTH — this also resolves the flagged #29
+classifier drift, which was published on `stage_b_best`), prior OFF vs ON, fully
+paired (identical clusters + per-pair subsample). n = 40 cars / 1508 completed
+pairs. The §35 headline holds at the production operating point.
+
+*#32 donor coverage* (per-car median, τ = 0.15):
+
+| metric | OFF | ON |
+|---|---:|---:|
+| overall cov@0.1 | 0.301 | **0.403** |
+| far_end cov | 0.121 | **0.346** |
+| far_side cov | 0.335 | 0.440 |
+| top cov | 0.205 | 0.253 |
+| med novel-dist (m) | 0.166 | 0.123 |
+| out-of-box (guard) | 0.0004 | 0.0020 (≪ mirrored 0.0108) |
+
+*#29 box quality* (per-car median, raw vs completed):
+
+| metric | raw | comp OFF | comp ON |
+|---|---:|---:|---:|
+| \|ΔL\| | 0.428 | 0.476 | **0.354** |
+| BEV IoU | 0.725 | 0.743 | **0.747** |
+| \|ΔW\| | 0.210 | 0.126 | 0.122 |
+| \|ΔH\| | 0.227 | 0.132 | 0.144 |
+| center_err | 0.271 | 0.227 | 0.229 |
+
+OFF-prior, completion *worsens* box length vs the raw partial (|ΔL| 0.428 →
+0.476, p = 0.027 — the #29 regression, reproduced at the production operating
+point); ON reverses it (→ 0.354) and nudges BEV IoU 0.743 → 0.747. The
+scratch-classifier OFF numbers reproduce the #34 `_perf` best-classifier table
+(BEV IoU 0.739, |ΔL| 0.463), so the classifier swap is immaterial to box metrics,
+as expected.
+
+**Compact-overshoot caveat (honest tradeoff):** the *fixed* 4.14 m prior helps
+the majority (normal cars ≥ 3.6 m: signed ΔL −0.55 → −0.34) but *over-extends*
+compacts (< 3.6 m; 8 cars / 255 pairs: −0.10 → **+0.25**). Net per-car |ΔL| still
+improves and gains are largest on sparse inputs (|ΔL| 0.94 → 0.35), but a per-car
+length estimate (vs the fixed median prior) would remove the overshoot — logged
+as a Step-1b refinement, not pursued. Artifacts:
+`output/experiments/donor_perf_len{off,on}/`,
+`output/experiments/completion_box_eval/step2_metrics_08_len{off,on}.json`,
+builder `scratchpad/build_box_records_from_donor.py`.
