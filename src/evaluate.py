@@ -323,8 +323,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--target", type=str, default="supported-vehicles",
         choices=list(TARGET_MODES.keys()),
-        help="GT target classes: all-things (default) or supported-vehicles "
-             "(car/bus/motorcycle only — use with classifier)",
+        help="GT target classes: supported-vehicles (default; car/bus/motorcycle "
+             "only — use with classifier) or all-things",
     )
     parser.add_argument(
         "--no-track-filter", action="store_true",
@@ -364,11 +364,18 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--ransac-iterations", type=int, default=None,
-        help="Override ransac_iterations (perf Tier 2; default 1000)",
+        help="Override ransac_iterations (perf Tier 2; PIPELINE_CONFIG default 300)",
     )
     parser.add_argument(
         "--voxel-before-denoise", action="store_true",
-        help="Perf Tier 2: voxel-downsample before denoise (behavior-changing)",
+        help="Perf Tier 2: voxel-downsample before denoise (behavior-changing). "
+             "No-op: PIPELINE_CONFIG default is already True; kept for symmetry "
+             "with --no-voxel-before-denoise.",
+    )
+    parser.add_argument(
+        "--no-voxel-before-denoise", action="store_true",
+        help="Perf Tier 2: reach pre-#34 configs by denoising before voxel "
+             "downsampling (PIPELINE_CONFIG default is voxel-before-denoise=True)",
     )
     parser.add_argument(
         "--cluster-voxel-size", type=float, default=None,
@@ -454,8 +461,12 @@ if __name__ == "__main__":
         cfg["ransac_distance_threshold"] = args.ransac_distance_threshold
     if args.ransac_iterations is not None:
         cfg["ransac_iterations"] = args.ransac_iterations
+    if args.voxel_before_denoise and args.no_voxel_before_denoise:
+        parser.error("--voxel-before-denoise and --no-voxel-before-denoise are mutually exclusive")
     if args.voxel_before_denoise:
         cfg["voxel_before_denoise"] = True
+    if args.no_voxel_before_denoise:
+        cfg["voxel_before_denoise"] = False
     if args.cluster_voxel_size is not None:
         cfg["cluster_voxel_size"] = args.cluster_voxel_size
     if args.clustering_method is not None:
