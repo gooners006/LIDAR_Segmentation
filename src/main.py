@@ -395,8 +395,14 @@ def main():
                         fit_lengths.append(est["fit_length"])
                 length_est = track_length_estimate(fit_lengths)
 
+                # Reset the subsample RNG per completion (Finding #38): otherwise
+                # self._rng carries state across tracks, so a track's completed
+                # cloud depends on how many tracks completed before it. A fixed
+                # per-call seed makes each track order-independent and reproducible,
+                # matching the donor-eval path (which resets _rng per pair).
                 completed_sensor, skip_reason = completer.complete(
-                    ref_sensor, resolved, length_est)
+                    ref_sensor, resolved, length_est,
+                    sample_seed=PIPELINE_CONFIG["pcn_sample_seed"])
                 if skip_reason is None:
                     output_pts = (completed_sensor @ ref_R.T) + ref_t  # sensor -> global
                 else:

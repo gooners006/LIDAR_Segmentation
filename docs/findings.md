@@ -1458,3 +1458,92 @@ pre-existing production summaries preserved as
 **Generalization:** the same pooled-median blindness applies to every per-car
 median in #29/#32 — it is how #35 compact over-extension survived review in the
 first place. Any future `complete()` geometry change must be read per band.
+
+## 38. Production Completion Was Call-Order Dependent (Subsample RNG Carried State) — Fixed (2026-08-02)
+
+**Context:** `complete()` subsamples the cluster to `PCN_N_INPUT`=256 points in
+`_fix_size` via `self._rng`. The donor-metric eval path
+(`scratchpad/donor_metric_recompute.py`) resets `completer._rng =
+default_rng(seed)` **before every** `complete()`, so its subsample is fixed and
+A/B-clean. Production `main.py` constructed the completer **once** (`seed=0`) and
+never reset it, so `self._rng` carried state across track completions.
+
+**Defect (measured):** a track's completed cloud therefore depends on **how many
+tracks completed before it** in the run — not reproducible in isolation, and two
+runs that discover/complete tracks in a different order give different subsamples
+(hence different completed points) for the same track. Direct check this session
+(same cluster, shared-advanced RNG vs a fresh one): OLD "identical across
+call-order" = **False**, NEW = **True**.
+
+**Magnitude — this is a reproducibility fix, not a quality change.** The seed
+sweep (`output/experiments/seed_sweep_q90off`, 5 seeds, wiring corrected so the
+per-pair reset actually varies) moved the donor far-end metric by **sd 0.0014**,
+28–86× smaller than the published length effects — i.e. which 256 points are
+drawn is low-variance noise. So the bug corrupted *reproducibility*, not
+accuracy.
+
+**Fix:** `complete()` gains `sample_seed`; when set it subsamples from a fresh
+`default_rng(sample_seed)` (order-independent, reproducible), else falls back to
+`self._rng` (backward-compatible with the eval scripts that reset `_rng`
+externally). `main.py` passes `PIPELINE_CONFIG["pcn_sample_seed"]` (=0) per
+completion, matching the donor-eval path's per-call reset exactly.
+
+**Scope note:** `evaluate.py` never calls completion (P/R/F1/mIoU are computed
+upstream of `complete()`), so this change is **inert for the headline metrics by
+construction** — verified by grep, not luck. The only affected metric is the
+completion/donor metric, whose seed sensitivity is the sd 0.0014 above.
+
+## 39. Frame Convention Trap in the Donor-Pair Caches: `raw` Is SENSOR Frame (2026-08-02)
+
+**Methodology finding (cost four scratch scripts).** The Step-1 donor caches
+store `data["raw"]` in the **sensor frame** (ego at origin, Z up), *not* world.
+The mappings are:
+
+- sensor → world: `world = raw @ T[:3,:3].T + T[:3,3]`  (i.e. `raw @ Rᵀ + t`)
+- `(raw - t) @ R` is a **garbage transform** — neither sensor nor world.
+- `estimate_canonical_frame()` and `complete()` take the sensor-frame cluster
+  **directly** (as `recompute.py` and `main.py` do); `complete()` returns sensor
+  frame. `world_box()` expects **world** (X–Z ground plane, Y vertical), so a box
+  is `world_box(completed @ Rᵀ + t)`.
+
+**Evidence:** `frame_check.py` on car 45 — `raw` centroid is sensor-scale (tens
+of m from origin); `raw @ Rᵀ + t` centroid matches the amodal-GT `center_world`;
+`(raw − t) @ R` matches neither.
+
+**What it cost:** four ad-hoc probes (`fallback_probe`, `minframes_sweep`,
+`leakage_check`, `ols_loo`) used `(raw − t) @ R` and produced numbers that were
+**retracted** — the "5 fallback cars" count and the halved-MAE claims. The
+frame-correct `clean_fallback.py` (and the published
+`length_1b_box_eval.py:86`, which already uses `pts @ Rᵀ + t`) are the
+authority; the published box eval was never affected.
+
+**Distinct from #26's convention.** #26 is about the *pipeline output* world
+frame being Y-down (`poses @ Tr` maps sensor +Z to (0,−1,0)). This finding is
+about the *donor cache* storing the pre-world sensor cluster. Rule: any
+completion diagnostic that fits a box must transform sensor→world with
+`raw @ Rᵀ + t` first.
+
+## 40. OLS Sparse-Track Length Fallback — No Measured Box Gain, Not Adopted (2026-08-02)
+
+**Negative result.** The 4.14 m constant fallback (used on tracks with < 5
+gate-passed frames, #36) is a population median; hypothesis was a single-frame
+OLS `L = 2.528 + 0.428·fit_length` would beat it on sparse cars.
+
+**Frame-correct A/B (`clean_fallback.py`, world transform per #39):** the
+fallback fires on only **2 of 40** amodal cars (car 45: 2 gate-passed frames;
+car 336: 3). On those two, completed-box `|ΔL|` **0.214 → 0.221** (flat /
+marginally worse); `center_err` 0.374 → 0.273 (better) — but n=2. Per car it is
+inconsistent (car 45 better 0.321→0.131, car 336 worse 0.107→0.311). **Net: a
+wash.**
+
+**Decision:** not adopted; reverted to the committed 4.14 fallback (21430cf).
+Two fitted magic constants for zero measured improvement on the only cars they
+touch is not justified in research code.
+
+**Honest caveats:** (a) n=2 is far too small to call OLS *harmful* — this is "no
+evidence of benefit", not "evidence of harm"; (b) production fallback frequency
+is **unknown** (2/40 is the offline donor set; if real tracks are sparser the
+fallback fires more, which would warrant revisiting); (c) the coefficients were
+fitted on these same 40 cars, so even the wash is an in-sample read. **To
+revisit:** get a fallback-frequency count from a real `main.py --save-output` run
+and a box metric with n large enough to matter.

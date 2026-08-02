@@ -260,6 +260,18 @@ see the failure it was meant to catch. Per-band gate `d2` added to
 as `*.pre_d2_backup.json`). #35's direction stands; its magnitude was validated
 by a blind guard.
 
+**Sparse-fallback OLS (Finding #40): tried, rejected.** Replacing the 4.14 m
+constant fallback (tracks < 5 gate-passed frames) with a single-frame OLS was
+A/B'd frame-correctly and is a **wash** — it fires on only 2/40 cars, box |ΔL|
+0.214 → 0.221. Kept the simpler constant.
+
+**Correctness fixes this session (not Direction-2 geometry):** (#38) production
+`complete()` carried `self._rng` across tracks, so a completed cloud depended on
+call order — `complete(sample_seed=…)` + per-call reset in `main.py` makes it
+order-independent (reproducibility, not quality — seed noise sd 0.0014). (#39)
+donor-cache frame trap: `data["raw"]` is **sensor** frame; `world_box` needs
+`raw @ Rᵀ + t` (cost four retracted probe scripts).
+
 ### Step 1c — second under-extension mechanism (NEW, not started)
 
 #36's over-extension control (q90 **+0.45**) improved **both** metrics on
@@ -273,7 +285,8 @@ the length prior doubles as a rescale. Required compensation is length-dependent
 fill factor on synthetic true GT).
 
 **`output/08` NOT regenerated under the per-car estimate** — still the 2026-08-01
-fixed-prior version. Regenerate when refreshing thesis artifacts.
+fixed-prior version (also predates the #38 RNG fix, so its completed clouds are
+from the old call-order path). Regenerate when refreshing thesis artifacts.
 
 ### Step 2 — remaining Direction-2 target: heading/center on diagonal/sparse views
 

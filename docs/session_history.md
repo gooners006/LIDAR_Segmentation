@@ -1767,3 +1767,74 @@ New experiment outputs (gitignored, local):
 - Direction 2 Step 2: heading/center errors on diagonal/sparse views.
 - Backlog ③: HDBSCAN vs DBSCAN vs Euclidean clustering benchmark.
 - User plan: do ① (Direction 2) and ③ before ② (thesis writing).
+
+# Session — 2026-08-02 (Step 1b shipped; d2 guard backfill; RNG fix; OLS detour reverted)
+
+Crash-recovery day — resumed mid-task after a terminal crash; nothing lost. A
+mixed session: one solid ship plus a guard fix and a reproducibility fix, but
+also a self-inflicted frame-convention bug and one yes-man recommendation flip,
+both caught and corrected. Logged here honestly.
+
+## Shipped (committed 21430cf, 18:23)
+- **Direction 2 Step 1b:** `track_length_estimate()` — tracks with ≥5 gate-passed
+  frames get q90(fit_length)+0.12 m; sparser tracks fall back to the 4.14
+  constant. `main.py` aggregates per-track `fit_length` and wires it in.
+- **Findings #36** (per-car estimate fixes compact over-extension — SHIPPED) and
+  **#37** (the #32 hallucination guard was blind to band-localized over-extension;
+  pooled median hid a **100×** compact violation). **Step 1c** logged in plan.md
+  (residual under-extension mechanism, deliberately deferred, not bolted on).
+- Validation was frame-sound: `length_1b_box_eval.py:86` uses the correct
+  `pts @ Rᵀ + t` world transform.
+
+## d2 hallucination guard (Finding #37)
+- Added band-split gate item **d2** to `donor_metric_step3.py`; **backfilled into
+  all 5** existing donor summaries with `.pre_d2_backup.json` preserved.
+  Integrity verified (only `d2_*` keys changed). `len450` confirmed #35's L=4.5 m
+  rejection at ~165× baseline.
+
+## RNG call-order fix (Finding #38, committed this session)
+- Production `complete()` carried `self._rng` state across tracks → a track's
+  completed cloud depended on **call order** (measured: OLD "identical across
+  order" = False, NEW = True).
+- Fix: `complete(sample_seed=...)`; `main.py` passes `pcn_sample_seed` per call,
+  matching the donor-eval per-pair reset. **Reproducibility fix, not quality**
+  (seed sweep: sd 0.0014 = noise). `evaluate.py` unaffected by construction — it
+  never calls completion.
+
+## Process failures — honest log
+- **OLS sparse-track fallback (Finding #40):** implemented on top of 21430cf,
+  then **REVERTED**. Frame-correct A/B (`clean_fallback.py`) showed it fires on
+  only **2/40** cars and is a **wash** (`|ΔL|` 0.214→0.221). Negative result;
+  kept the simpler constant.
+- **Frame-convention bug (Finding #39):** four probe scripts used `(raw−t)@R`
+  instead of `raw@Rᵀ+t`, producing **retracted** "5 fallback cars / halved-MAE"
+  numbers. Caught via `frame_check.py`. `data["raw"]` in the donor caches is
+  **sensor** frame; `world_box` needs `raw @ Rᵀ + t`. The published box eval was
+  correct throughout.
+- **Yes-man flip:** reversed the d2-backfill recommendation once with no new
+  evidence; caught and corrected. Added global **Pushback** + **Evidence** rules
+  to `~/.claude/CLAUDE.md`.
+
+## Files changed
+- Committed `21430cf`: `src/completion.py`, `src/main.py`, `docs/findings.md`
+  (#36/#37), `docs/project_state.md`, `docs/completion/plan.md`.
+- Committed this session (loose-ends): `src/completion.py` (`sample_seed`),
+  `src/main.py` (per-call seed), `docs/findings.md` (#38/#39/#40),
+  `docs/session_history.md`, `docs/project_state.md`.
+- Gitignored/local: `output/experiments/{donor_metric*, donor_len1b_*,
+  seed_sweep_q90off, donor_len1b_olsfb}`; scratchpad probes (`clean_fallback.py`,
+  `frame_check.py`, `length_estimator_probe2.py`, `length_1b_box_eval.py`).
+
+## Results / findings
+- **Finding #36** shipped; **#37** (guard blind spot) + **#38** (RNG) + **#39**
+  (frame trap) + **#40** (OLS negative result) logged.
+- Day net in git: 21430cf (Step 1b) + one loose-ends commit; the OLS detour nets
+  to zero (added then reverted).
+
+## Next
+- **Regenerate `output/08`** with `--save-output` if reproducible completed clouds
+  are needed for the thesis — it was generated under the old call-order RNG path.
+- Direction 2 **Step 1c:** residual under-extension (completion under-fills its
+  normalized frame; a better length target doesn't translate to a better box).
+- Direction 2 **Step 2:** heading/center errors on diagonal/sparse views.
+- Backlog ③: clustering benchmark.

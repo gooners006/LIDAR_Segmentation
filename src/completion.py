@@ -510,6 +510,7 @@ class PointCloudCompleter:
     def complete(
         self, partial_xyz: np.ndarray, class_label: str,
         length_estimate: Optional[float] = None,
+        sample_seed: Optional[int] = None,
     ) -> tuple[np.ndarray, Optional[str]]:
         """Complete a single-frame partial car cluster using PCN.
 
@@ -526,6 +527,13 @@ class PointCloudCompleter:
         ``length_estimate`` (m) optionally replaces the fixed length prior with a
         per-car estimate for this observation; see estimate_canonical_frame.
 
+        ``sample_seed`` controls the PCN_N_INPUT-point subsample (_fix_size).
+        When given, a fresh RNG is seeded per call, so the completed cloud for a
+        given cluster is reproducible and independent of how many completions ran
+        before it (Finding #38: self._rng carries state across complete() calls,
+        making production output call-order dependent). When None, self._rng is
+        used, preserving the eval scripts that reset _rng externally per pair.
+
         Returns (output_points, skip_reason). skip_reason is None on success.
         class_label is currently unused; the priors are car-specific (the
         pipeline only completes cars).
@@ -541,7 +549,9 @@ class PointCloudCompleter:
         pts_c = pts @ basis
 
         pts_norm = ((pts_c - center) / radius).astype(np.float32)
-        pts_fixed = self._fix_size(pts_norm, PCN_N_INPUT, self._rng)
+        rng = (np.random.default_rng(sample_seed)
+               if sample_seed is not None else self._rng)
+        pts_fixed = self._fix_size(pts_norm, PCN_N_INPUT, rng)
 
         import torch
         with torch.no_grad():
