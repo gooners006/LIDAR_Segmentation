@@ -10,3 +10,4 @@ hdbscan
 torch==2.6.0+cu124
 tqdm
 markitdown[all]
+pytest
