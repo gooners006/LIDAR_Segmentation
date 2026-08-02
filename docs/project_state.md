@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-01
+Last updated: 2026-08-03
 
 ## Current Architecture
 
@@ -13,7 +13,8 @@ Last updated: 2026-08-01
 | — | Centroid tracker + track-level filtering | `src/tracker.py`, `src/evaluate.py` | Working |
 | 7 | Point completion | `src/pcn.py`, `src/completion.py` | Fixed inference (#26); single-frame completion in `main.py`; L-shape input gate (#27) → completion precision 38%→69%; length prior (#35) → far_end cov 0.13→0.32; per-car length estimate (#36) → box \|ΔL\| 0.354→0.304, compact overshoot fixed |
 
-Key files: `src/main.py` (runner), `src/evaluate.py` (metrics + sweep flags), `src/visualize_gt.py` (GT vs pipeline toggle viz), `src/train_classifier.py`, `src/mine_stage_b.py`, `src/analyze_clustering.py` (filter ablation + merge/split), `src/explore_merge_strategies.py` (recall strategy exploration).
+Key files: `src/main.py` (runner), `src/evaluate.py` (metrics + sweep flags), `src/visualize_gt.py` (GT vs pipeline toggle viz), `src/train_classifier.py`, `src/mine_stage_b.py`, `src/analyze_clustering.py` (filter ablation + merge/split), `src/explore_merge_strategies.py` (recall strategy exploration),
+`src/test_invariants.py` (pytest invariant tests, T4).
 
 ## Classifier — Binary (Complete)
 
@@ -222,7 +223,7 @@ check corroborates (far-quarter cov 0.42 → 0.59). Scripts:
 (detection/tracking + `_partial.ply` inputs byte-identical, verified by md5), GT
 artifacts (`amodal_gt.json`, `amodal_gt_check.png`) copied in. No-prior version
 preserved at `output/08_noprior_backup/` (reversible; older `output/08_preperf_backup/`
-also kept).
+also kept). (Superseded 2026-08-03 — see Step 1c.)
 
 **#29/#32 production-config tables refreshed (2026-08-01, prior OFF vs ON,
 promoted `PIPELINE_CONFIG`, `stage_b_scratch` for both — also resolves the #29
@@ -284,9 +285,15 @@ the length prior doubles as a rescale. Required compensation is length-dependent
 `docs/completion/plan.md` (decouple radius from the center push first; calibrate
 fill factor on synthetic true GT).
 
-**`output/08` NOT regenerated under the per-car estimate** — still the 2026-08-01
-fixed-prior version (also predates the #38 RNG fix, so its completed clouds are
-from the old call-order path). Regenerate when refreshing thesis artifacts.
+**`output/08` regenerated (2026-08-03, T7 of the delegate brief) under the
+per-car estimate + #38 RNG fix** — 1040 tracks / 518 completed, verified
+byte-identical detection/tracking vs. the prior version
+(`scratchpad/verify_regen_08_t7.py`, md5). Fallback-frequency measured for the
+first time: 119/518 (23.0%) of completed tracks fell back to the 4.14 m
+constant (< 5 gate-passed frames) rather than the per-car estimate — well
+above the ~5% threshold, logged as a live limitation (Finding #41), no fix
+implemented. Old (fixed-prior/pre-#38) version preserved at
+`output/08_fixedprior_backup/`.
 
 ### Step 2 — remaining Direction-2 target: heading/center on diagonal/sparse views
 
@@ -408,6 +415,22 @@ Original 2026-06-24 reasoning preserved as historical record.
   submission / paper draft base. Docx and VN reply ready to send (final figure
   921 ms/frame supersedes the ~934 quoted in the earlier chat draft).
 - Pipeline diagram for thesis report.
+
+## Maintenance Pass — Delegate Brief Tier 1 (2026-08-02/03)
+
+Executing `docs/plans/delegate_brief_2026_08_02.md` (full-repo review
+follow-ups, delegated with defaults + STOP conditions). Tier 1 (T1–T7)
+DONE 2026-08-03, one commit per task, all gated on the seq-00
+reproduction baseline (P 0.967/R 0.777/F1 0.862/mIoU 0.962, TP=1296/
+FP=44/FN=371) matching exactly: T1 `9ba02f2` (scratchpad scripts
+tracked), T2 `4df200a` (evaluate.py CLI drift), T3 `5303291`
+(resolve_track_class dedup), T4 `f046443` (invariant tests), T5 `ef73981`
+(doc consistency), T6 `bcf012f` (fallback-frequency instrumentation),
+T7 `a4a65c5` (output/08 regen, Finding #41).
+
+**Next: T8** (Tier 2 — held-out sequence selection + amodal GT), then
+**T9a** (pre-registration — the one hard user-approval gate; see
+`docs/plans/personal_agenda_2026_08_02.md` P0.1, not yet reached).
 
 ## Medium-Term Backlog
 

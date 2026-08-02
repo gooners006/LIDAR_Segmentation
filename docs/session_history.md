@@ -1838,3 +1838,88 @@ both caught and corrected. Logged here honestly.
   normalized frame; a better length target doesn't translate to a better box).
 - Direction 2 **Step 2:** heading/center errors on diagonal/sparse views.
 - Backlog ③: clustering benchmark.
+
+---
+# Session — 2026-08-03 (Delegate brief execution: Tier 1 hygiene, T1–T7)
+
+Executed Tier 1 of `docs/plans/delegate_brief_2026_08_02.md` (a full-repo
+review follow-up plan the user had prepared, alongside
+`docs/plans/personal_agenda_2026_08_02.md`), task by task, each gated on the
+seq-00 reproduction baseline matching exactly (P 0.967/R 0.777/F1 0.862/mIoU
+0.962, TP=1296/FP=44/FN=371).
+
+## What was done
+- **T1** — tracked 37 previously-gitignored `scratchpad/*.py` evidence
+  scripts (`.gitignore`: `scratchpad/*` + `!scratchpad/*.py`); outputs remain
+  ignored. Commit `9ba02f2`.
+- **T2** — fixed `evaluate.py` CLI help drift (`--target` default text,
+  `--ransac-iterations` default text) and added `--no-voxel-before-denoise`
+  (the existing flag was a no-op with no off-switch since the config default
+  is already `True`). Commit `4df200a`.
+- **T3** — deduplicated `resolve_track_class` (identical in `main.py` and
+  `evaluate.py`) into `tracker.py`. Commit `5303291`.
+- **T4** — added `src/test_invariants.py`, 13 pytest cases: sensor↔global
+  round-trip identity, `estimate_canonical_frame()` purity + extend-only
+  length push, `track_length_estimate()` fallback/quantile branches,
+  `complete()` order-independence under `sample_seed` (skippable if the PCN
+  checkpoint is absent; ran green here). `pytest` wasn't installed in
+  `.venv`; added to `requirements.txt`. Commit `f046443`.
+- **T5** — filled the "TP/FP/FN not separately recorded" gap in
+  `project_state.md`; added a disambiguation note distinguishing the
+  label-scan "≥10 raw pts" car count from the eval recall denominator ("≥10
+  points surviving preprocessing"). Flagged (didn't rewrite) two looser
+  phrasings in `session_history.md` and `findings.md` per house convention.
+  Commit `ef73981`.
+- **T6** — added `length_estimate_source` (`"track_q90"`/`"fallback"`) and
+  `n_gate_passed_frames` to each completed track's `tracks.json` entry,
+  populated exactly where `track_length_estimate()` runs. Verified on a
+  30-frame seq-08 smoke run before committing. Commit `bcf012f`.
+- **T7** — regenerated `output/08` (`main.py --seq 08 --frames 5000 --no-gui
+  --save-output --out-tag _regen`) under the per-car length estimate (#36) +
+  the #38 RNG order-independence fix, superseding the 2026-08-01
+  fixed-prior/pre-#38 version. Verified via new
+  `scratchpad/verify_regen_08_t7.py` (md5): track set, all identity fields,
+  all 518 `_partial.ply` inputs, and all non-completed `.ply` outputs
+  byte-identical — no regression. Swapped in (old preserved as
+  `output/08_fixedprior_backup/`). Fallback-frequency count: 119/518 (23.0%)
+  — well above the brief's 5% threshold, so per the pre-registered decision
+  rule, logged as a live limitation (**Finding #41**) rather than fixed.
+  Commit `a4a65c5`.
+
+## Process note
+One operational hiccup: the first attempt to background the T7 run appended
+a stray `&` on top of the harness's own `run_in_background`,
+double-backgrounding the job — the harness reported "completed" after ~1s
+(only the launcher shell had exited), while the actual `main.py` run kept
+going untracked. Caught by checking process/CPU state directly (16 python
+workers, `main.py` still burning CPU); recovered by starting a proper
+polling watcher (`until [ -f tracks.json ]; do sleep 30; done`) that waited
+for the real completion signal.
+
+## Files changed
+- New: `src/test_invariants.py`, `scratchpad/verify_regen_08_t7.py`, plus 37
+  previously-untracked `scratchpad/*.py` files (T1).
+- Modified: `.gitignore`, `src/evaluate.py`, `src/main.py`, `src/tracker.py`,
+  `requirements.txt`, `docs/project_state.md`, `docs/findings.md`.
+- `output/08` swapped (gitignored, not a git change): old preserved at
+  `output/08_fixedprior_backup/`.
+- Commits: `9ba02f2`, `4df200a`, `5303291`, `f046443`, `ef73981`, `bcf012f`,
+  `a4a65c5` (all local; not pushed).
+
+## Results / findings
+- Reproduction baseline held exactly across all seven tasks.
+- **Finding #41** (new): 23.0% of completed tracks in the regenerated
+  `output/08` fall back to the fixed 4.14 m length prior rather than the
+  per-car `track_q90` estimate — answers Finding #40's open caveat (b);
+  logged as a live limitation, no fix implemented (out of scope per the
+  delegate brief's decision rule).
+
+## Next
+- **T8** (Tier 2, delegate brief): held-out sequence selection (default seq
+  05, never 08) + amodal GT construction (`scratchpad/amodal_gt.py` +
+  `amodal_gt_viz.py`, same guards as seq 08), ~30–60 min. Fallback to seq 00
+  if <15 well-observed static cars; STOP and escalate if that also fails.
+- After T8: **T9a** — pre-registration draft, the one hard user-approval
+  gate (`docs/plans/personal_agenda_2026_08_02.md` P0.1). Not reached yet.
+- Full remaining roadmap: `docs/plans/delegate_brief_2026_08_02.md` (T8 →
+  T9a/b/c → T10/T11 → T13/T14).
