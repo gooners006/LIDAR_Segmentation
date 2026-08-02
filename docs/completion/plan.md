@@ -152,6 +152,50 @@ region is ego-defined, so a wrong sign would have lowered far_end cov — it ros
 #29/#32 production-config tables under the shipped prior when refreshing thesis
 artifacts.
 
+### Step 1b — per-car length estimate: DONE (2026-08-02, Findings #36/#37)
+
+- [x] **Offline estimator selection against amodal GT, no PCN inference**
+  (`length_estimator_probe{,2}.py`). Killed aspect-ratio (corr(GT L, GT W) =
+  +0.018 — a perfect width is *worse* than the constant), height/range/density
+  (|corr| ≤ 0.13), a far-end face-support truncation test (inverted), and
+  track-max (worst estimator, compact bias +0.95 m). Survivor: `fit_length`,
+  corr +0.52 per frame / +0.87 per car.
+- [x] **Shipped:** `track_length_estimate()` = per-car **q90 of gate-passed
+  `fit_length` + 0.12 m**, fallback to 4.14 below 5 frames. Optional
+  `length_estimate` arg through `complete()`; `main.py` aggregates per track.
+- [x] **Box metric, band split:** compact signed ΔL +0.295 → **+0.063**
+  (p = .016); ALL |ΔL| 0.354 → **0.304**, BEV IoU 0.747 → **0.771**, center err
+  0.229 → **0.184**. Beat q95 on both metrics and every band.
+- [x] **Leakage control** (single-frame OLS): fixes compacts partially
+  (+0.141) but regresses normals (|ΔL| 0.345 → 0.388) — only the track estimate
+  fixes compacts without a tradeoff.
+- [x] **Guard fix (#37):** #32's out-of-box gate is a pooled median and was blind
+  to the shipped prior hallucinating at 100× the compact band's mirrored
+  baseline. Added per-band gate `d2` to `donor_metric_step3.py`; backfilled.
+
+**Cost:** pooled donor coverage 0.403 → 0.364, far_end 0.346 → 0.316 (worse on
+the normal band, better on compact + long).
+
+### Step 1c — the *other* under-extension (NEW, opened by #36's control run)
+
+A deliberate over-extension control (q90 **+0.45**) improved **both** metrics on
+normal/long cars — coverage 0.364 → 0.483, far_end 0.316 → 0.509, box |ΔL|
+0.304 → 0.210 — so those completions are still genuinely too short even when
+`L_est` is unbiased. This is an under-extension *inside* the completion, not in
+the center estimate: PCN under-fills its normalized frame, and the center push
+also drives `radius` (hence output scale), so the length prior doubles as a
+rescale. A per-car length estimate cannot correct it.
+
+Required compensation is strongly length-dependent (≈0.02 / 0.68 / 1.02 m for
+compact / normal / long), so a single offset cannot serve all bands and fitting
+the trend on 8/27/5 cars would overfit. Candidate framings, cheapest first:
+1. Separate the two jobs — estimate `radius` independently of the center push, so
+   scale stops riding on the length prior.
+2. Calibrate PCN's fill factor on synthetic true-GT cars (where the shrinkage is
+   directly measurable) rather than fitting it on the 40 amodal cars.
+3. Only then consider a length-dependent target.
+Measure with the same band-split box metric + per-band guard `d2`.
+
 ### Step 2 — heading/center on diagonal/sparse views (remaining target)
 
 The other #29/#32 weakness (worst donor panels + out-of-box flags): completed

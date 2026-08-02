@@ -11,7 +11,7 @@ Last updated: 2026-08-01
 | 5 | Geometric filtering (ground-plane-relative) | `src/pipeline.py` | Tuned |
 | 6 | Classification (dual-branch PointNet, binary car/not-car) | `src/classifier.py` | Binary Stage B trained |
 | — | Centroid tracker + track-level filtering | `src/tracker.py`, `src/evaluate.py` | Working |
-| 7 | Point completion | `src/pcn.py`, `src/completion.py` | Fixed inference (#26); single-frame completion in `main.py`; L-shape input gate (#27) → completion precision 38%→69%; length prior (#35) → far_end cov 0.13→0.32 |
+| 7 | Point completion | `src/pcn.py`, `src/completion.py` | Fixed inference (#26); single-frame completion in `main.py`; L-shape input gate (#27) → completion precision 38%→69%; length prior (#35) → far_end cov 0.13→0.32; per-car length estimate (#36) → box \|ΔL\| 0.354→0.304, compact overshoot fixed |
 
 Key files: `src/main.py` (runner), `src/evaluate.py` (metrics + sweep flags), `src/visualize_gt.py` (GT vs pipeline toggle viz), `src/train_classifier.py`, `src/mine_stage_b.py`, `src/analyze_clustering.py` (filter ablation + merge/split), `src/explore_merge_strategies.py` (recall strategy exploration).
 
@@ -235,12 +235,45 @@ estimate would remove this (Step-1b idea). Tables in Finding #35;
 outputs `output/experiments/donor_perf_len{off,on}/`,
 `completion_box_eval/step2_metrics_08_len{off,on}.json`.
 
-### Step 1b — compact-overshoot fix (optional, not started)
+### Step 1b — compact-overshoot fix: DONE (2026-08-02, Findings #36/#37)
 
-The fixed 4.14 m prior over-extends compacts (< 3.6 m: signed ΔL −0.10 → +0.25).
-A per-car length estimate (e.g. from the L-shape fit / observed span) instead of
-the fixed median prior would remove the overshoot without losing the normal-car
-gain. Measure with the same donor + #29 box metrics, split by GT length.
+Fixed prior replaced by a **per-car estimate**: `track_length_estimate()` in
+`src/completion.py` = q90 of gate-passed `fit_length` over the track + 0.12 m
+(`COMPLETION_LENGTH_TRACK_{QUANTILE,OFFSET}`), fallback 4.14 below 5 frames.
+Plumbed as an optional `length_estimate` arg through `complete()`; `main.py`
+aggregates over the track it already completes. **Shipped ON.**
+
+Estimator chosen offline against amodal GT with no PCN inference
+(`length_estimator_probe{,2}.py`), which killed aspect-ratio (corr(GT L, GT W) =
++0.018), height/range/density, a far-end truncation test, and track-max.
+
+**Box metric (band split, n=40):** compact signed ΔL +0.295 → **+0.063**
+(p=.016), compact center err 0.322 → 0.192; ALL |ΔL| 0.354 → **0.304**, BEV IoU
+0.747 → **0.771**, center err 0.229 → **0.184**. **Donor cost:** pooled cov
+0.403 → 0.364, far_end 0.346 → 0.316 (better on compact + long, worse on normal).
+
+**Finding #37 (guard defect):** #32's out-of-box gate is a pooled median and was
+blind to the shipped prior hallucinating at **100×** the compact band's mirrored
+baseline (0.0433 vs 0.0004) — the statistic #35 used to size the prior could not
+see the failure it was meant to catch. Per-band gate `d2` added to
+`donor_metric_step3.py` and backfilled into all donor summaries (originals kept
+as `*.pre_d2_backup.json`). #35's direction stands; its magnitude was validated
+by a blind guard.
+
+### Step 1c — second under-extension mechanism (NEW, not started)
+
+#36's over-extension control (q90 **+0.45**) improved **both** metrics on
+normal/long cars (cov 0.364→0.483, far_end 0.316→0.509, box |ΔL| 0.304→0.210), so
+completions are still genuinely too short even when the length estimate is
+unbiased. Cause is inside the completion, not the center estimate: PCN under-fills
+its normalized frame, and the center push also drives `radius` (output scale), so
+the length prior doubles as a rescale. Required compensation is length-dependent
+(≈0.02/0.68/1.02 m by band) — too few cars to fit safely. Plan in
+`docs/completion/plan.md` (decouple radius from the center push first; calibrate
+fill factor on synthetic true GT).
+
+**`output/08` NOT regenerated under the per-car estimate** — still the 2026-08-01
+fixed-prior version. Regenerate when refreshing thesis artifacts.
 
 ### Step 2 — remaining Direction-2 target: heading/center on diagonal/sparse views
 

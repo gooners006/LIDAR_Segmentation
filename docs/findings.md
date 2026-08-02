@@ -1320,3 +1320,141 @@ as a Step-1b refinement, not pursued. Artifacts:
 `output/experiments/donor_perf_len{off,on}/`,
 `output/experiments/completion_box_eval/step2_metrics_08_len{off,on}.json`,
 builder `scratchpad/build_box_records_from_donor.py`.
+
+## 36. Per-Car Length Estimate Replaces the Fixed Prior — Fixes Compact Over-Extension (Direction 2, Step 1b) (2026-08-02)
+
+**Context:** #35 shipped a fixed longitudinal prior
+(`COMPLETION_CAR_LENGTH_PRIOR = 4.14 m`, the amodal-GT median) and logged a known
+defect: it over-extends compacts (< 3.6 m: signed ΔL −0.10 → +0.25). Step 1b
+replaces the constant with a per-car estimate.
+
+**Method selection was done offline first, against amodal GT, with no PCN
+inference** (`scratchpad/length_estimator_probe{,2}.py`; 1508 gate-passed donor
+pairs / 40 cars). This killed three plausible designs before they cost a run:
+
+| Candidate | Verdict |
+|---|---|
+| Length from width (aspect ratio) | **Dead.** corr(GT L, GT W) = **+0.018**. A *perfect* width predicts L at MAE 0.526 m — worse than the constant's 0.351. |
+| Length from height / range / point count | **Dead.** \|corr\| ≤ 0.13 for all three. |
+| Far-end face-support ("is the far end occluded?") | **Dead, and inverted.** Missing length is *larger* when the far end looks well covered (+0.62 m) than when it does not (+0.37 m). |
+| Observed footprint length (`fit_length`) | **Survives.** corr +0.52 per frame, **+0.87 aggregated per car.** |
+| Track **max** of `fit_length` | **Dead.** Worst estimator tested (compact bias +0.95 m) — one contaminated L-shape fit sets the max. Must be a quantile. |
+
+**Change:** `track_length_estimate()` in `src/completion.py` — per-car length =
+**90th percentile of `fit_length` over the track's gate-passed frames + 0.12 m**
+(`COMPLETION_LENGTH_TRACK_{QUANTILE,OFFSET}`). Falls back to the 4.14 m constant
+below 5 gate-passed frames (2/40 cars), since a quantile degenerates toward the
+max there. Plumbed as an optional `length_estimate` argument through
+`complete()` / `estimate_canonical_frame()` (module stays stateless);
+`src/main.py` aggregates over the track it is already completing. Extend-only
+push unchanged. The 0.12 m offset corrects q90's low bias; the car-level fit
+slope came out 1.00 (pure bias correction) and leave-one-car-out degrades MAE
+only 0.171 → 0.181.
+
+**Results — #29 box metric, per-car medians, split by amodal-GT length band**
+(the split is the point; the pooled median hid the defect):
+
+| Band | metric | raw | 4.14 (shipped) | **q90+0.12** | q95 | ols (control) |
+|---|---|---|---|---|---|---|
+| compact <3.6 (n=8) | signed ΔL | −0.007 | **+0.295** | **+0.063** | +0.095 | +0.141 |
+| | \|ΔL\| | 0.256 | 0.295 | **0.129** | 0.122 | 0.150 |
+| | center err | 0.157 | 0.322 | 0.192 | 0.183 | 0.242 |
+| normal (n=27) | \|ΔL\| | 0.445 | 0.345 | **0.329** | 0.349 | 0.388 |
+| long ≥4.6 (n=5) | \|ΔL\| | 0.572 | 0.637 | **0.583** | 0.608 | 0.663 |
+| ALL (n=40) | \|ΔL\| | 0.428 | 0.354 | **0.304** | 0.334 | 0.361 |
+| | BEV IoU | 0.725 | 0.747 | **0.771** | 0.767 | 0.753 |
+| | center err | 0.271 | 0.229 | **0.184** | 0.185 | 0.211 |
+
+Compact overshoot fixed (+0.295 → +0.063, Wilcoxon p = 0.016 at n = 8) with no
+normal-band cost. Compact **center error** was the larger unmeasured casualty:
+the fixed prior pushed it to 0.322 m, *worse than the raw partial 0.157*.
+
+**Leakage control (`ols`, single-frame `L = 2.528 + 0.428·fit_length`):** the
+track quantile uses the car's other frames, which are also the donor metric
+reference set — a scalar leaks from reference into method. It is legitimate in
+production (`main.py` completes each track once with all its frames in scope),
+but the far_end number under track modes is "single-frame completion + a
+track-level size prior", not pure single-frame inference. The leakage-free OLS
+control partially fixes compacts (+0.295 → +0.141) but **regresses normals**
+(\|ΔL\| 0.345 → 0.388, p = 0.022). So the compact defect is genuinely fixable
+from single-frame information, but only the track-level estimate fixes it
+without a tradeoff.
+
+**Donor metric (#32) cost:** pooled coverage drops 0.403 → 0.364 and far_end
+0.346 → 0.316. Per band, per-car is better on compacts (see #37) and long
+(far_end 0.106 → 0.191) and worse on normal (0.330 → 0.292).
+
+**Deviations / refuted hypothesis.** The two metrics disagreed, and the first
+explanation offered — that donor coverage is recall-like and merely rewards
+over-extension through a too-loose out-of-box guard — was **tested and refuted**.
+A deliberate over-extension control (q90 **+0.45**,
+`output/experiments/donor_len1b_over/`) improved *both* metrics on normal and
+long cars: coverage 0.364 → **0.483**, far_end 0.316 → **0.509**, box \|ΔL\|
+0.304 → **0.210**, BEV IoU 0.771 → **0.777**. Those completions were genuinely
+still too short, not the metric being fooled. The recall-like reading holds
+**only on the compact band**, where extra push raises coverage while degrading
+the box (signed ΔL +0.277).
+
+**Consequence — a second under-extension mechanism, not addressed by Step 1b.**
+Targeting a car true length still leaves the completed box short by −0.33
+(normal) / −0.58 (long) even when `L_est` is unbiased for those bands. So there
+is an under-extension inside the completion itself, independent of where the
+canonical center is placed: PCN under-fills its normalized frame, and the center
+push also drives `radius`, hence output scale — the prior is doing double duty as
+reposition *and* rescale. Fitting the compensation per band gives required
+offsets of ≈0.02 / 0.68 / 1.02 m for compact / normal / long, i.e. strongly
+length-dependent; extrapolating that from 8 / 27 / 5 cars would be overfitting.
+Logged as **Step 1c** in `docs/completion/plan.md`, not bolted onto this change.
+
+**Verdict:** SHIPPED (q90 + 0.12 m). Step 1b stated goal is met — the compact
+over-extension is fixed on both metrics, all pooled box metrics improve over the
+fixed prior, and it fixes a guard violation (#37) — at a real but bounded cost in
+pooled donor coverage, which this finding's control run shows is a *separate*,
+larger problem than the one Step 1b set out to solve.
+
+Scripts: `scratchpad/length_estimator_probe{,2}.py` (offline selection),
+`scratchpad/donor_metric_recompute.py --length-mode` (A/B),
+`scratchpad/length_1b_box_eval.py` (band-split box metric).
+Outputs: `output/experiments/donor_len1b_{q95,q90off,ols,over}/`,
+`output/experiments/len_probe/`.
+
+## 37. #32 Hallucination Guard Is Blind to Band-Localized Over-Extension — Pooled Median Masked a 100× Violation (2026-08-02)
+
+**Context:** found while arbitrating #36. #32 validation-gate item (d) is
+"completed out-of-GT-box fraction ≤ mirrored baseline", computed as a **median
+over all 40 cars**. The shipped 4.14 m length prior passes it comfortably
+(0.0020 vs 0.0108) and #35 used exactly this guard to *reject* L = 4.5 m.
+
+**Defect:** the pooled median hides any failure confined to a size band. Splitting
+out-of-box by amodal-GT length (completed / per-band mirrored baseline):
+
+| Config | compact <3.6 (n=8) | normal (n=27) | long ≥4.6 (n=5) | pooled |
+|---|---|---|---|---|
+| prior off | 0.0003 / 0.0004 | 0.0008 / 0.0129 | 0.0000 / 0.0292 | 0.0004 ✓ |
+| **4.14 (shipped)** | **0.0433 / 0.0004** | 0.0017 / 0.0129 | 0.0000 / 0.0292 | 0.0020 ✓ |
+| q90+0.12 (#36) | 0.0065 / 0.0004 | 0.0015 / 0.0129 | 0.0000 / 0.0292 | 0.0019 ✓ |
+| q95 | 0.0046 / 0.0004 | 0.0010 / 0.0129 | 0.0015 / 0.0292 | 0.0017 ✓ |
+
+The shipped prior hallucinates on compacts at **100× that band mirrored
+baseline** (0.0433 vs 0.0004) and **26× the prior-off level** — invisible in the
+pooled number because 32 of 40 cars sit near 0.0015. #35 accept/reject decision
+for the prior magnitude therefore rested on a statistic that could not see the
+failure mode it was meant to catch; the *direction* of #35 (far end needs
+extending) stands, the *magnitude* was validated by a blind guard.
+
+Note the compact band mirrored baseline is itself near zero (0.0004): mirroring
+a compact car barely leaves its box, so that band bar is effectively "do not
+leave the box at all". **No config clears it**, including #36 — q90+0.12 is
+16× the baseline vs the incumbent 100×, a ~7× reduction in hallucination, not
+elimination. Reporting the ratio is more informative than the pass/fail bit.
+
+**Fix:** added gate item **d2** to `scratchpad/donor_metric_step3.py` —
+`d2_out_of_box_by_gt_length_band`, `d2_bands_passing`, `d2_all_bands_pass` —
+computed against each band own mirrored baseline (bands 3.6 / 4.6 m, splitting
+seq-08 40 cars 8 / 27 / 5). Backfilled into all existing donor summaries;
+pre-existing production summaries preserved as
+`donor_metric_summary_08.pre_d2_backup.json`.
+
+**Generalization:** the same pooled-median blindness applies to every per-car
+median in #29/#32 — it is how #35 compact over-extension survived review in the
+first place. Any future `complete()` geometry change must be read per band.

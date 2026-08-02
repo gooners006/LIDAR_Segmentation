@@ -205,6 +205,67 @@ COMPLETION_UP_SHIFT = 0.25
 # untouched. See docs/findings.md (#35) and docs/completion/donor_metric.md.
 COMPLETION_CAR_LENGTH_PRIOR = 4.14
 
+# Per-car length estimate (Direction 2 Step 1b). The fixed prior above is a
+# population median, so it is wrong in BOTH tails: measured against the 40
+# amodal-GT cars of seq 08 it over-extends compacts (< 3.6 m: bias +0.63 m) and
+# under-extends long cars (>= 4.6 m: bias -0.59 m); only the middle band is
+# unbiased. track_length_estimate() replaces it with a per-car number taken from
+# the car's own observed footprint lengths across its track.
+#
+# Why a quantile of fit_length and nothing cleverer — all measured offline
+# against amodal GT (scratchpad/length_estimator_probe{,2}.py, n=1508 pairs):
+#   - length-from-width is impossible: corr(GT L, GT W) = +0.018, so even a
+#     perfect width measurement predicts length worse (MAE 0.53 m) than the
+#     constant (0.35 m). Height / range / point count are equally uninformative.
+#   - a far-end face-support test does NOT detect longitudinal truncation (the
+#     missing length is *larger* when the far end looks well covered).
+#   - the observed footprint length does carry the signal: corr +0.52 per frame,
+#     +0.87 once aggregated per car.
+#   - the aggregate must be a quantile, not the max: track-max is the worst
+#     estimator tested (compact bias +0.95 m) because one contaminated L-shape
+#     fit sets it.
+# Aggregate only over gate-passed frames — fragments and merges are exactly the
+# contamination that ruins the max.
+#
+# IMPORTANT (Finding #36): this fixes the compact over-extension, but targeting a
+# car's TRUE length still leaves the completed box short on normal/long cars
+# (signed dL -0.33 / -0.58 even when L_est is unbiased). A control run that
+# deliberately over-shot the target (q90 + 0.45) improved BOTH the box metric and
+# donor coverage on those bands — so a second, independent under-extension lives
+# inside the completion itself (PCN under-fills, and the center push also drives
+# `radius`, hence output scale). A per-car length estimate cannot correct that;
+# see the Step-1c note in docs/completion/plan.md.
+# Promoted 2026-08-02 (Finding #36): q90 + 0.12 m beat q95 (offset 0) on both
+# metrics and every band. The offset corrects q90's known low bias (-0.136 m);
+# slope of the car-level fit came out 1.00, so it is a pure bias correction, and
+# leave-one-car-out only degrades MAE 0.171 -> 0.181.
+COMPLETION_LENGTH_TRACK_QUANTILE = 90
+COMPLETION_LENGTH_TRACK_OFFSET = 0.12
+# Below this many gate-passed frames a quantile degenerates toward the max, so
+# fall back to the fixed prior instead.
+COMPLETION_LENGTH_MIN_FRAMES = 5
+
+
+def track_length_estimate(
+    fit_lengths,
+    quantile: float = COMPLETION_LENGTH_TRACK_QUANTILE,
+    offset: float = COMPLETION_LENGTH_TRACK_OFFSET,
+    min_frames: int = COMPLETION_LENGTH_MIN_FRAMES,
+    fallback: Optional[float] = COMPLETION_CAR_LENGTH_PRIOR,
+) -> Optional[float]:
+    """Per-car full-length estimate (m) from one track's footprint fits.
+
+    ``fit_lengths`` are the L-shape ``fit_length`` values of the track's
+    gate-passed frames (see estimate_canonical_frame). Returns ``fallback`` when
+    the track is too short for the quantile to be meaningful, and None only if
+    ``fallback`` is None (which disables the length push entirely).
+    """
+    vals = np.asarray([v for v in fit_lengths if v is not None], dtype=np.float64)
+    if len(vals) < min_frames:
+        return fallback
+    return float(np.percentile(vals, quantile) + offset)
+
+
 # Heading estimation for the canonical-frame reorientation. The major horizontal
 # PCA axis is ambiguous on near-square / two-face / merged BEV footprints (dense
 # but poorly-completed tracks, e.g. seq-08 tid 301/762/884): the eigenvectors no
@@ -364,12 +425,17 @@ class PointCloudCompleter:
         return u2, u1, ext2, ext1
 
     def estimate_canonical_frame(
-        self, partial_xyz: np.ndarray
+        self, partial_xyz: np.ndarray, length_estimate: Optional[float] = None
     ) -> tuple[Optional[dict], Optional[str]]:
         """Input gate + canonical-car-frame estimate used by complete().
 
         ``partial_xyz`` is a single-frame observation in the sensor frame
-        (Z = gravity up). Returns (frame, skip_reason); exactly one is None.
+        (Z = gravity up). ``length_estimate`` overrides the fixed
+        ``self.length_prior`` with a per-car full-length estimate (m) for this
+        observation — see the ``COMPLETION_CAR_LENGTH_PRIOR`` note on why a
+        constant is wrong in both tails. The caller owns the estimate because it
+        is a *track*-level quantity (main.py has the track's frames; this module
+        stays stateless). Returns (frame, skip_reason); exactly one is None.
         frame keys: ``basis`` (3x3, sensor -> canonical via ``pts @ basis``),
         ``center`` (3, in canonical coords), ``radius`` (scale-corrected),
         ``fit_length``/``fit_width`` (L-shape footprint, m). The canonical car
@@ -421,11 +487,14 @@ class PointCloudCompleter:
         # length axis (Z): extend-only push toward the occluded far end. Same
         # mechanism as the width prior — sign(center[2]) is the car's position
         # along length relative to ego (origin), so the far-from-ego end is the
-        # occluded one. Disabled unless length_prior is set (Direction 2, #32).
-        if self.length_prior is not None:
+        # occluded one. A per-car length_estimate takes precedence over the fixed
+        # prior; disabled when both are None (Direction 2, #32).
+        length_target = (length_estimate if length_estimate is not None
+                         else self.length_prior)
+        if length_target is not None:
             sign_z = np.sign(center[2]) if abs(center[2]) > 1e-9 else 1.0
             observed_len = pts_c[:, 2].max() - pts_c[:, 2].min()
-            center[2] += sign_z * max(0.5 * self.length_prior - 0.5 * observed_len, 0.0)
+            center[2] += sign_z * max(0.5 * length_target - 0.5 * observed_len, 0.0)
 
         radius = float(np.linalg.norm(pts_c - center, axis=1).max()) / COMPLETION_SCALE_CORRECTION
         if radius < 1e-6:
@@ -439,7 +508,8 @@ class PointCloudCompleter:
         }, None
 
     def complete(
-        self, partial_xyz: np.ndarray, class_label: str
+        self, partial_xyz: np.ndarray, class_label: str,
+        length_estimate: Optional[float] = None,
     ) -> tuple[np.ndarray, Optional[str]]:
         """Complete a single-frame partial car cluster using PCN.
 
@@ -453,6 +523,9 @@ class PointCloudCompleter:
         frame (X=width, Y=up, Z=length), estimate the full-car center, and
         normalize by a scale-corrected radius (see estimate_canonical_frame).
 
+        ``length_estimate`` (m) optionally replaces the fixed length prior with a
+        per-car estimate for this observation; see estimate_canonical_frame.
+
         Returns (output_points, skip_reason). skip_reason is None on success.
         class_label is currently unused; the priors are car-specific (the
         pipeline only completes cars).
@@ -461,7 +534,7 @@ class PointCloudCompleter:
             return partial_xyz.astype(np.float32), "model_not_loaded"
 
         pts = np.asarray(partial_xyz, dtype=np.float64)
-        frame, skip = self.estimate_canonical_frame(pts)
+        frame, skip = self.estimate_canonical_frame(pts, length_estimate)
         if skip is not None:
             return pts.astype(np.float32), skip
         basis, center, radius = frame["basis"], frame["center"], frame["radius"]

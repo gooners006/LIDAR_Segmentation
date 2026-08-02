@@ -148,7 +148,7 @@ def main():
     use_learned_classifier = cls_model is not None
 
     # --- Point completion ---
-    from completion import PointCloudCompleter
+    from completion import PointCloudCompleter, track_length_estimate
 
     if args.save_output and not args.no_completion:
         if not os.path.isfile(args.pcn_ckpt):
@@ -381,7 +381,22 @@ def main():
                 output_pts = all_pts
                 skip_reason = "too_few_points"
             else:
-                completed_sensor, skip_reason = completer.complete(ref_sensor, resolved)
+                # Per-car length estimate (Step 1b). The fixed prior is a
+                # population median, so it over-extends compacts and
+                # under-extends long cars; this track's own footprint fits give
+                # a per-car number instead. Gate-passed frames only — fragments
+                # and merges are exactly the contamination that ruins the
+                # aggregate. Completion itself still uses the single ref frame.
+                fit_lengths = []
+                for pts_g, T in zip(pts_list, track_transforms[track_id]):
+                    est, est_skip = completer.estimate_canonical_frame(
+                        (pts_g - T[:3, 3]) @ T[:3, :3])
+                    if est_skip is None:
+                        fit_lengths.append(est["fit_length"])
+                length_est = track_length_estimate(fit_lengths)
+
+                completed_sensor, skip_reason = completer.complete(
+                    ref_sensor, resolved, length_est)
                 if skip_reason is None:
                     output_pts = (completed_sensor @ ref_R.T) + ref_t  # sensor -> global
                 else:
