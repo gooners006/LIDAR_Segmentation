@@ -4,6 +4,27 @@ import numpy as np
 from typing import List, Dict, Tuple, Any
 
 
+def resolve_track_class(votes, *, min_known_votes=2, min_known_ratio=0.5):
+    """Majority vote over non-rejected labels with evidence thresholds.
+
+    Returns the winning class name, or None if evidence is insufficient
+    (too few known votes, low known ratio, or ambiguous tie).
+    """
+    known = [v for v in votes if v != "not-car"]
+    if len(known) < min_known_votes:
+        return None
+    if len(known) / len(votes) < min_known_ratio:
+        return None
+    counts: dict[str, int] = {}
+    for v in known:
+        counts[v] = counts.get(v, 0) + 1
+    top_count = max(counts.values())
+    winners = [cls for cls, c in counts.items() if c == top_count]
+    if len(winners) > 1:
+        return None
+    return winners[0]
+
+
 class CentroidTracker:
     """Frame-to-frame multi-object tracker using centroid distance matching.
 
