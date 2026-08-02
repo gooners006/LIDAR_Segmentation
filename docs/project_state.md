@@ -44,7 +44,7 @@ prior fine-tuned-checkpoint numbers preserved there).
 | Mean IoU | 0.942 |
 
 TP=1242 FP=20 FN=389. RANSAC is deterministic (`np.random.default_rng(42)`). Results reproducible across runs.
-Promoted-config 100-frame eval (2026-07-23, report refresh): P 0.967 / R 0.777 / F1 0.862 / mIoU 0.962 (exact TP/FP/FN not separately recorded this session).
+Promoted-config 100-frame eval (2026-07-23, report refresh): P 0.967 / R 0.777 / F1 0.862 / mIoU 0.962. TP=1296 FP=44 FN=371 (TP/FP/FN not separately recorded 2026-07-23; re-run and filled in 2026-08-02, same command/config, metrics unchanged — `.venv\Scripts\python.exe src/evaluate.py`).
 
 ### Seq 08 (full, 4071 frames) — generalization check (promoted config, updated 2026-07-23)
 
@@ -380,7 +380,12 @@ Original 2026-06-24 reasoning preserved as historical record.
   distinct cars / ≈34k per-frame car instances, IoU≥0.3 greedy 1-to-1 point-level
   matching, micro-averaged TP/FP/FN; seq 00 100 frames = 41 cars; completion
   §5.3–5.4 unit = 39 static cars, per-car medians). Distinct-car counts from
-  label scan (sem ∈ {10,252}, inst>0, ≥10 raw pts).
+  label scan (sem ∈ {10,252}, inst>0, ≥10 raw pts). Note: this "≥10 raw pts"
+  is a distinct-car *count* threshold applied to unfiltered label points
+  (label scan), not the eval recall denominator ("GT instances with ≥10
+  points surviving preprocessing" — z-filter, voxel, denoise, ground
+  removal — used by `evaluate.py`); the two ≥10-point rules measure
+  different quantities and are not interchangeable.
 - Advisor follow-up (2026-07-19): inference time + completion-metric
   explanation. Timing benchmark (`scratchpad/timing_benchmark.py`, Ryzen 7
   7800X3D + RTX 3070 Ti): headline from **full seq 08, all 4,071 frames**
