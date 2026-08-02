@@ -6,7 +6,8 @@ output/
 __pycache__/
 .env
 checkpoints/
-scratchpad/
+scratchpad/*
+!scratchpad/*.py
 
 # LaTeX build artifacts
 *.aux
