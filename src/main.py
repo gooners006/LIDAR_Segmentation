@@ -127,7 +127,11 @@ def main():
     use_learned_classifier = cls_model is not None
 
     # --- Point completion ---
-    from completion import PointCloudCompleter, track_length_estimate
+    from completion import (
+        COMPLETION_LENGTH_MIN_FRAMES,
+        PointCloudCompleter,
+        track_length_estimate,
+    )
 
     if args.save_output and not args.no_completion:
         if not os.path.isfile(args.pcn_ckpt):
@@ -350,6 +354,9 @@ def main():
             ref_R, ref_t = ref_T[:3, :3], ref_T[:3, 3]
             ref_sensor = (ref_global - ref_t) @ ref_R  # global -> sensor frame
 
+            length_estimate_source = None
+            n_gate_passed_frames = None
+
             if not completion_enabled:
                 output_pts = all_pts
                 skip_reason = "disabled"
@@ -373,6 +380,10 @@ def main():
                     if est_skip is None:
                         fit_lengths.append(est["fit_length"])
                 length_est = track_length_estimate(fit_lengths)
+                n_gate_passed_frames = len(fit_lengths)
+                length_estimate_source = (
+                    "fallback" if len(fit_lengths) < COMPLETION_LENGTH_MIN_FRAMES
+                    else "track_q90")
 
                 # Reset the subsample RNG per completion (Finding #38): otherwise
                 # self._rng carries state across tracks, so a track's completed
@@ -419,6 +430,9 @@ def main():
                 track_entry["pcn_checkpoint"] = args.pcn_ckpt
                 track_entry["completion_ref_frame"] = int(track_frames[track_id][ref_idx])
                 track_entry["completion_input_points"] = int(len(ref_sensor))
+            if length_estimate_source is not None:
+                track_entry["length_estimate_source"] = length_estimate_source
+                track_entry["n_gate_passed_frames"] = n_gate_passed_frames
             if skip_reason is not None:
                 track_entry["completion_skip_reason"] = skip_reason
             tracks_meta.append(track_entry)
