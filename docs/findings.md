@@ -1547,3 +1547,39 @@ fallback fires more, which would warrant revisiting); (c) the coefficients were
 fitted on these same 40 cars, so even the wash is an in-sample read. **To
 revisit:** get a fallback-frequency count from a real `main.py --save-output` run
 and a box metric with n large enough to matter.
+
+## 41. Fallback-Frequency Answer: 23% of Completed Tracks Miss the Per-Car Length Estimate — Live Limitation, Not Fixed (2026-08-03)
+
+**Context:** T7 of `docs/plans/delegate_brief_2026_08_02.md`. Finding #40
+(caveat b) left the production fallback rate of the per-car length estimate
+(#36) unmeasured — the 2/40 fallback rate on the offline amodal-GT set could
+not tell us how often real `main.py` tracks are too sparse (< 5 gate-passed
+frames) for `track_length_estimate()`'s quantile to be meaningful. `output/08`
+was regenerated under the shipped per-car estimate + the #38 RNG
+order-independence fix (superseding the 2026-08-01 fixed-prior/pre-#38
+version), with T6's new `length_estimate_source`/`n_gate_passed_frames`
+instrumentation in `tracks.json` to answer this directly.
+
+**Finding:** Verification (`scratchpad/verify_regen_08_t7.py`, md5-based)
+confirms detection/tracking is unaffected by the regen: track set (1040
+tracks), all identity fields (first/last_frame, point_count, raw_point_count,
+class, centroid_history), all 518 `_partial.ply` inputs, and all
+non-completed `.ply` outputs are byte-identical between old and new — only
+completed clouds changed, as intended. Of the 518 completed tracks, **399
+(77.0%) used the per-car `track_q90` estimate; 119 (23.0%) fell back to the
+fixed 4.14 m prior** (< `COMPLETION_LENGTH_MIN_FRAMES` = 5 gate-passed
+frames).
+
+**Decision:** Per the delegate brief's pre-registered rule (> ~5% fallback →
+log as a live limitation, do not implement a fix), 23.0% clears that bar by a
+wide margin. Logged as a live limitation of #36's per-car estimate: nearly a
+quarter of completed tracks still rely on the population-level constant
+rather than a per-car number, most likely short/fragmented tracks that never
+accumulate 5 gate-passed frames. No fix implemented — out of scope for this
+task; a targeted investigation (e.g. lowering `COMPLETION_LENGTH_MIN_FRAMES`,
+or a different sparse-track estimator now that #40's OLS attempt is a
+documented negative result) would be a new backlog item.
+
+**Housekeeping:** old `output/08` preserved as `output/08_fixedprior_backup/`
+(reversible); `output/08_regen` promoted to `output/08` (GT artifacts
+`amodal_gt.json`/`amodal_gt_check.png` copied in unchanged).
