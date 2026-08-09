@@ -416,7 +416,7 @@ Original 2026-06-24 reasoning preserved as historical record.
   921 ms/frame supersedes the ~934 quoted in the earlier chat draft).
 - Pipeline diagram for thesis report.
 
-## Maintenance Pass — Delegate Brief Tier 1 (2026-08-02/03)
+## Maintenance Pass — Delegate Brief Tier 1–2 (2026-08-02/09)
 
 Executing `docs/plans/delegate_brief_2026_08_02.md` (full-repo review
 follow-ups, delegated with defaults + STOP conditions). Tier 1 (T1–T7)

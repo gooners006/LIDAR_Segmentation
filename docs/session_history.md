@@ -1923,3 +1923,86 @@ for the real completion signal.
   gate (`docs/plans/personal_agenda_2026_08_02.md` P0.1). Not reached yet.
 - Full remaining roadmap: `docs/plans/delegate_brief_2026_08_02.md` (T8 →
   T9a/b/c → T10/T11 → T13/T14).
+
+---
+# Session — 2026-08-09 (Delegate brief Tier 2: T8 held-out GT, T9a pre-registration, T9b frozen evals)
+
+## What was done
+
+Executed `docs/plans/delegate_brief_2026_08_02.md` Tier 2 through T9b. All work
+committed; three commits this session (c524612, 64d3e73, f08a0d3).
+
+### T8 — held-out sequence selection + amodal GT
+- Ran `scratchpad/amodal_gt.py --seq 05` (default). **Fell to the fallback rule:**
+  only 11 well-observed static cars (< 15 threshold); dominant rejection
+  `center_spread` 107/170 fitted. Survivors skew short (median L 3.61/W 1.82/H 1.50).
+- Fell back to **seq 00** (brief: never 08): `amodal_gt.py --seq 00` → **46
+  well-observed** (of 531 fitted / 537 observed). Median dims L 3.80/W 1.81/H 1.49
+  (W/H within 2–6 cm of seq-08 ref; L shorter, inside sane range).
+- Visual gate: `amodal_gt_viz.py --seq 00` → `output/00/amodal_gt_check.png`;
+  boxes tight and correctly oriented on all 12 panels (4 typical + 8 outliers);
+  short-L outliers are genuine compact clouds.
+- Confound logged: seq 00 is in the classifier Stage-B train split (optimistic
+  detection recall); completion claims unaffected (paired raw-vs-completed; PCN
+  synthetic-trained). No labeled seq is both classifier- and completion-held-out.
+- Pushback recorded: user asked whether to try other sequences before T9a;
+  recommended against (all labeled non-08 seqs share the same leakage; shopping
+  for a sequence is selection bias the pre-registration exists to prevent).
+
+### T9a — pre-registration (the one hard user gate)
+- Drafted in plan mode, **user-approved**, written verbatim to
+  `docs/plans/preregistration_heldout.md` (dated 2026-08-09) and committed
+  BEFORE any seq-00 eval (c524612, immutable timestamp).
+- Primary refutation-bearing metrics: BEV IoU (#29) + donor cov@0.1 (#32),
+  completed beats raw, per-car medians, Wilcoxon p<.05. R1 does-not-generalize,
+  R2 08-specific length constants (per-band d2), R3 escalate uncovered results.
+  Outcome taxonomy HOLDS / PARTIALLY HOLDS / DOES NOT GENERALIZE.
+- Discretionary choice made: only BEV IoU + donor cov are refutation-bearing;
+  |ΔW|/|ΔH|/|ΔL|/center-err secondary (per brief R1 wording).
+
+### T9b — frozen-config evals
+- Verified `track-q90off` recompute mode matches shipped production constants
+  (quantile 90, offset 0.12, fallback 4.14, min_frames 5).
+- Pipeline (production config + checkpoints, no tuning), seq-00-isolated dirs:
+  `donor_metric_step1.py --seq 00 --out-dir output/experiments/donor_metric_00`
+  → `donor_metric_recompute.py --length-mode track-q90off --out-dir
+  output/experiments/donor_metric_00_lenon` → `donor_metric_step2.py` →
+  `donor_metric_step3.py` → `length_1b_box_eval.py --variant on=...` →
+  new helper `scratchpad/t9b_box_all_wilcoxon.py` (pooled ALL-cars box Wilcoxon).
+- Results written to `docs/plans/t9b_results_heldout_seq00.md` (T9c input).
+- Explicitly did NOT write the verdict (T9c = fresh session, executor/judge
+  separation).
+
+## Files changed
+- New (committed): `docs/plans/preregistration_heldout.md`,
+  `docs/plans/t9b_results_heldout_seq00.md`,
+  `scratchpad/t9b_box_all_wilcoxon.py`.
+- Modified (committed): `docs/project_state.md`, `docs/session_history.md`.
+- New (gitignored outputs): `output/00/amodal_gt.json`,
+  `output/00/amodal_gt_check.png`, `output/05/amodal_gt.json`,
+  `output/experiments/donor_metric_00{,_lenon}/`.
+- Untracked, intentionally left: `docs/plans/delegate_brief_2026_08_02.md`,
+  `docs/plans/personal_agenda_2026_08_02.md`, `.codegraph/`.
+
+## Results / findings (T9b, numbers only — verdict deferred to T9c)
+- n_cars=45 (of 46; one all-rejected), n_pairs=2588 / 1592 gate-passed; bands
+  compact 17 / normal 28 / **long 0**.
+- Donor (#32), per-car medians, primary τ=0.15: cov@0.1 raw 0.000 / mirrored
+  0.050 / **completed 0.413**; med novel-dist 0.417 / 0.280 / **0.123**; all
+  completed-vs-raw and completed-vs-mirrored p≈0; win across every band, τ,
+  region. Validation gate a/c/d pass.
+- Box (#29), pooled ALL (n=45): BEV IoU raw 0.739 → **0.766** (p=1.6e-3),
+  |ΔW| 0.203→0.165 (p=4.0e-4), |ΔH| 0.278→0.120 (p=7.8e-9), |ΔL| 0.359→0.227
+  (p=2.0e-3); center_err 0.241→0.201 (p=0.082, n.s.); yaw neutral.
+- Nuances flagged for T9c: BEV IoU win is normal-band-driven (normal 0.731→0.765
+  p=3.2e-5; compact 0.783→0.771 p=0.85 n.s.); d2 compact pass-bit **fails**
+  (completed 0.009 > mirrored 0.005) but ratio ~1.8× vs seq-08 ~16×; long band
+  empty → long-band predictions untestable (R3-relevant).
+
+## Next
+- **T9c** — fresh Opus session (NOT the T9b executor). Reads ONLY
+  `docs/plans/preregistration_heldout.md` + `docs/plans/t9b_results_heldout_seq00.md`;
+  applies R1/R2/R3 verbatim; writes the finding draft. Any uncovered result
+  (esp. empty long band) → STOP and escalate.
+- Then T10/T11 (Sonnet, anytime after deps), T14 ch.1–3 (parallel), T13 last
+  and conditional on T9c = HOLDS or PARTIALLY HOLDS.
