@@ -2006,3 +2006,74 @@ committed; three commits this session (c524612, 64d3e73, f08a0d3).
   (esp. empty long band) → STOP and escalate.
 - Then T10/T11 (Sonnet, anytime after deps), T14 ch.1–3 (parallel), T13 last
   and conditional on T9c = HOLDS or PARTIALLY HOLDS.
+
+---
+# Session — 2026-08-09 (Delegate brief Tier 2/3: T9c verdict, T10 clustering, T11 movers, T13 Step 1c)
+
+Second session of 2026-08-09 (the earlier T8/T9a/T9b entry is above). Executor/
+judge separation honored for T9c. All work committed: ac03bed, fb50f15, 8b8be98.
+
+## What was done
+
+### T9c — held-out arbitration verdict (fresh judge session)
+- Applied the pre-registered R1/R2/R3 criteria verbatim to the frozen seq-00
+  T9b tables. R1 (does-not-generalize) not triggered; R2 (08-specific length
+  constants) not triggered verbatim; R3 (uncovered result) triggered by the
+  empty long band (0 cars ≥4.6 m).
+- Escalated R3 to the user; resolved via the taxonomy's "caveat named" clause →
+  **PARTIALLY HOLDS** (coverage gap, not a weak metric). Tier-3 gate satisfied.
+- Wrote `docs/plans/t9c_verdict_heldout_seq00.md` + Finding #42.
+
+### T10 — clustering benchmark (backlog #5)
+- Added `_cluster_dbscan` (Open3D) + `_cluster_euclidean` (PCL-style) to
+  `pipeline.py` + dispatch + `--clustering-method` choices in `evaluate.py`
+  (additive; reproduction baseline re-verified EXACT: TP=1296/FP=44/FN=371).
+- Benchmark (per-frame, no track filter; deviation: stride/tracker
+  incompatible): HDBSCAN wins F1 on seq 00 (0.831 vs 0.767/0.768) and seq 08
+  (0.735 vs 0.678/0.683) entirely via recall; 5–7× slower. eps sweep: no fixed
+  radius reaches HDBSCAN's recall (best Euclidean eps=0.4, 0.684/0.800).
+- Adopt nothing. Finding #43; scripts `scratchpad/t10_*.py`.
+
+### T11 — moving-car plausibility
+- On regenerated `output/08` (518 completed car tracks), split by kinematic
+  net-displacement. Movers complete as plausibly as statics (57.9% 11/19 vs
+  53.7% 225/419); every motion bucket 54–58%. Recipe caveat: axis-aligned `dims`
+  understates diagonally-oriented cars. Finding #44; figure
+  `output/figures/t11_mover_completions_bev.png`.
+
+### T13 — Step 1c residual under-extension (Tier 3)
+- `/tweakable-plan` → pre-registered `docs/completion/t13_step1c_plan.md` (D1
+  Z-only radius decouple, D2 length-axis fill factor, D3 seq-08-only long-band;
+  ship gate committed before any run).
+- Implemented D1/D2 behind `PointCloudCompleter(decouple_radius, fill_z)`
+  (default OFF); A/B flags through `donor_metric_recompute.py`.
+- D2 calibration (synthetic, n=300): per-axis fill X 1.099 / Y 1.037 / Z 1.074 →
+  length-only, fill_z=1.074 (X under the 1.10 widen threshold).
+- Gate verbatim: primary MET (seq-08 normal |ΔL| 0.329→0.232 p=7.7e-3, long
+  0.583→0.363; donor far_end cov up both seqs) but compact non-regression FAILS
+  both seqs (|ΔL| +0.109 seq08 / +0.116 seq00; compacts over-extend).
+- **Verdict: DO NOT SHIP** (pre-registered negative result). Confirms the
+  compensation is irreducibly length-dependent (option 3, out of scope). Flags
+  kept OFF; production unchanged. Finding #45.
+
+## Files changed
+- Modified: `src/pipeline.py`, `src/evaluate.py`, `src/completion.py`,
+  `scratchpad/donor_metric_recompute.py`, `docs/findings.md` (#42–#45),
+  `docs/project_state.md`, `docs/completion/plan.md`
+- New: `scratchpad/t10_clustering_benchmark.py`, `scratchpad/t10_eps_sweep.py`,
+  `scratchpad/t11_mover_plausibility.py`, `scratchpad/t13_fill_factor.py`,
+  `docs/plans/t9c_verdict_heldout_seq00.md`,
+  `docs/completion/t13_step1c_plan.md`
+- Commits: ac03bed (T9c/T10/T11), fb50f15 (T13 plan), 8b8be98 (T13 result)
+
+## Results / findings
+- Findings #42 (T9c PARTIALLY HOLDS), #43 (HDBSCAN best clustering), #44 (movers
+  ≈ statics), #45 (Step 1c negative).
+
+## Next
+- **T14 (thesis chapters)** — the only remaining delegate-brief task;
+  user-supervised, new session. Ch. 1–3 writable now; ch. 4 (completion geometry
+  + held-out replication) and ch. 5 (limitations: T11 movers, T13 negative,
+  ~0.73 recall) now unblocked.
+- Untracked and intentionally excluded: `.codegraph/`, `docs/plans/
+  delegate_brief_2026_08_02.md`, `docs/plans/personal_agenda_2026_08_02.md`.
