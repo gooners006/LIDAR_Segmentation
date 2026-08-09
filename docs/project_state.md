@@ -466,12 +466,25 @@ secondary/reported; R1 does-not-generalize, R2 08-specific length constants
 (per-band d2), R3 escalate uncovered results; outcome taxonomy
 HOLDS / PARTIALLY HOLDS / DOES NOT GENERALIZE.
 
-**Next: T9b** (frozen-config evals — NOT started). Run #29 box eval + #32 donor
-metric (steps 1–3 + d2) against `output/00/amodal_gt.json`, production config +
-checkpoints, per-car length estimate ON, **no tuning**. Deliver the per-band
-tables (raw vs completed; compact/normal/long; d2 ratios), n_cars/n_pairs. Then
-**T9c** = fresh Opus session (executor/judge separation) grades vs the committed
-pre-registration.
+### T9b — frozen-config evals: DONE (2026-08-09)
+
+Ran #29 box + #32 donor (steps 1–3 + d2) on seq 00, production config +
+checkpoints, per-car length estimate ON (`track-q90off` = shipped), no tuning.
+n_pairs=2588 / 1592 gate-passed; **n_cars=45** (of 46; one all-rejected);
+bands compact=17 / normal=28 / **long=0**. Tables committed to
+`docs/plans/t9b_results_heldout_seq00.md` (the T9c input). Helper
+`scratchpad/t9b_box_all_wilcoxon.py` adds the pooled ALL-cars box Wilcoxon
+(length_1b only does per-band). **Headline (numbers only — verdict is T9c):**
+donor cov@0.1 (primary τ) raw 0.000 / mirrored 0.050 / **completed 0.413**, all
+p≈0, win across every band/tau/region; box BEV IoU ALL raw 0.739 → **0.766**
+(p=1.6e-3), |ΔW| 0.203→0.165, |ΔH| 0.278→0.120 (both p<1e-3). Nuances flagged
+for T9c: BEV IoU win is normal-band-driven (compact 0.783→0.771 p=0.85 n.s.);
+d2 compact pass-bit **fails** (completed 0.009 > mirrored 0.005, ratio ~1.8× vs
+seq-08 ~16×); **long band empty** → long-band predictions untestable (R3).
+
+**Next: T9c** = fresh Opus session (executor/judge separation) — reads ONLY the
+committed pre-registration + `t9b_results_heldout_seq00.md` and writes the
+finding draft applying R1/R2/R3 verbatim. NOT this session.
 
 ## Medium-Term Backlog
 
