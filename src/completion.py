@@ -300,12 +300,23 @@ class PointCloudCompleter:
         merge_max_width: Optional[float] = COMPLETION_MERGE_MAX_WIDTH,
         fragment_min_length: Optional[float] = COMPLETION_FRAGMENT_MIN_LENGTH,
         length_prior: Optional[float] = COMPLETION_CAR_LENGTH_PRIOR,
+        decouple_radius: bool = False,
+        fill_z: float = 1.0,
     ):
         self.model_path = model_path
         self.heading_method = heading_method
         self.merge_max_width = merge_max_width
         self.fragment_min_length = fragment_min_length
         self.length_prior = length_prior
+        # T13/Step 1c A/B knobs (default OFF = current production behavior):
+        #   decouple_radius: compute the normalization radius against the center
+        #     WITHOUT the Z length-push, so output scale stops riding on the
+        #     length prior (Finding #36 coupling). X-width / Y-up pushes kept.
+        #   fill_z: post-reconstruction length (canonical Z) stretch about the
+        #     estimated center, to correct PCN's under-fill of its normalized
+        #     frame. Calibrated on synthetic true GT. 1.0 = no correction.
+        self.decouple_radius = decouple_radius
+        self.fill_z = fill_z
         self._model = None
         self._device = None
         self._rng = np.random.default_rng(seed)
@@ -484,6 +495,13 @@ class PointCloudCompleter:
         observed_w = pts_c[:, 0].max() - pts_c[:, 0].min()
         center[0] += sign * max(0.5 * COMPLETION_CAR_WIDTH_PRIOR - 0.5 * observed_w, 0.0)
 
+        # Center used to set the normalization radius. With decouple_radius
+        # (T13/Step 1c D1) it is frozen BEFORE the Z length-push, so the observed
+        # scale no longer rides on the length prior (Finding #36); X-width and
+        # Y-up adjustments are still included. Default path (False) uses the full
+        # pushed center, i.e. current production behavior.
+        center_for_radius = center.copy()
+
         # length axis (Z): extend-only push toward the occluded far end. Same
         # mechanism as the width prior — sign(center[2]) is the car's position
         # along length relative to ego (origin), so the far-from-ego end is the
@@ -496,7 +514,8 @@ class PointCloudCompleter:
             observed_len = pts_c[:, 2].max() - pts_c[:, 2].min()
             center[2] += sign_z * max(0.5 * length_target - 0.5 * observed_len, 0.0)
 
-        radius = float(np.linalg.norm(pts_c - center, axis=1).max()) / COMPLETION_SCALE_CORRECTION
+        radius_center = center_for_radius if self.decouple_radius else center
+        radius = float(np.linalg.norm(pts_c - radius_center, axis=1).max()) / COMPLETION_SCALE_CORRECTION
         if radius < 1e-6:
             return None, "degenerate_radius"
         return {
@@ -561,6 +580,11 @@ class PointCloudCompleter:
 
         # Un-normalize in the canonical frame, then rotate back to the sensor frame.
         pred_c = fine_np * radius + center
+        # T13/Step 1c D2: correct PCN's under-fill of its normalized frame along
+        # the length (canonical Z) axis only, stretching about the estimated
+        # center. fill_z = 1.0 (default) is a no-op = current production.
+        if self.fill_z != 1.0:
+            pred_c[:, 2] = (pred_c[:, 2] - center[2]) * self.fill_z + center[2]
         completed = (pred_c @ basis.T).astype(np.float32)
         return completed, None
 

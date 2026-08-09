@@ -86,3 +86,16 @@ report with the caveat, do NOT ship silently.
 - Length-dependent fill target (option 3): excluded.
 - Heading/center-on-diagonal work (Step 2): separate task.
 - Any architecture change (ruled out #28).
+
+## OUTCOME (2026-08-09): NEGATIVE — do not ship (Finding #45)
+
+D2 fill_z calibrated to 1.074 (synthetic, n=300; X 1.099 < 1.10 so length-only
+per the widen rule). Gate applied verbatim: **primary met** (seq-08 normal |ΔL|
+0.329→0.232 p=7.7e-3, long 0.583→0.363; donor cov up everywhere), **but the
+compact non-regression guard FAILS on both sequences** (|ΔL| +0.109 seq 08 /
++0.116 seq 00; compact over-extends). D1 alone shortens completions (confirms the
+radius-coupling mechanism); the uniform D2 stretch then over-extends compacts
+that need ~zero lengthening. Confirms option 3 (length-dependent target) is the
+only remaining lever — the compensation is irreducibly length-dependent, and it
+stays out of scope (8/27/5 cars per band too few to fit safely). Flags kept OFF;
+production unchanged.

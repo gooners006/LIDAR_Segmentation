@@ -1737,3 +1737,59 @@ hide a mover failure mode — movers complete comparably. Feeds T14 ch. 5
 (limitations): the in-sample/statics-only calibration concern is mitigated on
 the motion axis. If a future task wants a truer absolute plausibility rate,
 switch `dims` to oriented-box extents (out of scope here).
+
+## 45. Step 1c Radius-Decouple + Fill Factor — NEGATIVE: Compensation Is Irreducibly Length-Dependent (T13) (2026-08-09)
+
+**Context:** T13/Step 1c (delegate brief Tier 3), pre-registered in
+`docs/completion/t13_step1c_plan.md`. #36's over-extension control showed
+normal/long completions are still too short even with an unbiased per-car length
+estimate, because the Z length-push inflates the normalization `radius`
+(`completion.py:499`) so scale rides on the length prior. Fix, two locked parts:
+**D1** decouple `radius` from the Z push (radius against the pre-Z center; keep
+X/Y pushes + ×1.137); **D2** correct PCN's frame under-fill with a length-axis
+fill factor calibrated on synthetic true GT and applied (not refit) on real.
+A/B behind `PointCloudCompleter(decouple_radius, fill_z)` (default OFF =
+production); evaluated via `donor_metric_recompute.py --decouple-radius --fill-z`
+→ band-split #29 box + #32 donor + per-band d2 on seq 08 (n=40) and seq 00
+(n=45, held-out). Scripts: `scratchpad/t13_fill_factor.py` (D2 calibration),
+`scratchpad/donor_metric_recompute.py`. Dirs `output/experiments/t13_*`.
+
+**D2 calibration (synthetic, n=300 val cars):** per-axis fill (GT/PCN extent) =
+X 1.099, Y 1.037, **Z 1.074**. Pre-registered widen rule (>1.10): X 1.099 is a
+hair under → no widen, Y no. So length-only, **fill_z = 1.074** — the
+pre-registration's fixed threshold made this call (no post-hoc widening at 1.099).
+
+**Result — box #29, per-car median |ΔL| (before → D1+D2):**
+
+| band | seq 08 | seq 00 |
+|------|--------|--------|
+| compact <3.6 | 0.129 → **0.238** (+0.109) ✗ | 0.185 → **0.301** (+0.116) ✗ |
+| normal | 0.329 → **0.232** (−0.097, p=7.7e-3) ✓ | 0.294 → **0.237** (−0.057) ✓ |
+| long ≥4.6 | 0.583 → **0.363** (−0.220) ✓ | n=0 |
+
+Donor cov@0.1 improved everywhere (seq 08 0.396→0.407, far_end 0.316→0.353;
+seq 00 0.447→0.453, far_end 0.366→0.409). But compact **over-extends**
+(signed_dL seq 08 +0.06→+0.23, seq 00 +0.13→+0.29) and its d2 out-of-box
+hallucination worsens (seq 08 0.0065→0.0158, seq 00 0.0090→0.0161; pass-bit
+already False on both, so not formally gated, but clearly worse).
+
+**Mechanism (confirmed):** D1 alone makes completions *shorter* (normal |ΔL|
+0.329→0.496 on seq 08) — proving the coupled radius was inadvertently
+lengthening them via the center push. D2's uniform +7.4% stretch fixes
+normal/long but over-extends compacts, which needed ~zero lengthening. Note the
+synthetic fill (1.074) is small: most of `before`'s normal/long length came from
+the coupled-radius inflation, not PCN under-fill, and the residual is
+length-dependent.
+
+**Decision — DO NOT SHIP (pre-registered negative result).** Primary criterion
+met (normal/long under-extension fixed, donor coverage up) but the pre-registered
+**compact non-regression guard fails on both sequences** (|ΔL| worse by >0.02 m).
+Applied the gate verbatim; did not relax it post-hoc. This empirically confirms
+the plan's exclusion of option 3: a single fill factor cannot serve all bands —
+the required compensation is **length-dependent** (compacts ~0, normal/long
+larger), matching #36's ≈0.02/0.68/1.02 m by-band estimate. House precedent for
+documented negatives: #16/#17/#19/#40. `decouple_radius`/`fill_z` retained as
+A/B knobs (default OFF, invariant-tested, production unchanged) so the result is
+reproducible; a length-dependent fill (option 3) is the only remaining lever and
+stays out of scope (would need more long/compact cars than the 8/27/5 available
+to fit safely).

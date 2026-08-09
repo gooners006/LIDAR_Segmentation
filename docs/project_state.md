@@ -273,7 +273,20 @@ order-independent (reproducibility, not quality — seed noise sd 0.0014). (#39)
 donor-cache frame trap: `data["raw"]` is **sensor** frame; `world_box` needs
 `raw @ Rᵀ + t` (cost four retracted probe scripts).
 
-### Step 1c — second under-extension mechanism (NEW, not started)
+### Step 1c — second under-extension mechanism: TESTED, NEGATIVE (2026-08-09, T13, Finding #45)
+
+Pre-registered (`docs/completion/t13_step1c_plan.md`) and tested: **D1** decouple
+`radius` from the Z length-push + **D2** length-axis fill factor (fill_z=1.074,
+calibrated on synthetic true GT, n=300). A/B behind
+`PointCloudCompleter(decouple_radius, fill_z)` (default OFF). **Verdict: DO NOT
+SHIP.** Fixes the target (seq-08 normal |ΔL| 0.329→0.232 p=7.7e-3, long
+0.583→0.363; donor far_end cov up on both seqs) **but over-extends compacts**
+(|ΔL| +0.109 seq 08 / +0.116 seq 00) → the pre-registered compact non-regression
+guard fails on both sequences. Confirms the compensation is irreducibly
+length-dependent (option 3), which stays out of scope. Production unchanged
+(flags default OFF, invariant tests green). Original scoping notes below.
+
+
 
 #36's over-extension control (q90 **+0.45**) improved **both** metrics on
 normal/long cars (cov 0.364→0.483, far_end 0.316→0.509, box |ΔL| 0.304→0.210), so
@@ -523,9 +536,10 @@ plausibility (completion is single-frame, no motion smear). Recipe caveat: the
 fair (same recipe both groups). Finding #44; figure
 `output/figures/t11_mover_completions_bev.png`. No fixes (observational).
 
-**Remaining delegate-brief tasks:** T13 (Step 1c under-extension, Tier-3, now
-unblocked — highest-risk, needs `/tweakable-plan` + dual-sequence
-pre-registration), T14 (thesis chapters, user-supervised).
+**Remaining delegate-brief tasks:** T13 DONE (Step 1c, negative result — Finding
+#45, `t13_step1c_plan.md`; do not ship, production unchanged). **Only T14
+(thesis chapters, user-supervised) remains** — all mechanically-delegated tasks
+(T1–T13) complete.
 
 ## Medium-Term Backlog
 

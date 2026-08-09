@@ -111,6 +111,13 @@ def main():
                          "RNG, so the seed selects WHICH points the network "
                          "sees. Default 0 = every published run. Vary it to "
                          "size the sampling spread of a metric.")
+    ap.add_argument("--decouple-radius", action="store_true",
+                    help="T13/Step 1c D1: set the normalization radius against "
+                         "the center BEFORE the Z length-push (scale stops "
+                         "riding on the length prior). Default OFF = production.")
+    ap.add_argument("--fill-z", type=float, default=1.0,
+                    help="T13/Step 1c D2: length-axis (canonical Z) fill factor "
+                         "applied about the estimated center. 1.0 = no-op.")
     ap.add_argument("--overwrite", action="store_true")
     args = ap.parse_args()
 
@@ -131,7 +138,9 @@ def main():
 
     completer = PointCloudCompleter(model_path=args.pcn_ckpt,
                                     seed=args.seed,
-                                    length_prior=args.length_prior)
+                                    length_prior=args.length_prior,
+                                    decouple_radius=args.decouple_radius,
+                                    fill_z=args.fill_z)
     pairs = index["pairs"]
 
     # Per-car estimates for the track modes; `ols` is computed per pair below.
@@ -191,6 +200,8 @@ def main():
     index["config"]["length_prior"] = args.length_prior
     index["config"]["length_mode"] = args.length_mode
     index["config"]["seed"] = args.seed
+    index["config"]["decouple_radius"] = args.decouple_radius
+    index["config"]["fill_z"] = args.fill_z
     index["config"]["recomputed_from"] = os.path.basename(src_dir)
     with open(out_index, "w") as f:
         json.dump(index, f)
