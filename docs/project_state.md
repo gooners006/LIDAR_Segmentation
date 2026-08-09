@@ -428,9 +428,50 @@ tracked), T2 `4df200a` (evaluate.py CLI drift), T3 `5303291`
 (doc consistency), T6 `bcf012f` (fallback-frequency instrumentation),
 T7 `a4a65c5` (output/08 regen, Finding #41).
 
-**Next: T8** (Tier 2 — held-out sequence selection + amodal GT), then
-**T9a** (pre-registration — the one hard user-approval gate; see
-`docs/plans/personal_agenda_2026_08_02.md` P0.1, not yet reached).
+### T8 — held-out sequence selection + amodal GT: DONE (2026-08-09)
+
+Tier 2 begins. Default seq **05 fell to the fallback rule**: only **11
+well-observed static cars** survived the guards (< 15 threshold). Dominant
+rejection was `center_spread` (107/170 fitted) — seq 05 has few cleanly-static,
+well-surrounded parked cars; its survivors also skew short (median
+L 3.61/W 1.82/H 1.50). Per the brief, fell back to seq **00** (never 08).
+
+**Seq 00 fallback SUCCEEDS: 46 well-observed static cars** (of 531 fitted / 537
+observed). Same guards as seq 08. **Sanity gate passes both halves:** median
+well-observed dims **L 3.80 / W 1.81 / H 1.49 m** (W/H within 2–6 cm of the
+seq-08 reference L 4.14/W 1.75/H 1.47; L ~0.34 m shorter but inside the sane
+range 3.5–5.0 — the well-observed set skews compact), and the visual check
+(`output/00/amodal_gt_check.png`, 4 typical + 8 worst outliers) shows tight,
+correctly-oriented boxes on all 12; short-L outliers are genuinely short/compact
+clouds, not mis-fits. Artifacts (gitignored): `output/00/amodal_gt.json` (chosen
+GT), `output/00/amodal_gt_check.png`, `output/05/amodal_gt.json` (fallback-trigger
+record). No `src/` change, no existing output overwritten.
+
+**Confound logged (per brief):** seq 00 is in the classifier's Stage-B training
+split (train 00–07,09–10; val 08), so detection recall reads optimistic. The
+completion claims survive this because T9b compares raw vs completed on the SAME
+paired TP inputs, and PCN was trained on synthetic (never seq 00). No labeled
+sequence is simultaneously classifier-held-out and completion-held-out (08 is the
+only classifier-val seq but completion constants were tuned there; test seqs
+11–21 have no labels, so no amodal GT is possible).
+
+### T9a — pre-registration: DONE (2026-08-09, user-approved)
+
+Held-out sequence for T9 fixed as seq **00**. Pre-registration
+`docs/plans/preregistration_heldout.md` drafted, **user-approved**, and
+committed BEFORE any seq-00 eval (`c524612`, immutable timestamp). Registers:
+primary refutation-bearing metrics = **BEV IoU (#29) + donor cov@0.1 (#32)**
+(completed beats raw, per-car medians, Wilcoxon p<.05); |ΔW|/|ΔH|/|ΔL|/center-err
+secondary/reported; R1 does-not-generalize, R2 08-specific length constants
+(per-band d2), R3 escalate uncovered results; outcome taxonomy
+HOLDS / PARTIALLY HOLDS / DOES NOT GENERALIZE.
+
+**Next: T9b** (frozen-config evals — NOT started). Run #29 box eval + #32 donor
+metric (steps 1–3 + d2) against `output/00/amodal_gt.json`, production config +
+checkpoints, per-car length estimate ON, **no tuning**. Deliver the per-band
+tables (raw vs completed; compact/normal/long; d2 ratios), n_cars/n_pairs. Then
+**T9c** = fresh Opus session (executor/judge separation) grades vs the committed
+pre-registration.
 
 ## Medium-Term Backlog
 
