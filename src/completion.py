@@ -608,8 +608,8 @@ def f_score(pred: np.ndarray, gt: np.ndarray, threshold: float = 0.01) -> float:
     tree_gt = cKDTree(gt)
     d_pred_to_gt, _ = tree_gt.query(pred)
     d_gt_to_pred, _ = tree_pred.query(gt)
-    precision = float((d_gt_to_pred < threshold).mean())
-    recall = float((d_pred_to_gt < threshold).mean())
+    precision = float((d_pred_to_gt < threshold).mean())
+    recall = float((d_gt_to_pred < threshold).mean())
     if precision + recall == 0:
         return 0.0
     return 2 * precision * recall / (precision + recall)

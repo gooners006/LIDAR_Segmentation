@@ -1793,3 +1793,36 @@ A/B knobs (default OFF, invariant-tested, production unchanged) so the result is
 reproducible; a length-dependent fill (option 3) is the only remaining lever and
 stays out of scope (would need more long/compact cars than the 8/27/5 available
 to fit safely).
+
+## 46. Stale `large_centroids` in `_merge_nearby_clusters` — Real Inconsistency, NEGATIVE to Fix (2026-08-09)
+
+**Context:** An external code review flagged that `_merge_nearby_clusters`
+(`src/pipeline.py`) computes `large_centroids` once before the merge loop, but
+when a small cluster is absorbed it updates `cluster_info[lcl]["centroid"]` in
+place without refreshing the `large_centroids` array used for the next distance
+test. Confirmed real: subsequent small clusters measure distance to the
+pre-merge centroid. (The `z_min`/`z_max` updates *are* consumed via `l_info`;
+only the centroid goes stale.)
+
+**Finding:** The merge path is disabled in the production default
+(`"merge_fragments": False`), so this has **zero effect on any headline result**
+— the default eval never calls the function. Tested the fix
+(`large_centroids[idx] = cluster_info[lcl]["centroid"]`) with the path forced on:
+
+```
+.venv\Scripts\python.exe src/evaluate.py --merge-fragments   # seq 00, 100 frames
+```
+
+| | TP | FP | FN | Prec | Rec | F1 | meanIoU |
+|---|---|---|---|---|---|---|---|
+| Pre-fix (stale) | 1260 | 41 | 407 | 0.968 | 0.756 | 0.849 | 0.968 |
+| Post-fix (fresh) | 1261 | 45 | 406 | 0.966 | 0.756 | 0.848 | 0.967 |
+
+Keeping centroids fresh pulls a few extra merges → +4 FP, ΔF1 −0.001,
+ΔmeanIoU −0.001. Neutral-to-marginally-negative.
+
+**Decision:** Reverted the fix. The stale-centroid behavior (merge toward
+*original* centroids) scores marginally better, so it is left as-is
+intentionally — not a latent bug to fix. The sibling `f_score` precision/recall
+naming swap (`src/completion.py`) *was* kept: output-identical (F1 symmetric),
+pure readability.
