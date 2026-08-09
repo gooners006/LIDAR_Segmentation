@@ -363,8 +363,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--clustering-method", type=str, default=None,
-        choices=["hdbscan", "bev"],
-        help="Override clustering method (hdbscan or bev)",
+        choices=["hdbscan", "bev", "dbscan", "euclidean"],
+        help="Override clustering method (hdbscan, bev, dbscan, or euclidean; "
+             "dbscan/euclidean are T10 benchmark alternatives, not production)",
     )
     parser.add_argument(
         "--bev-resolution", type=float, default=None,

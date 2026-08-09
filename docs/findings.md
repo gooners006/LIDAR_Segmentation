@@ -1583,3 +1583,157 @@ documented negative result) would be a new backlog item.
 **Housekeeping:** old `output/08` preserved as `output/08_fixedprior_backup/`
 (reversible); `output/08_regen` promoted to `output/08` (GT artifacts
 `amodal_gt.json`/`amodal_gt_check.png` copied in unchanged).
+
+## 42. Seq-00 Held-Out Replication Verdict — PARTIALLY HOLDS (T9c) (2026-08-09)
+
+**Context:** T9c judge session (executor/judge separation) applying the
+pre-registered R1/R2/R3 refutation criteria
+(`docs/plans/preregistration_heldout.md`) verbatim to the frozen seq-00
+completion-eval tables (`docs/plans/t9b_results_heldout_seq00.md`, #29 box +
+#32 donor, production config/checkpoints, no tuning). Full worked verdict:
+`docs/plans/t9c_verdict_heldout_seq00.md`.
+
+**Finding:** Verdict = **PARTIALLY HOLDS**. Both primary metrics are decisive
+wins over the raw partial:
+
+| Primary metric | raw | completed | Wilcoxon p |
+|---|---|---|---|
+| BEV IoU (ALL, n=45) | 0.739 | 0.766 | 1.6e-3 |
+| Donor cov@0.1 (τ=0.15) | 0.000 | 0.413 | ~0 |
+
+- **R1 (does-not-generalize) — not triggered.** Neither primary fails to beat
+  raw.
+- **R2 (08-specific length constants) — not triggered, verbatim.** No testable
+  band's d2 ratio exceeds its seq-08 level (compact 1.8× < ≈16×; normal 0.02× <
+  ≈0.12×). Compact fails its pass-bit on 00 (0.0090 > 0.0050) but that is a
+  *smaller* violation than 08 and compact did not pass on 08 either, so neither
+  R2 clause applies.
+- **R3 (uncovered result) — triggered** by the **empty long band (0 cars
+  ≥4.6 m)**: seq-00's well-observed set is all compact/normal, so the long-band
+  predictions and long-band d2 guard are untestable ("band Ns too small to
+  test"). Escalated to the user with the tables.
+
+**Decision:** Resolved via the taxonomy's PARTIALLY HOLDS "caveat named" clause
+(user decision, 2026-08-09): downgrade HOLDS → PARTIALLY HOLDS with the empty
+long band as the named caveat. The "partial" reflects a **coverage gap, not a
+weak metric** — both primaries were clean significant wins. Constants **not**
+retuned. Tier-3 gate is satisfied (PARTIALLY HOLDS permits T13).
+
+## 43. Clustering Benchmark — HDBSCAN's Density-Adaptive Linkage Buys Recall No Fixed Radius Reaches (T10) (2026-08-09)
+
+**Context:** T10 of the delegate brief (backlog #5). Compared production
+HDBSCAN against Open3D DBSCAN and PCL-style Euclidean cluster extraction, at a
+**fixed `cluster_voxel_size=0.10`** and identical pre/post pipeline stages —
+only the clustering algorithm swapped. Added `_cluster_dbscan` /
+`_cluster_euclidean` + dispatch + `--clustering-method` choices to
+`pipeline.py`/`evaluate.py` (additive; reproduction baseline P 0.967/R 0.777/
+F1 0.862/mIoU 0.962, TP=1296/FP=44/FN=371 matched EXACTLY after the edits).
+Scripts: `scratchpad/t10_clustering_benchmark.py`, `scratchpad/t10_eps_sweep.py`;
+results `output/experiments/t10_clustering/`. Params untuned/standard: eps =
+tolerance = 0.5 m, min size 10 (mirrors `hdbscan_min_cluster_size`).
+
+**Deviation (logged):** metrics are **per-frame, track filter OFF**, on both
+sequences. A strided seq-08 sample is incompatible with the centroid tracker
+(links consecutive frames → stride-20 makes every detection a length-1 track →
+`min_track_length=2` rejects all). Per-frame eval also isolates clustering from
+the method-independent track post-filter, which is the point of the benchmark.
+
+**Finding — main table (per-frame, no track filter):**
+
+seq 00 (100 frames):
+
+| method | P | R | F1 | mIoU | clustering ms (med) | med #clusters |
+|--------|---|---|----|------|---------------------|---------------|
+| **HDBSCAN** | 0.962 | **0.731** | **0.831** | 0.968 | 393 | 129 |
+| DBSCAN (eps 0.5) | 0.962 | 0.637 | 0.767 | 0.964 | **58** | 108 |
+| Euclidean (0.5) | 0.967 | 0.636 | 0.768 | 0.982 | 77 | 96 |
+
+seq 08 (stride-20, 204 frames):
+
+| method | P | R | F1 | mIoU | clustering ms (med) | med #clusters |
+|--------|---|---|----|------|---------------------|---------------|
+| **HDBSCAN** | 0.813 | **0.671** | **0.735** | 0.923 | 452 | 236 |
+| DBSCAN (0.5) | 0.848 | 0.565 | 0.678 | 0.927 | **68** | 139 |
+| Euclidean (0.5) | 0.838 | 0.576 | 0.683 | 0.950 | 92 | 124 |
+
+HDBSCAN wins F1 on both sequences (+0.06 seq00, +0.05 seq08), **entirely
+through recall** — precision is method-independent (set by the geometric filter
++ classifier, not clustering). The alternatives are **5–7× faster** (58–92 ms
+vs 393–452 ms). Euclidean ≈ DBSCAN on F1; DBSCAN's core-point density test
+discards sparse points Euclidean keeps, so Euclidean edges it on recall/mIoU.
+
+**Pre-registered mechanism was half-wrong:** predicted density methods would
+lose *precision* by merging adjacent cars. Precision is tied — the merge
+instead surfaces as *recall* loss (a merged car-pair yields one TP + one FN),
+consistent with the lower cluster counts (108/96 vs 129 on seq00; 139/124 vs
+236 on seq08).
+
+**eps robustness (seq 00, rebuts the "one arbitrary eps" concern):** no fixed
+radius reaches HDBSCAN's recall. DBSCAN/Euclidean recall peaks at eps 0.4–0.5
+then falls; the best fixed-radius config is **Euclidean eps=0.4 (R 0.684 /
+F1 0.800)** — still below HDBSCAN (R 0.731 / F1 0.831).
+
+| eps | DBSCAN R / F1 | Euclidean R / F1 |
+|-----|---------------|------------------|
+| 0.3 | 0.525 / 0.684 | 0.663 / 0.789 |
+| 0.4 | 0.624 / 0.763 | **0.684 / 0.800** |
+| 0.5 | 0.637 / 0.767 | 0.636 / 0.768 |
+| 0.7 | 0.543 / 0.694 | 0.535 / 0.689 |
+| — | **HDBSCAN ref: 0.731 / 0.831** | |
+
+**Decision:** **Adopt nothing** — HDBSCAN stays production. Its density-adaptive
+linkage recovers cars that no single global radius can, without per-scene
+tuning; the 5–7× runtime penalty matters only under a real-time budget, which
+is out of scope (#34, user decision 2026-07-23). `dbscan`/`euclidean` kept as
+`--clustering-method` options for reproducibility, like `bev` (#21). Thesis
+table material for the clustering-choice justification.
+
+## 44. Moving Cars Complete As Plausibly As Statics — Validation Gap Closed (T11) (2026-08-09)
+
+**Context:** T11 of the delegate brief. Completion validation (#29/#32) covered
+STATIC cars only (paired amodal-GT boxes require a stationary car), but
+production completes movers too. Checked whether movers — never validated —
+complete into plausible car boxes at a comparable rate. Ran on the regenerated
+`output/08` (per-car length estimate + #38 RNG fix, 518 completed car tracks).
+Script: `scratchpad/t11_mover_plausibility.py`; figure
+`output/figures/t11_mover_completions_bev.png`; json
+`output/experiments/t11_mover_plausibility.json`. Observational only, no fixes.
+
+**Method:** plausible-car-box recipe verbatim from #27/#28 —
+`dims` = desc-sorted global-axis extents; plausible iff L∈[3.3,4.9],
+W∈[1.5,2.1], H∈[1.1,1.7]. Motion split is label-free (output/08 tracks are
+unlabeled): net horizontal displacement of the track centroid (median of first
+5 vs last 5 frames, X-Z ground plane, Y vertical per #26/#27). static =
+net ≤ 2.0 m (mirrors amodal_gt's 2.0 m center-spread guard); moving = net ≥ 5.0 m
+(no parked car drifts 5 m); ambiguous 2–5 m reported separately. net_disp is
+robust to the ~2 m per-frame centroid jitter that inflates raw path span even
+for parked cars.
+
+**Finding:**
+
+| group (net disp) | n | plausible | rate | median L/W/H |
+|------------------|---|-----------|------|--------------|
+| STATIC (≤2 m) | 419 | 225 | 53.7% | 3.81/1.94/1.49 |
+| **MOVING (≥5 m)** | **19** | **11** | **57.9%** | 3.84/2.05/1.44 |
+| ambiguous (2–5 m) | 80 | 46 | 57.5% | 3.95/1.92/1.49 |
+| ALL | 518 | 282 | 54.4% | 3.83/1.94/1.49 |
+
+Movers are **not worse** than statics — slightly higher (+4.2 pp), well within
+noise at n=19, with near-identical median dims. Every motion bucket clusters at
+54–58%, so **motion does not degrade completion plausibility.** This is expected:
+completion runs on a single reference frame's cluster (not accumulated points),
+so there is no motion-smear penalty on the input.
+
+**Recipe caveat (from the figure, not a mover effect):** most failing movers
+fail on **inflated width** (t30181 W 3.5, t22653 W 3.0, t26359 W 2.7) — they are
+genuine car-shaped footprints oriented **diagonally** in the X-Z plane, and the
+`dims` recipe's axis-aligned extents overestimate W/L for off-axis cars (the
+#28 caveat). So the absolute ~54% rate **understates** completion quality (an
+oriented-box measure would score higher); the mover-vs-static comparison is
+unaffected since both groups use the identical recipe.
+
+**Decision:** No fix (observational task). The statics-only validation does not
+hide a mover failure mode — movers complete comparably. Feeds T14 ch. 5
+(limitations): the in-sample/statics-only calibration concern is mitigated on
+the motion axis. If a future task wants a truer absolute plausibility rate,
+switch `dims` to oriented-box extents (out of scope here).

@@ -2,6 +2,8 @@ import numpy as np
 import open3d as o3d
 import hdbscan
 from scipy.ndimage import binary_dilation, binary_erosion, label as ndimage_label
+from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import connected_components
 from scipy.spatial import cKDTree
 from typing import List, Tuple
 
@@ -38,6 +40,15 @@ PIPELINE_CONFIG = {
     "cluster_voxel_size": 0.10,
     "bev_resolution": 0.2,
     "bev_morph_kernel": 3,
+    # benchmark-only clustering alternatives (T10 thesis comparison; NOT
+    # production, adopt nothing). Standard untuned params: 0.5 m radius mirrors
+    # the classic KITTI Euclidean tolerance, min size 10 mirrors HDBSCAN's
+    # hdbscan_min_cluster_size. Only used when clustering_method is set to
+    # "dbscan" / "euclidean".
+    "dbscan_eps": 0.5,
+    "dbscan_min_points": 10,
+    "euclidean_tolerance": 0.5,
+    "euclidean_min_cluster_size": 10,
     # post-clustering fragment merge
     "merge_fragments": False,
     "merge_max_centroid_dist": 2.0,
@@ -310,6 +321,51 @@ def _merge_nearby_clusters(points: np.ndarray, labels: np.ndarray, config: dict)
     return labels
 
 
+def _cluster_dbscan(points: np.ndarray, config: dict) -> np.ndarray:
+    """DBSCAN via Open3D ``cluster_dbscan`` (T10 benchmark, not production).
+
+    Returns integer labels aligned with ``points``; noise is ``-1``.
+    """
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+    labels = np.asarray(
+        pcd.cluster_dbscan(
+            eps=config["dbscan_eps"],
+            min_points=config["dbscan_min_points"],
+            print_progress=False,
+        )
+    )
+    return labels.astype(np.int32)
+
+
+def _cluster_euclidean(points: np.ndarray, config: dict) -> np.ndarray:
+    """PCL-style Euclidean cluster extraction (T10 benchmark, not production).
+
+    Connected components of a fixed-radius neighbour graph (``tolerance``),
+    then clusters below ``min_cluster_size`` points are relabelled as noise.
+    Unlike DBSCAN there is no core-point/noise density test — pure
+    connectivity, matching PCL's ``EuclideanClusterExtraction``.
+
+    Returns integer labels aligned with ``points``; sub-min clusters are ``-1``.
+    """
+    tol = config["euclidean_tolerance"]
+    min_size = config["euclidean_min_cluster_size"]
+    n = len(points)
+    tree = cKDTree(points)
+    pairs = tree.query_pairs(r=tol, output_type="ndarray")
+    if len(pairs) == 0:
+        return np.full(n, -1, dtype=np.int32)
+    graph = coo_matrix(
+        (np.ones(len(pairs)), (pairs[:, 0], pairs[:, 1])), shape=(n, n)
+    )
+    n_comp, comp = connected_components(graph, directed=False)
+    counts = np.bincount(comp, minlength=n_comp)
+    keep = counts >= min_size
+    remap = np.full(n_comp, -1, dtype=np.int32)
+    remap[keep] = np.arange(int(keep.sum()), dtype=np.int32)
+    return remap[comp].astype(np.int32)
+
+
 def _cluster_bev(points: np.ndarray, config: dict) -> np.ndarray:
     """BEV grid clustering via connected-component labeling.
 
@@ -387,6 +443,10 @@ def _dispatch_clustering(points: np.ndarray, config: dict) -> np.ndarray:
     method = config.get("clustering_method", "hdbscan")
     if method == "bev":
         return _cluster_bev(points, config)
+    if method == "dbscan":
+        return _cluster_dbscan(points, config)
+    if method == "euclidean":
+        return _cluster_euclidean(points, config)
     if config.get("adaptive_hdbscan", False):
         return _cluster_adaptive_hdbscan(points, config)
     return _cluster_hdbscan(points, config)

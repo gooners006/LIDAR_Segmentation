@@ -486,10 +486,51 @@ seq-08 ~16×); **long band empty** → long-band predictions untestable (R3).
 committed pre-registration + `t9b_results_heldout_seq00.md` and writes the
 finding draft applying R1/R2/R3 verbatim. NOT this session.
 
+### T9c — arbitration verdict: DONE (2026-08-09)
+
+Fresh judge session applied R1/R2/R3 verbatim to the T9b tables. **Verdict:
+PARTIALLY HOLDS** (Finding #42, full worked verdict
+`docs/plans/t9c_verdict_heldout_seq00.md`). Both primaries are decisive wins
+(BEV IoU 0.739→0.766 p=1.6e-3; donor cov@0.1 0.000→0.413 p≈0); R1 and R2 both
+clear verbatim; R3 triggered by the **empty long band** (0 cars ≥4.6 m →
+long-band checks untestable), escalated and resolved via the taxonomy's
+"caveat named" clause (user decision) — downgrade is a coverage gap, not a weak
+metric. **Tier-3 gate satisfied (T13 permitted).**
+
+### T10 — clustering benchmark: DONE (2026-08-09)
+
+Backlog #5. HDBSCAN vs DBSCAN vs Euclidean at fixed `cluster_voxel_size=0.10`,
+identical pipeline, per-frame (track filter OFF — stride/tracker incompatible).
+**HDBSCAN wins F1 on seq 00 (0.831 vs 0.767/0.768) and seq 08 (0.735 vs
+0.678/0.683), entirely via recall; precision is method-independent.**
+Alternatives are 5–7× faster (58–92 ms vs 393–452 ms). eps sweep confirms no
+fixed radius reaches HDBSCAN's recall (best: Euclidean eps=0.4, R 0.684/F1
+0.800 < HDBSCAN 0.731/0.831). **Adopt nothing** — HDBSCAN stays production
+(Finding #43). `dbscan`/`euclidean` kept as `--clustering-method` options.
+Baseline re-verified EXACT after the additive `src/` edits.
+
+### T11 — moving-car plausibility: DONE (2026-08-09)
+
+Checked whether production-completed movers (never validated; #29/#32 covered
+statics only) form plausible car boxes. On regenerated `output/08` (518
+completed car tracks), split by kinematic net-displacement of the track
+centroid (static ≤2 m / moving ≥5 m / ambiguous). **Movers complete as
+plausibly as statics: 57.9% (11/19) vs 53.7% (225/419)**, near-identical median
+dims; every motion bucket 54–58% → motion does not degrade completion
+plausibility (completion is single-frame, no motion smear). Recipe caveat: the
+#28 axis-aligned `dims` box understates quality for diagonally-oriented cars
+(most failures are width-inflation on genuine car shapes), but the comparison is
+fair (same recipe both groups). Finding #44; figure
+`output/figures/t11_mover_completions_bev.png`. No fixes (observational).
+
+**Remaining delegate-brief tasks:** T13 (Step 1c under-extension, Tier-3, now
+unblocked — highest-risk, needs `/tweakable-plan` + dual-sequence
+pre-registration), T14 (thesis chapters, user-supervised).
+
 ## Medium-Term Backlog
 
 4. ~~Ablation: Stage A-only vs Stage B on real data~~ — done (Findings #7, #25)
-5. Benchmark HDBSCAN vs Euclidean clustering vs DBSCAN
+5. ~~Benchmark HDBSCAN vs Euclidean clustering vs DBSCAN~~ — done (Finding #43, T10)
 6. Replace global RANSAC with grid-based ground removal (Patchwork++)
 7. Tracker upgrade — IOU-based matching (SORT-style)
 8. Recreate `.venv` in place (Python 3.10.11) — fix relocated-venv pip launchers
