@@ -196,6 +196,13 @@ the trend on 8/27/5 cars would overfit. Candidate framings, cheapest first:
 3. Only then consider a length-dependent target.
 Measure with the same band-split box metric + per-band guard `d2`.
 
+**T13 locked plan + pre-registration (2026-08-09):**
+`docs/completion/t13_step1c_plan.md`. Decisions locked: D1 = Z-only radius
+decouple, D2 = length-axis fill factor (confirm anisotropy on synthetic, widen
+only if W/H fill > 1.10), D3 = long-band evidence from seq 08 only (seq 00 long
+band empty per T9c R3). Ship gate is pre-registered there (option 3 out of
+scope).
+
 ### Step 2 — heading/center on diagonal/sparse views (remaining target)
 
 The other #29/#32 weakness (worst donor panels + out-of-box flags): completed
