@@ -1,6 +1,27 @@
 # Project State
 
-Last updated: 2026-08-09
+Last updated: 2026-08-21
+
+## RESEARCH FREEZE — declared 2026-08-21 (write-up phase)
+
+Research is complete; the repository is now **evidence, not a lab**. Thesis
+write-up (T14) is the only open task. Execution plan: `THESIS_PLAN.md` (Section 2
+is the authoritative freeze table). Frozen items, all repo-verified 2026-08-21:
+
+| Item | Frozen value | Source |
+|---|---|---|
+| Pipeline config | `PIPELINE_CONFIG` as committed: `voxel_before_denoise=True`, `ransac_iterations=300`, `cluster_voxel_size=0.10`, `clustering_method="hdbscan"` | `src/pipeline.py:10` |
+| Checkpoints | `stage_b_scratch_best.pth` (classifier), `pcn_kitti_best.pth` (completion) | this doc, Checkpoints |
+| Completion constants | per-car length estimate q90 (`COMPLETION_LENGTH_TRACK_QUANTILE=90`) + 0.12 m (`_OFFSET`), fallback 4.14 m below 5 frames; T13 flags (`decouple_radius`, `fill_z`) default OFF | `src/completion.py:206,242-243,303-304` |
+| Eval protocol | point-level IoU ≥ 0.3 greedy 1-to-1, supported-vehicles, track filter ON, micro-averaged | `src/evaluate.py` |
+| Authoritative sequences | **seq 08 = headline** (4,071 frames); seq 00 = tuning/replication (dual role, in classifier train split); seq 05 = fallback-trigger record only | Findings #18, #42; T8 |
+| Closed experiments | recall repairs (#21/#24), Step 1c (#45), OLS fallback (#40), PoinTr (#28), Stage A production use (#31), PCN real fine-tuning (#16/#17/#19), merge-centroid fix (#46) | `docs/findings.md` |
+
+**Freeze rule:** no edits to `src/pipeline.py`, `src/completion.py`,
+`src/classifier.py`, checkpoints, or `output/08` until after submission. New work
+goes to `scratchpad/` + new `output/experiments/` subfolders only (house
+data-safety rule). The remaining evidence tasks (B1–B6 in `THESIS_PLAN.md` §3)
+are read-only analyses against this frozen config — they do not change it.
 
 ## Current Architecture
 
