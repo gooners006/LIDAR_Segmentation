@@ -46,7 +46,7 @@ and run them in parallel with writing.
 ## 3. Remaining experimental tasks
 
 ### B1 — IoU-threshold sensitivity (MANDATORY)
-- [ ] **Done**
+- [x] **Done** 2026-08-21 (#47): F1 0.811/0.808/0.785 at IoU 0.25/0.30/0.50 — stable, PASS. Logs in `output/experiments/iou_sensitivity/`.
 - Objective: show the headline is not an artifact of IoU=0.3 (defends examiner Q4).
 - Command **[V exists]**: `.venv\Scripts\python.exe src/evaluate.py --seq 08 --frames 5000 --iou-threshold 0.25`
   and `--iou-threshold 0.5`, stdout redirected to
@@ -98,7 +98,7 @@ and run them in parallel with writing.
   the pipeline chapter.
 
 ### B6 — Geometric-only ablation under promoted config (RECOMMENDED)
-- [ ] **Done**
+- [x] **Done** 2026-08-21 (#47): geom-only P0.149/R0.775/F10.250 (like-for-like); C2 corrected 0.305→0.250. Log in `output/experiments/iou_sensitivity/`.
 - Justification: the ablation table's "geometric-only F1 0.305" (#18) was measured
   2026-05-28 under the *pre*-promoted config; the endpoint 0.808 is post-promoted.
   Mixed-config ablation rows are an examiner risk.
@@ -149,7 +149,7 @@ Mapped onto the FPT template (`docs/writing/report-template/main.tex` **[V]**):
 | # | Claim | Evidence / Experiment | Data / Metric | Fig/Tab | Section | Status & required wording |
 |---|---|---|---|---|---|---|
 | C1 | Hybrid pipeline reaches P .905/R .730/F1 .808 | full seq-08 eval | seq 08, 4071 fr | Tab 4.1 | 4.2 | **Strong**, but state seq 08 = classifier model-selection set |
-| C2 | Classifier is the precision mechanism (.305→.808 F1) | #18 ablation (+B6 rerun) | seq 08 | Tab 4.2 | 4.3 | Strong; fix config provenance via B6 or caption caveat |
+| C2 | Classifier is the precision mechanism (geom-only .250→.808 F1, P .149→.905) | #18 ablation + B6 rerun (#47) | seq 08 | Tab 4.2 | 4.3 | Strong; like-for-like under promoted config (B6, #47); #18's .305 is pre-promo, kept as historical. State geom-only recall (.775) > full (.730) |
 | C3 | Recall limited by HDBSCAN splitting, not classification | #23 (31–37% split; ceiling matches recall) | seq 00+08 | Tab 5.x | 5 | **Strong** |
 | C4 | Post-hoc repairs fail; resolution partially works | #21/#24 negatives; #34 (+.031 R) | seq 08 | Tab 5.y | 5 | Strong; use the *corrected* #24 wording (no "hard limit") |
 | C5 | Synthetic pretraining redundant; sim-to-real gap total | #25/#30 | Stage-B val | Tab 4.3 | 4.3 | Strong **negative** — this *replaces* the proposal's two-stage-training contribution |
@@ -318,7 +318,8 @@ Confirmed against the repo, all with negative-result precedent or closed status 
    `--no-learned-classifier --no-track-filter` → same folder.
 4. [ ] While those run, write `scratchpad/gt_eligibility_count.py` (B2), run on seq 08
    stride-20, record the exclusion percentage via `/note-finding`.
-5. [ ] Record B1/B6 results as a finding; build Tab 4.5 and the corrected Tab 4.2.
+5. [x] Record B1/B6 results as a finding (#47); C2 corrected 0.305→0.250. — done 2026-08-21.
+   Table *numbers* locked in #47; LaTeX Tab 4.5 / corrected Tab 4.2 transcribed when Ch 4 is drafted.
 6. [ ] Draft **§4.1 Evaluation protocol** in the FPT template
    (`docs/writing/report-template/main.tex` copy), applying the mandated phrasings;
    cite B1/B2.

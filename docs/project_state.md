@@ -23,6 +23,13 @@ goes to `scratchpad/` + new `output/experiments/` subfolders only (house
 data-safety rule). The remaining evidence tasks (B1–B6 in `THESIS_PLAN.md` §3)
 are read-only analyses against this frozen config — they do not change it.
 
+**Evidence-task progress:** B1 (IoU sensitivity) + B6 (geometric-only ablation)
+DONE 2026-08-21 (Finding #47, `output/experiments/iou_sensitivity/`): headline
+F1 threshold-stable (0.811/0.808/0.785 at IoU 0.25/0.30/0.50); geometric-only
+like-for-like F1 0.250 under promoted config (C2 corrected from the pre-promo
+0.305). B2 (GT-eligibility count) is the remaining mandatory experimental item;
+B3/B4/B5 are writing/figure work.
+
 ## Current Architecture
 
 | Stage | Description | File | Status |

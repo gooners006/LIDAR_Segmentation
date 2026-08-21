@@ -1826,3 +1826,56 @@ Keeping centroids fresh pulls a few extra merges → +4 FP, ΔF1 −0.001,
 intentionally — not a latent bug to fix. The sibling `f_score` precision/recall
 naming swap (`src/completion.py`) *was* kept: output-identical (F1 symmetric),
 pure readability.
+
+## 47. IoU-Threshold Sensitivity (B1) + Geometric-Only Ablation Under Promoted Config (B6) — seq 08 full (2026-08-21)
+
+**Context:** Thesis-plan mandatory evidence tasks B1/B6 (`THESIS_PLAN.md` §3),
+run read-only against the frozen `PIPELINE_CONFIG` during the write-up freeze.
+B1 defends examiner Q4 ("why IoU 0.3?"); B6 makes the stage-ablation table
+like-for-like under the promoted config. Full seq 08 (4,071 frames). Logs:
+`output/experiments/iou_sensitivity/seq08_{iou025,iou050,geomonly}.log`.
+
+**Finding:**
+
+B1 — IoU-threshold sensitivity (frozen config; 0.30 row = published headline):
+
+| IoU thresh | Precision | Recall | F1 | Mean IoU | TP / FP / FN |
+|---|---|---|---|---|---|
+| 0.25 | 0.908 | 0.732 | 0.811 | 0.910 | 25576 / 2578 / 9346 |
+| 0.30 | 0.905 | 0.730 | 0.808 | 0.912 | 25478 / 2676 / 9444 |
+| 0.50 | 0.879 | 0.709 | 0.785 | 0.927 | 24744 / 3410 / 10178 |
+
+F1 moves 0.811 → 0.808 → 0.785 — a 2.3-point drop from 0.30 to 0.50, as the
+matched-IoU of 0.96 predicts. The headline is **not** an artifact of IoU=0.3.
+Mean IoU rises at 0.50 (stricter gate keeps only better-overlapping matches).
+
+B6 — geometric-only ablation (`--no-learned-classifier --no-track-filter`),
+promoted config, full seq 08:
+
+| Config | Precision | Recall | F1 | Mean IoU | TP / FP / FN |
+|---|---|---|---|---|---|
+| Geometric-only (B6) | 0.149 | 0.775 | 0.250 | 0.907 | 27051 / 154612 / 7871 |
+| Full pipeline (frozen) | 0.905 | 0.730 | 0.808 | 0.912 | 25478 / 2676 / 9444 |
+
+This is the like-for-like geometric-only number under the promoted config —
+**F1 0.250**, superseding #18's pre-promotion geometric-only F1 0.305
+(P 0.205 / R 0.594, measured 2026-05-28 before the cv=0.10 promotion). #18 is
+preserved as the historical record. Two honest points for §4.3:
+- Promoted cv=0.10 *raises* geometric-only recall (0.594 → 0.775) but precision
+  collapses (0.205 → 0.149): coarser clustering emits more, mostly-junk clusters.
+  The classifier removes ~152k false positives (154612 → 2676), which is the
+  precision mechanism (P 0.149 → 0.905).
+- Geometric-only recall (0.775) *exceeds* the full-pipeline recall (0.730): the
+  classifier + track filter trade ~1,600 true positives for the 152k-FP removal.
+
+Commands:
+```
+.venv\Scripts\python.exe src/evaluate.py --seq 08 --frames 5000 --iou-threshold 0.25
+.venv\Scripts\python.exe src/evaluate.py --seq 08 --frames 5000 --iou-threshold 0.5
+.venv\Scripts\python.exe src/evaluate.py --seq 08 --frames 5000 --no-learned-classifier --no-track-filter
+```
+
+**Decision:** Ablation claim C2 corrected to geometric-only **F1 0.250 → 0.808**
+(like-for-like, promoted config), replacing the mixed-config 0.305 → 0.808;
+#18 kept as historical pre-promotion record. B1 confirms threshold robustness —
+no tuning warranted (pre-registered acceptance: "if it isn't stable, report it").
