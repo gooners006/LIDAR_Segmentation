@@ -1879,3 +1879,49 @@ Commands:
 (like-for-like, promoted config), replacing the mixed-config 0.305 → 0.808;
 #18 kept as historical pre-promotion record. B1 confirms threshold robustness —
 no tuning warranted (pre-registered acceptance: "if it isn't stable, report it").
+
+## 48. GT Cars Excluded by the Eligibility Rule (B2) — recall denominator vs. all annotated cars — seq 08 (2026-08-21)
+
+**Context:** Thesis-plan mandatory evidence task B2 (`THESIS_PLAN.md` §3),
+defending examiner Q9 ("recall against *all* annotated cars, not just
+survivors"). Reported detection recall (seq-08 R=0.730) uses a denominator of GT
+car instances with **>=10 points surviving preprocessing** (z-filter -> voxel ->
+denoise -> ground removal) — the `gt_masks` rule in `evaluate.py:238-242`. This
+quantifies how many annotated cars never enter that denominator. Script:
+`scratchpad/gt_eligibility_count.py`; JSON:
+`output/experiments/gt_eligibility/gt_eligibility_08.json`. Seq 08, stride-20
+sample (204 of 4,071 frames, drawn across the whole drive). Classifier not loaded
+— `gt_masks` are independent of it, and the eligible count is taken verbatim from
+`get_frame_detections` so it matches `evaluate.py` exactly.
+
+**Finding:** Three distinct per-frame quantities (sem in {10, 252}, inst > 0),
+pooled over 204 frames:
+
+| Quantity | Rule | Pooled count |
+|---|---|---|
+| `raw_all` | any point count | 2332 |
+| `raw_ge10` | >=10 **raw** points (advisor-report distinct-car rule) | 2033 |
+| `eligible` | >=10 **surviving** points (= eval recall denominator) | 1737 |
+
+Exclusion by the eligibility rule (measured):
+- vs. all annotated cars (`raw_all`): **25.5%** micro / 23.8% per-frame mean.
+- vs. >=10-raw-point cars (`raw_ge10`): **14.6%** micro / 13.8% per-frame mean.
+
+The two >=10-point rules are different quantities (project_state warns of this):
+>=10 *raw* points is a distinct-car count threshold on the unfiltered label
+cloud; >=10 *surviving* points is the eval denominator after preprocessing. 12.8%
+of annotated cars (299 of 2332) have fewer than 10 raw points at all (mostly
+far/occluded); a further 14.6% of the >=10-raw survivors are lost to
+preprocessing.
+
+Recall against all annotated cars (inferred, not separately measured): ineligible
+cars can never be a TP (absent from `gt_masks`), so recall-vs-all = TP/`raw_all` =
+reported recall x (eligible/raw_all). With the stride-20 survival ratio
+1737/2332 = 0.745: **~0.730 x 0.745 ~= 0.54**. Stated as an inference — the
+survival ratio is a stride-20 estimate (representative to ~1-2% per the
+timing-sampling lesson), and TP itself is unchanged.
+
+**Decision:** §4.1 (evaluation protocol) states the denominator explicitly and
+reports both the eligibility-exclusion percentage (25.5% vs. all annotated /
+14.6% vs. >=10-raw) and the implied ~0.54 recall-against-all-annotated, with the
+stride documented. No code or config change (read-only analysis; freeze intact).

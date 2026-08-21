@@ -58,7 +58,7 @@ and run them in parallel with writing.
   it *isn't*, that's a finding to report, not tune away).
 
 ### B2 — Quantify GT cars excluded by the ≥10-surviving-points rule (MANDATORY)
-- [ ] **Done**
+- [x] **Done** 2026-08-21 (#48): seq 08 stride-20 — 25.5% of all annotated cars (14.6% of ≥10-raw-point cars) excluded by the eligibility rule; implied recall-vs-all-annotated ≈0.54. `scratchpad/gt_eligibility_count.py`, `output/experiments/gt_eligibility/gt_eligibility_08.json`.
 - Objective: state recall against *all* annotated cars, not just survivors (defends
   Q9). No existing script does this **[V — checked scratchpad]**.
 - Method: new `scratchpad/gt_eligibility_count.py` reusing `get_frame_detections`'s
@@ -316,8 +316,8 @@ Confirmed against the repo, all with negative-result precedent or closed status 
    (~2 h wall, unattended).
 3. [ ] Launch B6 in background: same eval with
    `--no-learned-classifier --no-track-filter` → same folder.
-4. [ ] While those run, write `scratchpad/gt_eligibility_count.py` (B2), run on seq 08
-   stride-20, record the exclusion percentage via `/note-finding`.
+4. [x] While those run, write `scratchpad/gt_eligibility_count.py` (B2), run on seq 08
+   stride-20, record the exclusion percentage via `/note-finding`. — done 2026-08-21 (#48): 25.5% vs all annotated / 14.6% vs ≥10-raw.
 5. [x] Record B1/B6 results as a finding (#47); C2 corrected 0.305→0.250. — done 2026-08-21.
    Table *numbers* locked in #47; LaTeX Tab 4.5 / corrected Tab 4.2 transcribed when Ch 4 is drafted.
 6. [ ] Draft **§4.1 Evaluation protocol** in the FPT template

@@ -27,8 +27,12 @@ are read-only analyses against this frozen config — they do not change it.
 DONE 2026-08-21 (Finding #47, `output/experiments/iou_sensitivity/`): headline
 F1 threshold-stable (0.811/0.808/0.785 at IoU 0.25/0.30/0.50); geometric-only
 like-for-like F1 0.250 under promoted config (C2 corrected from the pre-promo
-0.305). B2 (GT-eligibility count) is the remaining mandatory experimental item;
-B3/B4/B5 are writing/figure work.
+0.305). B2 (GT-eligibility count) DONE 2026-08-21 (Finding #48,
+`output/experiments/gt_eligibility/`): seq 08 stride-20, 25.5% of all annotated
+cars (14.6% of ≥10-raw-point cars) excluded by the ≥10-surviving-points
+eligibility rule → implied recall against all annotated cars ≈0.54. **All
+mandatory experimental items (B1/B2/B6) now closed;** B3 (literature table)/B4
+(distance recall, optional)/B5 (pipeline diagram) are writing/figure work.
 
 ## Current Architecture
 
