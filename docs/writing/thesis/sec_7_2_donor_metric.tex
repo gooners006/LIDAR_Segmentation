@@ -1,0 +1,201 @@
+% Section 7.2 -- A Leakage-Free Metric for Real-Data Completion (the donor metric)
+% Standalone, compilable draft (FPT-template article class + booktabs + float).
+% Folded into the thesis main document later via \input.
+%
+% Scope: this section defines and VALIDATES the metric. The completion coverage
+% results it produces are reported in Section 7.3. Honesty rules (personal_agenda
+% P1): per-car medians / paired; static cars by construction; #37 presented as a
+% metric-design lesson, not an erratum (claim C7). Numbers traceable to
+% docs/completion/donor_metric.md and Findings #26/#32/#37.
+%
+\documentclass[a4paper,12pt]{article}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{siunitx}
+\usepackage{microtype}
+\usepackage[margin=2.5cm]{geometry}
+
+\begin{document}
+
+\section{Completion Evaluation}
+\label{ch:completion-eval}
+
+\subsection{A Leakage-Free Metric for Real-Data Completion}
+\label{sec:donor-metric}
+
+Section~7.1 established that the obvious metric --- Chamfer distance against an
+accumulated pseudo-ground-truth cloud --- is invalid for real LiDAR completion:
+because a static car accumulated over many ego viewpoints is \emph{itself}
+one-sided, plain Chamfer rewards under-completion, and the raw partial scored
+best on every real example. Completion therefore had no valid real-data metric
+at all, which is what blocked measuring any geometry improvement on real cars.
+This section defines the metric that replaces it and shows that it passes an
+explicit validation battery. The metric is defined on static cars by
+construction; moving cars are treated separately in Section~7.5.
+
+\subsubsection{The donor-frame occluded-side principle}
+\label{sec:donor-principle}
+
+The idea turns the one-sidedness of LiDAR from a problem into the measurement.
+For a static car observed across many frames, we complete it from \emph{one}
+frame's pipeline cluster and then score the completed cloud only against surface
+that the \emph{other} frames --- the \emph{donor} frames --- saw but the input
+frame did not. Two properties make this a fair test of completion:
+
+\begin{itemize}
+  \item The raw partial covers \emph{none} of that donor-only surface by
+    construction, so any coverage the completion achieves is genuinely added,
+    previously-unseen surface --- not a rescoring of the input points.
+  \item The reference is built from ground-truth labelled points only, never
+    from a pipeline output, so no detection or completion error can leak into
+    the thing we measure against. The metric is a \emph{paired} comparison of
+    raw versus completed on identical inputs, so it tolerates reference noise
+    the same way the box evaluation does.
+\end{itemize}
+
+\subsubsection{Definition}
+\label{sec:donor-definition}
+
+For each (frame, instance) true-positive pair on the well-observed static cars,
+we form three point sets and score them against a common target.
+
+\paragraph{Inputs.} The \textbf{input} is the production pipeline's cluster for
+that car in that frame, completed through the production path (the KITTI-like
+PCN checkpoint behind the L-shape input gate). The \textbf{donor cloud} is the
+union of the instance's ground-truth (labelled-car) points from every observing
+frame \emph{except} the input frame, transformed to the world frame and
+voxelised at \SI{3}{\centi\meter}.
+
+\paragraph{Novel set (the visibility mask).} From the donor cloud we keep only
+points that lie at least $\tau$ from \emph{every} input point (nearest-neighbour
+test). This \emph{novel set} is exactly the surface the input frame did not
+observe. We use $\tau = \SI{0.15}{\meter}$ as the primary radius and
+\SI{0.10}{} / \SI{0.20}{\meter} as stability checks.
+
+\paragraph{Scored clouds.} We score three clouds against the novel set so that
+completion is judged against meaningful baselines rather than in isolation:
+\begin{itemize}
+  \item \textbf{raw} --- the partial input (the floor: covers no novel surface
+    by construction);
+  \item \textbf{mirrored} --- the input unioned with its own reflection across
+    the car's estimated symmetry plane (a cheap, hallucination-free way to add
+    surface; the baseline completion must beat to justify a learned model);
+  \item \textbf{completed} --- the PCN output.
+\end{itemize}
+
+\paragraph{Scores.} Each cloud gets three numbers, all one-directional from the
+novel set to the cloud:
+\begin{itemize}
+  \item \textbf{coverage} (\texttt{cov@0.1}) --- the fraction of novel points
+    within \SI{0.1}{\meter} of the cloud (the primary quality score: how much
+    unseen surface was recovered);
+  \item \textbf{median novel distance} --- the median distance from novel points
+    to the cloud (a threshold-free companion to coverage);
+  \item \textbf{out-of-box} --- the fraction of the cloud's points falling
+    outside the amodal ground-truth box (plus a \SI{0.2}{\meter} margin): a
+    \emph{hallucination guard}, since a model can trivially raise coverage by
+    inventing surface everywhere.
+\end{itemize}
+
+\paragraph{Qualification and statistics.} A pair counts only if the input passes
+the L-shape gate and its novel set has at least 100 points at the primary
+$\tau$. Because the frames of one parked car are autocorrelated, we reduce each
+car to its per-car median and test across cars with the Wilcoxon signed-rank
+test --- the same paired, per-car design used for the box evaluation.
+
+\subsubsection{Validation}
+\label{sec:donor-validation}
+
+A metric that will carry the completion claims must itself be shown to behave.
+Before using it we required it to pass four pre-stated checks
+(Table~\ref{tab:donor-gate}); it passes all four.
+
+\begin{table}[H]
+  \centering
+  \caption{The four validation checks for the donor metric, and the observed
+    outcome (seq~08, per-car medians, $n=39$). Coverage figures are the
+    car-median \texttt{cov@0.1}; the guard figures are car-median out-of-box
+    fractions.}
+  \label{tab:donor-gate}
+  \begin{tabular}{p{0.44\linewidth} p{0.48\linewidth}}
+    \toprule
+    Check & Outcome \\
+    \midrule
+    (a) The raw partial must rank \emph{last} on coverage (it covers no novel
+      surface by construction). & Passes at every $\tau$: raw \num{0.000}
+      $<$ mirrored \num{0.043} $<$ completed \num{0.304}. \\
+    (b) Per-car scores must be stable enough for a per-car median to mean
+      something. & Median per-car coverage IQR \num{0.14} --- moderate, as
+      expected from varying view geometry; acceptable for medians. \\
+    (c) The ranking must not depend on the threshold $\tau$. & Stable over
+      $\tau \in \{0.10, 0.15, 0.20\}$: completed coverage
+      \num{0.345} / \num{0.304} / \num{0.281}; the order never inverts. \\
+    (d) Completion must not win by hallucinating: its out-of-box fraction must
+      not exceed the mirrored baseline. & Passes: completed out-of-box
+      \num{0.0003} $\leq$ mirrored \num{0.0083} (center/heading error makes the
+      mirror spill more). \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Check~(d) is the one that makes the coverage number meaningful: without it, a
+model could raise coverage simply by emitting surface in every direction. The
+mirrored baseline in checks~(a) and~(d) is deliberately adversarial --- it is a
+real way to add surface with zero learned parameters, so completion earns its
+place only by beating it.
+
+\subsubsection{Reading the hallucination guard per band}
+\label{sec:donor-guard-lesson}
+
+The guard as first designed --- check~(d) above --- was a single median pooled
+over all cars, and that pooling hid a real failure mode. When we later evaluated
+a geometry change (the per-car length prior of Chapter~6) with this guard, the
+pooled out-of-box fraction stayed comfortably low (\num{0.0020}) and the change
+appeared safe. Splitting the same guard by car length told a different story
+(Table~\ref{tab:d2}): on the \emph{compact} band the length prior over-extended
+cars to \num{0.0433} out-of-box --- about \num{100}$\times$ that band's own
+mirrored baseline --- while \num{32} of \num{40} cars sitting near \num{0.0015}
+kept the pooled median quiet.
+
+\begin{table}[H]
+  \centering
+  \caption{The pooled guard is blind to a band-localised violation. Out-of-box
+    fraction as completed / that band's mirrored baseline, split by amodal-GT
+    length. The shipped length prior passes the pooled check yet hallucinates on
+    compacts at \num{100}$\times$ the band baseline.}
+  \label{tab:d2}
+  \begin{tabular}{lcccc}
+    \toprule
+    Config & compact $<$\SI{3.6}{\meter} & normal & long $\geq$\SI{4.6}{\meter} & pooled \\
+    \midrule
+    prior off        & 0.0003 / 0.0004 & 0.0008 / 0.0129 & 0.0000 / 0.0292 & 0.0004 \checkmark \\
+    length prior on  & \textbf{0.0433 / 0.0004} & 0.0017 / 0.0129 & 0.0000 / 0.0292 & 0.0020 \checkmark \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Two lessons follow, and both are now built into the metric. First, the guard is
+computed \emph{per length band against that band's own mirrored baseline}, not
+as a pooled median; a change is only accepted if it clears the guard in every
+band. Second, on the compact band the mirrored baseline is itself near zero
+(\num{0.0004}): reflecting an already-short car barely leaves its box, so the
+bar there is effectively ``do not leave the box at all,'' which \emph{no}
+configuration clears. We therefore report the guard as a \emph{ratio} to the
+band baseline rather than a pass/fail bit, because the ratio (for example, a
+\num{16}$\times$ band violation reduced from an incumbent \num{100}$\times$ ---
+a roughly \num{7}$\times$ reduction in hallucination) is the informative
+quantity, while the binary bit is unclearable by construction and would hide
+genuine progress.
+
+This is a property of the measurement, not a retraction of a result: the
+direction of the geometry change it was auditing still holds; what changed is
+that the guard now reads at the resolution where the failure lives. Any future
+change to the completion geometry is evaluated per band under this refined
+guard.
+
+\end{document}

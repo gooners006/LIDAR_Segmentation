@@ -1,0 +1,209 @@
+% Section 4.1 -- Detection Evaluation Protocol
+% Standalone, compilable draft (FPT-template article class + booktabs).
+% Folded into the thesis main document later via \input.
+%
+% Honesty-phrasing rules applied (personal_agenda P1):
+%   - "mean IoU" always qualified as "of matched detections"
+%   - recall denominator stated explicitly (>=10 points surviving preprocessing)
+%   - seq 08 = classifier model-selection set, NOT a held-out test set
+%   - measured vs inferred evidence tiers marked in prose
+%   - every number traceable to a finding / output artifact
+%
+\documentclass[a4paper,12pt]{article}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{siunitx}
+\usepackage{microtype}
+\usepackage[margin=2.5cm]{geometry}
+
+\begin{document}
+
+\section{Detection Evaluation}
+\label{ch:detection-eval}
+
+\subsection{Evaluation Protocol}
+\label{sec:eval-protocol}
+
+Every quantitative claim about detection in this thesis is produced by a single
+evaluation script (\texttt{src/evaluate.py}) under one fixed protocol. Because
+the results, ablation, and recall-analysis chapters all report numbers from this
+protocol, we state it in full here and refer back to it rather than restating it
+per table. The protocol was frozen before the write-up began; no configuration,
+checkpoint, or metric definition described below was altered to produce a
+reported number.
+
+\subsubsection{Sequences and their roles}
+\label{sec:eval-sequences}
+
+We evaluate on the labelled SemanticKITTI odometry sequences, whose per-point
+semantic and instance labels serve as ground truth. Two sequences carry the
+load, with deliberately different roles:
+
+\begin{itemize}
+  \item \textbf{Sequence 08 (headline; \num{4071} frames).} All headline
+    detection numbers are reported on the full sequence~08. We stress that
+    sequence~08 is the \emph{validation split of the binary classifier}
+    (Stage~B trained on sequences 00--07, 09--10; validated on 08). It is
+    therefore a \emph{model-selection} set, \textbf{not a held-out test set}:
+    the classifier's stopping point was chosen against it. We report on it as
+    the headline because it is the largest labelled sequence and was never used
+    for parameter tuning of the classical stages, but we do not claim it as an
+    independent test set, and we return to this structural limitation in the
+    discussion.
+  \item \textbf{Sequence 00 (tuning and reference; 100 frames).} Sequence~00 is
+    used during development as a fast, deterministic sanity baseline, and it is
+    also the held-out sequence for the \emph{completion} replication (Chapter~7),
+    where its being unseen by the completion model is what matters. For
+    detection it is a \emph{training-split} sequence (it is in the classifier's
+    Stage~B training data), so its detection recall reads optimistically and we
+    label it as a reference point, not as evidence of generalisation.
+\end{itemize}
+
+No labelled sequence is simultaneously held out from the classifier and usable
+as a completion test set. The official test sequences 11--21 carry \emph{no}
+public labels, so no ground-truth detection metric can be computed on them; this
+is a property of the dataset, not a choice, and it is the reason the detection
+evaluation is a validation-set evaluation rather than a test-set one.
+
+\subsubsection{Ground-truth targets and the eligibility rule}
+\label{sec:eval-targets}
+
+The pipeline is a car detector, so the evaluation counts only the two
+car-bearing SemanticKITTI classes as valid ground-truth objects:
+\emph{car} (class~10) and \emph{moving-car} (class~252); we refer to this target
+set as \emph{supported-vehicles}. A ground-truth car \emph{instance} is a
+maximal set of points sharing one instance id within these classes.
+
+An instance is counted in the evaluation only if at least \textbf{10 of its
+points survive preprocessing} --- the $z$-filter, voxel downsampling, statistical
+denoising, and ground removal that every scan passes through before clustering.
+This is the recall denominator: \emph{recall is computed against ground-truth car
+instances with $\geq 10$ points surviving preprocessing}, not against every
+annotated car. The rule exists because an instance reduced to a handful of points
+by occlusion or range cannot be segmented by any clustering method, so including
+it would measure sensor sparsity rather than the pipeline.
+
+This choice narrows the denominator, and honesty requires quantifying by how
+much. On a stride-20 sample of sequence~08 (204 of \num{4071} frames, drawn
+uniformly across the drive), of all annotated car instances
+(\num{2332} pooled), \textbf{25.5\% are excluded} by the surviving-points rule;
+measured instead against instances that have $\geq 10$ points in the \emph{raw}
+scan (\num{2033} pooled), \textbf{14.6\% are excluded} by preprocessing.\footnote{%
+These are two distinct $\geq 10$-point rules: one thresholds \emph{raw} label
+points (a distinct-car count), the other thresholds points \emph{surviving
+preprocessing} (the eval denominator). They are not interchangeable.}
+Because an excluded instance can never be matched, the headline recall of
+\num{0.730} against the eligible denominator corresponds, by inference, to a
+recall of \emph{approximately} \num{0.54} against \emph{all} annotated cars
+(the eligible-to-annotated survival ratio on this sample is
+$\num{1737}/\num{2332}=\num{0.745}$; the ratio is a stride-20 estimate, so this
+figure is inferred, not separately measured). We report the eligible-denominator
+recall as the headline and disclose the all-annotated figure alongside it.
+
+\subsubsection{Matching and metrics}
+\label{sec:eval-matching}
+
+Detections and ground-truth instances are compared at the \emph{point level}.
+For a detection mask $D$ and an instance mask $G$ over the surviving points, the
+overlap is the intersection-over-union
+\[
+  \mathrm{IoU}(D,G) \;=\; \frac{|D \cap G|}{|D \cup G|}.
+\]
+All detection--instance pairs with $\mathrm{IoU} \geq \tau$ are collected, sorted
+by descending IoU, and assigned \emph{greedily and one-to-one}: the highest-IoU
+pair is matched first, and once a detection or an instance is used it cannot be
+matched again. This yields, per frame:
+\begin{itemize}
+  \item a \textbf{true positive} (TP) for each matched pair,
+  \item a \textbf{false positive} (FP) for each unmatched detection,
+  \item a \textbf{false negative} (FN) for each unmatched eligible instance.
+\end{itemize}
+Precision, recall, and $F_1$ are then computed from TP, FP, and FN
+\emph{micro-averaged} over the sequence: counts are pooled across all frames and
+the ratios taken once, so denser frames contribute proportionally more. We also
+report the \textbf{mean IoU of matched detections} --- the mean of the IoU values
+of the accepted TP pairs only. This is a quality measure of the matches that were
+made; it says nothing about missed cars and must not be read as an overall
+segmentation score.
+
+Track-level filtering is enabled by default for the headline numbers: an offline
+centroid tracker links detections across frames, and only tracks meeting a
+minimum length and class-consistency requirement are accepted. This is a
+post-hoc, offline step (it uses the whole sequence), consistent with the
+offline scope of the system; its effect is isolated as an ablation row in the
+ablation section (Section~4.3).
+
+\subsubsection{Operating point}
+\label{sec:eval-operating-point}
+
+Table~\ref{tab:headline} gives the headline operating point on the full
+sequence~08 under this protocol.
+
+\begin{table}[H]
+  \centering
+  \caption{Headline detection results under the frozen protocol. Sequence~08 is
+    the classifier model-selection split (Section~\ref{sec:eval-sequences});
+    sequence~00 is a training-split reference. Mean IoU is the mean over matched
+    detections only.}
+  \label{tab:headline}
+  \begin{tabular}{lccccc}
+    \toprule
+    Sequence & Precision & Recall & $F_1$ & Mean IoU (matched) & TP / FP / FN \\
+    \midrule
+    08 (full, \num{4071} fr.) & 0.905 & 0.730 & 0.808 & 0.912 & \num{25478} / \num{2676} / \num{9444} \\
+    00 (100 fr., reference)   & 0.967 & 0.777 & 0.862 & 0.962 & \num{1296} / \num{44} / \num{371} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The pipeline is precision-saturated and recall-limited: false positives are flat
+at roughly one per frame, while recall is set by how many eligible cars the
+clustering stage recovers as single objects. The remaining sections of this
+chapter report the ablations that decompose this operating point, and Chapter~5
+root-causes the recall shortfall.
+
+\subsubsection{Choice of IoU threshold and its sensitivity}
+\label{sec:eval-iou-threshold}
+
+All headline numbers use $\tau = 0.3$. A point-level threshold of 0.3 is
+permissive relative to the bounding-box 0.5 common in detection benchmarks, so
+it is fair to ask whether the results are an artifact of a lenient gate. They
+are not, and the reason is visible in Table~\ref{tab:headline}: the mean IoU of
+matched detections is \num{0.912} on sequence~08, far above either threshold, so
+the matches are not marginal overlaps sitting just past $\tau$.
+
+To make this concrete we re-ran the full sequence~08 evaluation at
+$\tau \in \{0.25, 0.30, 0.50\}$ with everything else frozen
+(Table~\ref{tab:iou-sensitivity}).
+
+\begin{table}[H]
+  \centering
+  \caption{IoU-threshold sensitivity on the full sequence~08 (frozen
+    configuration). The $\tau = 0.30$ row is the headline. $F_1$ moves by
+    \num{2.3} points across the whole range; mean IoU of matched detections
+    rises at the stricter gate because it keeps only the better-overlapping
+    matches.}
+  \label{tab:iou-sensitivity}
+  \begin{tabular}{cccccc}
+    \toprule
+    $\tau$ & Precision & Recall & $F_1$ & Mean IoU (matched) & TP / FP / FN \\
+    \midrule
+    0.25 & 0.908 & 0.732 & 0.811 & 0.910 & \num{25576} / \num{2578} / \num{9346} \\
+    0.30 & 0.905 & 0.730 & 0.808 & 0.912 & \num{25478} / \num{2676} / \num{9444} \\
+    0.50 & 0.879 & 0.709 & 0.785 & 0.927 & \num{24744} / \num{3410} / \num{10178} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+$F_1$ falls only \num{.23} points from the permissive $\tau = 0.25$ to the strict
+$\tau = 0.50$ (\num{0.811} to \num{0.785}), so the reported quality is stable
+under the choice of threshold and does not depend on the lenient value. We had
+pre-registered that a threshold-sensitive result would be \emph{reported as a
+finding rather than tuned away}; it was not sensitive.
+
+\end{document}

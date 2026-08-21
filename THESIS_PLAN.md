@@ -15,10 +15,12 @@ Repo-verified facts are marked **[V]**; everything else is planning recommendati
   (#34); donor metric built, validated, hardened (#32/#37); completion value
   demonstrated (#29/#32) and replicated held-out under pre-registration (#42); mover
   plausibility (#44); clustering benchmark (#43); timing.
-- **Remains:** thesis writing (T14 — the delegate brief's only open task **[V]**) plus
-  small evidence-hardening items (Section 3).
-- **Optional:** distance-stratified recall refresh; geometric-only ablation re-run under
-  promoted config.
+- **Remains:** thesis writing (T14 — the delegate brief's only open task **[V]**). All
+  mandatory evidence *experiments* are done (B1/B2/B6 — #47/#48); the remaining
+  Section-3 items (B3 literature table, B5 pipeline diagram) are writing/figure work
+  bundled into their host chapters.
+- **Optional:** distance-stratified recall refresh (B4) — not run; geometric-only
+  ablation re-run under promoted config **done** (B6, #47).
 - **Frozen from today:** everything in Section 2.
 
 ## 2. Research freeze
@@ -44,6 +46,10 @@ read-only analyses against the frozen config — they don't change it, so freeze
 and run them in parallel with writing.
 
 ## 3. Remaining experimental tasks
+
+**Status (2026-08-21):** all mandatory *experiments* done — B1 ✅ (#47), B2 ✅ (#48),
+B6 ✅ (#47). Remaining: B3 (literature table — writing, Ch 2) and B5 (pipeline diagram
+— figure, Ch 3), both bundled into their host chapters; B4 optional, not run.
 
 ### B1 — IoU-threshold sensitivity (MANDATORY)
 - [x] **Done** 2026-08-21 (#47): F1 0.811/0.808/0.785 at IoU 0.25/0.30/0.50 — stable, PASS. Logs in `output/experiments/iou_sensitivity/`.
@@ -189,10 +195,10 @@ d2; empty long band; 23% length-estimate fallback; SemanticKITTI label quality a
 | ID | Title | Source | Ch | Exists? |
 |---|---|---|---|---|
 | Tab 4.1 | Detection headline (seq 08 full; seq 00 for reference, labeled) | evaluate.py logs / project_state | 4 | ✅ numbers exist |
-| Tab 4.2 | Stage ablation: geometric → +classifier → +track filter | #18 (+B6) | 4 | ⚠️ B6 recommended |
+| Tab 4.2 | Stage ablation: geometric → +classifier → +track filter | #18 (+B6) | 4 | ✅ numbers exist (B6 done, #47) |
 | Tab 4.3 | Stage-A ablation + cross-domain matrix | #25/#30, `output/experiments/cross_domain_classifier/` | 4 | ✅ |
 | Tab 4.4 | Clustering benchmark + eps sweep | #43, `output/experiments/t10_clustering/` | 4 | ✅ |
-| Tab 4.5 | IoU-threshold sensitivity | **B1** | 4 | ❌ generate |
+| Tab 4.5 | IoU-threshold sensitivity | **B1** | 4 | ✅ numbers exist (#47); drafted in §4.1 |
 | Tab 4.6 | Runtime breakdown | timing JSONs | 4 | ✅ |
 | Tab 5.1 | Recall-strategy outcomes (5 negatives + #34) | findings | 5 | ✅ (compile) |
 | Tab 7.1 | Donor metric headline (raw/mirrored/completed) | #32 / donor_perf_lenon JSON | 7 | ✅ |
@@ -207,7 +213,9 @@ d2; empty long band; 23% length-estimate fallback; SemanticKITTI label quality a
 | Fig 7.3 | t11_mover_completions_bev | output/figures | 7 | ✅ |
 | Fig 7.4 | amodal_gt_check (GT construction sanity) | output/08 + output/00 | 7 | ✅ |
 
-~10 tables + ~9 figures — a complete evidence chain with only three items to produce.
+~10 tables + ~9 figures — a complete evidence chain. Items still to produce:
+Fig 3.1 (B5 pipeline diagram) and Fig 6.1 (may need re-render from existing artifacts);
+Tab 4.5 numbers now exist (#47) and are drafted in §4.1.
 
 ## 9. Examiner-defense plan
 
@@ -232,13 +240,16 @@ file's P2 section is the defense syllabus.
 
 - [x] **Phase 1 — Research freeze (~30 min).** Declare Section 2 in `project_state.md`
   (one commit). Done when: freeze list committed. — done 2026-08-21
-- [ ] **Phase 2 — Final verification (~half day active, runs in background).** B1 (2
+- [x] **Phase 2 — Final verification (~half day active, runs in background).** B1 (2
   runs), B6 (1 run), B2 (script + run), B4 optional. Done when: logs in
   `output/experiments/iou_sensitivity/`, one exclusion percentage, findings-log
-  entries via `/note-finding`.
+  entries via `/note-finding`. — done 2026-08-21: all three mandatory items landed
+  (#47 B1/B6, #48 B2); B4 optional, skipped.
 - [ ] **Phase 3 — Methodology (multiple days).** §4.1 → §7.2 → Ch 3 → Ch 6, in that
   order; B5 diagram alongside. Done when: advisor-reviewable drafts with every
-  phrasing-rule item from `personal_agenda` P1 checked.
+  phrasing-rule item from `personal_agenda` P1 checked. — **IN PROGRESS:** §4.1 + §7.2
+  first drafts done 2026-08-21 (`docs/writing/thesis/`, build clean, uncommitted, not
+  yet advisor-reviewed); Ch 3, Ch 6, and the B5 diagram remaining.
 - [ ] **Phase 4 — Results (multiple days).** Ch 4 + Ch 5 + Ch 7 results sections; tables
   transcribed with per-chapter spot-check against `docs/findings.md` (agenda P1 rule
   **[V]**). Done when: every number traces to a finding/artifact.
@@ -310,20 +321,20 @@ Confirmed against the repo, all with negative-result precedent or closed status 
 
 1. [x] Commit a "research freeze" note into `docs/project_state.md` listing Section 2's
    frozen items (~30 min). — done 2026-08-21
-2. [ ] Launch B1 in background:
+2. [x] Launch B1 in background:
    `evaluate.py --seq 08 --frames 5000 --iou-threshold 0.25` then
    `--iou-threshold 0.5`, stdout → `output/experiments/iou_sensitivity/`
-   (~2 h wall, unattended).
-3. [ ] Launch B6 in background: same eval with
-   `--no-learned-classifier --no-track-filter` → same folder.
+   (~2 h wall, unattended). — done 2026-08-21 (#47).
+3. [x] Launch B6 in background: same eval with
+   `--no-learned-classifier --no-track-filter` → same folder. — done 2026-08-21 (#47).
 4. [x] While those run, write `scratchpad/gt_eligibility_count.py` (B2), run on seq 08
    stride-20, record the exclusion percentage via `/note-finding`. — done 2026-08-21 (#48): 25.5% vs all annotated / 14.6% vs ≥10-raw.
 5. [x] Record B1/B6 results as a finding (#47); C2 corrected 0.305→0.250. — done 2026-08-21.
    Table *numbers* locked in #47; LaTeX Tab 4.5 / corrected Tab 4.2 transcribed when Ch 4 is drafted.
-6. [ ] Draft **§4.1 Evaluation protocol** in the FPT template
+6. [x] Draft **§4.1 Evaluation protocol** in the FPT template
    (`docs/writing/report-template/main.tex` copy), applying the mandated phrasings;
-   cite B1/B2.
-7. [ ] Draft **§7.2 Donor metric** from `docs/completion/donor_metric.md` + #37.
+   cite B1/B2. — done 2026-08-21 (first draft, uncommitted): `docs/writing/thesis/sec_4_1_evaluation_protocol.tex`, builds clean; cites B1(#47)/B2(#48). Not yet advisor-reviewed.
+7. [x] Draft **§7.2 Donor metric** from `docs/completion/donor_metric.md` + #37. — done 2026-08-21 (first draft, uncommitted): `docs/writing/thesis/sec_7_2_donor_metric.tex`, builds clean; design + 4-item gate + #37 per-band guard lesson. Not yet advisor-reviewed.
 8. [ ] Draft Ch 3 (pipeline) and Ch 6 (completion method); produce the B5 pipeline
    diagram alongside.
 9. [ ] Draft Ch 4/5/7 results chapters, transcribing the Section-8 tables, spot-checking
@@ -332,16 +343,22 @@ Confirmed against the repo, all with negative-result precedent or closed status 
     `/humanizer` pass → Phase 8 defense prep with `/quiz-me`.
 
 ### Current status
-GREEN; research complete; T14 is the only open task; 4 mandatory + 2 optional
-evidence items, all runnable against the frozen config.
+GREEN; research complete; writing underway. Phases 1–2 done; Phase 3 (methodology)
+in progress. All mandatory evidence experiments landed (B1/B2/B6 — #47/#48). Protocol
+milestone reached: §4.1 + §7.2 first-drafted (`docs/writing/thesis/`, build clean,
+uncommitted, not yet advisor-reviewed). Remaining Section-3 items are writing/figure
+work (B3 table, B5 diagram); B4 optional.
 
 ### Immediate next action
-Action 1 (freeze commit), then fire the two background runs — they gate nothing
-else, so start them before writing a single sentence.
+Action 8: draft Ch 3 (pipeline) + Ch 6 (completion method), producing the B5 pipeline
+diagram alongside Ch 3 (from `output/experiments/timing/timing_seq08_full_n4068.json`).
+The two protocol anchors (§4.1, §7.2) are drafted; the methods chapters have no result
+dependencies and lift from `docs/`.
 
 ### Next milestone
-"Protocol milestone" — §4.1 + §7.2 drafted with B1/B2 numbers in place. Everything
-downstream cites these two sections.
+"Protocol milestone" — §4.1 + §7.2 drafted with B1/B2 numbers in place — **REACHED
+2026-08-21** (first drafts, pending advisor review). Next: "Methods milestone" — Ch 3
++ Ch 6 drafted and the B5 pipeline diagram produced.
 
 ### Thesis-ready
 All Section-12 boxes green; every claim within the Section-6 scoping; PDF builds;
