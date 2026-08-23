@@ -207,15 +207,18 @@ d2; empty long band; 23% length-estimate fallback; SemanticKITTI label quality a
 | Fig 3.1 | Pipeline diagram (+ per-stage ms) | **B5** | 3 | ❌ generate |
 | Fig 4.1/4.2 | seq08_bev_detections / seq08_timeseries | output/figures **[V]** | 4 | ✅ |
 | Fig 5.1 | seq08_failure_zooms (split cars) | output/figures | 5 | ✅ |
-| Fig 6.1 | KITTI-like partial vs naive render; de-blob before/after | train_pcn / verify_pcn_step2 outputs | 6 | ⚠️ may need re-render from existing artifacts |
+| Fig 6.1 | KITTI-like partial vs naive render | `output/experiments/fig61_partials/` (fig61_partial_compare.py) | 6 | ✅ rendered 2026-08-23 |
+| Fig 6.2 | De-blob before/after (old PCA+partial-r blob vs corrected canonical frame, same ckpt) | `output/experiments/fig62_deblob/` (fig62_deblob.py) | 6 | ✅ rendered 2026-08-23 |
 | Fig 7.1 | donor_metric_08 (best→worst panels) | output/figures | 7 | ✅ |
 | Fig 7.2 | completion_box_overlays_08 | output/figures | 7 | ✅ |
 | Fig 7.3 | t11_mover_completions_bev | output/figures | 7 | ✅ |
 | Fig 7.4 | amodal_gt_check (GT construction sanity) | output/08 + output/00 | 7 | ✅ |
 
-~10 tables + ~9 figures — a complete evidence chain. Items still to produce:
-Fig 3.1 (B5 pipeline diagram) and Fig 6.1 (may need re-render from existing artifacts);
-Tab 4.5 numbers now exist (#47) and are drafted in §4.1.
+~10 tables + ~9 figures — a complete evidence chain. Figure status: Fig 3.1
+(B5 pipeline diagram, inline TikZ in Ch 3), Fig 6.1, and Fig 6.2 all produced
+2026-08-23. All Section-8 figures now exist as artifacts; remaining figure work is
+cosmetic (restyle/caption) during the results-phase figure pass. Tab 4.5 numbers
+exist (#47), drafted in §4.1.
 
 ## 9. Examiner-defense plan
 
@@ -248,8 +251,8 @@ file's P2 section is the defense syllabus.
 - [ ] **Phase 3 — Methodology (multiple days).** §4.1 → §7.2 → Ch 3 → Ch 6, in that
   order; B5 diagram alongside. Done when: advisor-reviewable drafts with every
   phrasing-rule item from `personal_agenda` P1 checked. — **IN PROGRESS:** §4.1 + §7.2
-  first drafts done 2026-08-21 (`docs/writing/thesis/`, build clean, uncommitted, not
-  yet advisor-reviewed); Ch 3, Ch 6, and the B5 diagram remaining.
+  first drafts done 2026-08-21 (`docs/writing/thesis/`, build clean, committed `e1fabd3`,
+  not yet advisor-reviewed); Ch 3, Ch 6, and the B5 diagram remaining.
 - [ ] **Phase 4 — Results (multiple days).** Ch 4 + Ch 5 + Ch 7 results sections; tables
   transcribed with per-chapter spot-check against `docs/findings.md` (agenda P1 rule
   **[V]**). Done when: every number traces to a finding/artifact.
@@ -333,10 +336,41 @@ Confirmed against the repo, all with negative-result precedent or closed status 
    Table *numbers* locked in #47; LaTeX Tab 4.5 / corrected Tab 4.2 transcribed when Ch 4 is drafted.
 6. [x] Draft **§4.1 Evaluation protocol** in the FPT template
    (`docs/writing/report-template/main.tex` copy), applying the mandated phrasings;
-   cite B1/B2. — done 2026-08-21 (first draft, uncommitted): `docs/writing/thesis/sec_4_1_evaluation_protocol.tex`, builds clean; cites B1(#47)/B2(#48). Not yet advisor-reviewed.
-7. [x] Draft **§7.2 Donor metric** from `docs/completion/donor_metric.md` + #37. — done 2026-08-21 (first draft, uncommitted): `docs/writing/thesis/sec_7_2_donor_metric.tex`, builds clean; design + 4-item gate + #37 per-band guard lesson. Not yet advisor-reviewed.
-8. [ ] Draft Ch 3 (pipeline) and Ch 6 (completion method); produce the B5 pipeline
-   diagram alongside.
+   cite B1/B2. — done 2026-08-21 (first draft, committed `e1fabd3`): `docs/writing/thesis/sec_4_1_evaluation_protocol.tex`, builds clean; cites B1(#47)/B2(#48). Not yet advisor-reviewed.
+7. [x] Draft **§7.2 Donor metric** from `docs/completion/donor_metric.md` + #37. — done 2026-08-21 (first draft, committed `e1fabd3`): `docs/writing/thesis/sec_7_2_donor_metric.tex`, builds clean; design + 4-item gate + #37 per-band guard lesson. Not yet advisor-reviewed.
+8. [x] Draft Ch 3 (pipeline) and Ch 6 (completion method); produce the B5 pipeline
+   diagram alongside. — done 2026-08-23 (first drafts, uncommitted):
+   `docs/writing/thesis/sec_3_detection_pipeline.tex` (Ch 3; B5 diagram is the
+   inline TikZ Fig 3.1, per-stage ms from `timing_seq08_full_n4068.json`; frozen-
+   config table; production classifier written as the from-scratch checkpoint #31
+   with Stage A framed as Ch-4 ablation) and `sec_6_completion_method.tex` (Ch 6,
+   debugging-story structure #15-19→#26→#27→#35/#36→#45; eval deferred to Ch 7).
+   Both build clean under TeX Live 2026. **Fig 6.1** (naive vs KITTI-like partial)
+   and **Fig 6.2** (de-blob before/after) RENDERED 2026-08-23 and embedded (no
+   placeholders left): `scratchpad/fig61_partial_compare.py` →
+   `output/experiments/fig61_partials/`; `scratchpad/fig62_deblob.py` →
+   `output/experiments/fig62_deblob/` (reconstructs the retired PCA+partial-radius
+   normalization for the before/after — freeze-safe, touches nothing frozen; blob
+   reproduction verified). **Honest reframing (user critique 2026-08-23):** on
+   real sparse clusters the corrected completion is a *diffuse* cloud, NOT a crisp
+   car — "blob→clean car" was overclaiming. Fig 6.2 + §6.5 claim only POSE + SCALE
+   recovery (old PCA path tilts the car off-level and mis-scales; corrected
+   gravity-aligned path sits level at the right extent), crisp completion deferred
+   to the in-distribution synthetic result, quantitative real-data win to Ch 7.
+   **Fig 6.2 is now a BEV BOX OVERLAY** (`scratchpad/fig62_box_overlay.py` →
+   `output/experiments/fig62_deblob/box_overlay_deblob_08.png`), matching the
+   `completion_box_overlays_08.png` style the user recalled — GT amodal box (black)
+   vs old-completion box (red, mis-scaled/rotated off GT) vs corrected-completion box
+   (green, aligned), quantified by BEV IoU vs GT at three densities: **0.32→0.73
+   (sparse), 0.25→0.74 (mid), 0.47→0.85 (dense)**. Reuses the box-eval helpers
+   (`world_box`/`box_corners_xz`/`bev_iou`) + reconstructed old path; falls through
+   step1_records candidates per band (records predate the promoted config). Detection
+   uses `stage_b_best` (checkpoint the amodal-GT records were built with; old-vs-
+   corrected comparison is classifier-independent). Diffuse-cloud caveat kept in §6.5
+   so the box figure isn't read as a crisp-surface claim. **Superseded the earlier
+   3D-scatter overlay** (`fig62_deblob.py`, kept; other-sequences check used it — seq
+   00 mined = 31 static cars vs seq 08's 15, corroborates, pickle-cached). Ch 6
+   rebuilds clean (7 pp). Not yet advisor-reviewed.
 9. [ ] Draft Ch 4/5/7 results chapters, transcribing the Section-8 tables, spot-checking
    one number per chapter against `docs/findings.md`.
 10. [ ] Draft Ch 8 limitations → then Ch 2 (+B3 table) → Ch 1 → Ch 9 → abstract →
@@ -344,21 +378,27 @@ Confirmed against the repo, all with negative-result precedent or closed status 
 
 ### Current status
 GREEN; research complete; writing underway. Phases 1–2 done; Phase 3 (methodology)
-in progress. All mandatory evidence experiments landed (B1/B2/B6 — #47/#48). Protocol
-milestone reached: §4.1 + §7.2 first-drafted (`docs/writing/thesis/`, build clean,
-uncommitted, not yet advisor-reviewed). Remaining Section-3 items are writing/figure
-work (B3 table, B5 diagram); B4 optional.
+substantially drafted. All mandatory evidence experiments landed (B1/B2/B6 —
+#47/#48). Protocol milestone reached 2026-08-21 (§4.1 + §7.2, committed `e1fabd3`).
+**Methods milestone reached 2026-08-23:** Ch 3 (`sec_3_detection_pipeline.tex`) +
+Ch 6 (`sec_6_completion_method.tex`) first-drafted and the B5 pipeline diagram
+produced (inline TikZ Fig 3.1 in Ch 3). All four method/protocol sections build
+clean under TeX Live 2026; §4.1/§7.2 committed, Ch 3/Ch 6 uncommitted, none yet
+advisor-reviewed. Ch-6 figures (Fig 6.1/6.2) rendered and embedded 2026-08-23.
+Remaining Section-3 item: B3 table (Ch 2); B4 optional.
 
 ### Immediate next action
-Action 8: draft Ch 3 (pipeline) + Ch 6 (completion method), producing the B5 pipeline
-diagram alongside Ch 3 (from `output/experiments/timing/timing_seq08_full_n4068.json`).
-The two protocol anchors (§4.1, §7.2) are drafted; the methods chapters have no result
-dependencies and lift from `docs/`.
+Action 9: draft the results chapters (Ch 4 detection results/ablations, Ch 5 recall
+bottleneck, Ch 7 completion results/held-out replication/movers), transcribing the
+Section-8 tables and spot-checking one number per chapter against `docs/findings.md`.
+Ch 4/7 cite the already-drafted protocol anchors (§4.1, §7.2). Action 8 fully
+closed (Fig 6.1/6.2 rendered and embedded 2026-08-23).
 
 ### Next milestone
-"Protocol milestone" — §4.1 + §7.2 drafted with B1/B2 numbers in place — **REACHED
-2026-08-21** (first drafts, pending advisor review). Next: "Methods milestone" — Ch 3
-+ Ch 6 drafted and the B5 pipeline diagram produced.
+"Methods milestone" — Ch 3 + Ch 6 drafted and the B5 pipeline diagram produced —
+**REACHED 2026-08-23** (first drafts, uncommitted, pending advisor review; Fig
+6.1/6.2 rendered and embedded). Next: "Results milestone" — Ch 4 + Ch 5 + Ch 7
+results sections drafted, every number traced to a finding/artifact.
 
 ### Thesis-ready
 All Section-12 boxes green; every claim within the Section-6 scoping; PDF builds;

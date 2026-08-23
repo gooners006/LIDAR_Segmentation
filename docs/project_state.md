@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-21
+Last updated: 2026-08-23
 
 ## RESEARCH FREEZE — declared 2026-08-21 (write-up phase)
 
@@ -33,6 +33,42 @@ cars (14.6% of ≥10-raw-point cars) excluded by the ≥10-surviving-points
 eligibility rule → implied recall against all annotated cars ≈0.54. **All
 mandatory experimental items (B1/B2/B6) now closed;** B3 (literature table)/B4
 (distance recall, optional)/B5 (pipeline diagram) are writing/figure work.
+
+**Thesis writing (T14) — STARTED 2026-08-21 (Protocol milestone).** §4.1
+(evaluation protocol) and §7.2 (donor metric) first-drafted as compilable LaTeX
+in `docs/writing/thesis/` (`sec_4_1_evaluation_protocol.tex`,
+`sec_7_2_donor_metric.tex`; build clean under TeX Live 2026; committed `e1fabd3`).
+Both apply the `personal_agenda` P1 phrasing rules; NOT yet advisor-reviewed.
+Execution plan + full checklist: `THESIS_PLAN.md`.
+
+**Methods milestone — REACHED 2026-08-23 (uncommitted).** Ch 3
+(`sec_3_detection_pipeline.tex`) + Ch 6 (`sec_6_completion_method.tex`)
+first-drafted as compilable LaTeX (build clean, TeX Live 2026) in
+`docs/writing/thesis/`.
+- **Ch 3:** every pipeline stage + frozen-config table; production classifier as
+  the from-scratch checkpoint (#31), Stage A as Ch-4 ablation; **B5 pipeline
+  diagram** embedded as inline TikZ Fig 3.1 (per-stage ms from
+  `timing_seq08_full_n4068.json`).
+- **Ch 6:** completion debugging story (#15-19 → #26 data fix → #26 inference-bug
+  fix → #27 L-shape gate → #35/#36 length → #45 closed Step-1c), eval deferred to
+  Ch 7. Three figures, all referenced + building clean (7 pp): Fig 6.1
+  naive-vs-KITTI-like partial (`scratchpad/fig61_partial_compare.py`); Fig 6.2 BEV
+  box overlay of old-vs-corrected-vs-GT completion boxes, BEV IoU 0.32→0.73 /
+  0.25→0.74 / 0.47→0.85 (sparse/mid/dense) (`scratchpad/fig62_box_overlay.py`,
+  reconstructs the retired PCA+partial-radius path — freeze-safe); Fig 6.3 shipped
+  completion output, partial-vs-completed canonical BEV+side
+  (`scratchpad/viz_completion.py` from shipped-config `output/08`).
+- **Completion-quality scope (settled):** real completions are car-shaped
+  (footprint + roofline, dims L≈4.2/W≈1.9/H≈1.6), crispness varying with density,
+  filled 4096-pt clouds not CAD-clean surfaces (sparse width-inflation #44). Ch 6
+  claims pose+scale recovery + car-shaped output; crisp surface = synthetic, real
+  quantitative gains = Ch 7. Other-sequences check: seq 00 mined (31 static cars vs
+  seq 08's 15) corroborates — diffuseness is model-level.
+
+**Next:** commit this session's work (Ch 3/6 .tex + `fig61_partial_compare.py` +
+`fig62_box_overlay.py` + THESIS_PLAN/project_state edits — no commits made this
+session); then Ch 4/5/7 results chapters (Results milestone). output/ renders
+gitignored, regenerable from scripts.
 
 ## Current Architecture
 

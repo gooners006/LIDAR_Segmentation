@@ -2077,3 +2077,133 @@ judge separation honored for T9c. All work committed: ac03bed, fb50f15, 8b8be98.
   ~0.73 recall) now unblocked.
 - Untracked and intentionally excluded: `.codegraph/`, `docs/plans/
   delegate_brief_2026_08_02.md`, `docs/plans/personal_agenda_2026_08_02.md`.
+
+---
+
+# Session — 2026-08-21
+
+## What was done
+
+### B2 evidence task — GT-eligibility count (Finding #48)
+- Wrote `scratchpad/gt_eligibility_count.py`: counts GT car instances
+  (sem in {10,252}, inst>0) excluded by the >=10-surviving-points recall
+  denominator, reusing `get_frame_detections`'s preprocessing/`gt_masks` path
+  (classifier not loaded — gt_masks independent of it) vs. a raw label scan.
+- Ran seq 08 stride-20 (204/4071 frames):
+  `.venv\Scripts\python.exe scratchpad/gt_eligibility_count.py --seq 08 --stride 20`.
+  Pooled: raw_all=2332, raw_ge10=2033, eligible=1737. Exclusion 25.5% vs all
+  annotated / 14.6% vs >=10-raw; implied recall-vs-all-annotated ~=0.54 (inferred).
+  JSON: `output/experiments/gt_eligibility/gt_eligibility_08.json`.
+- Committed `ca67a8a` (script + Finding #48 + plan/state ticks).
+
+### Thesis writing started — Protocol milestone (Phase 3)
+- Drafted 4.1 Evaluation Protocol -> `docs/writing/thesis/sec_4_1_evaluation_protocol.tex`
+  (sequences/roles + leak disclosure, supported-vehicles targets + eligibility rule
+  with B2 numbers, point-IoU greedy 1-to-1 matching + micro-averaging + mean-IoU-
+  of-matched, headline table, IoU-threshold sensitivity from B1/#47).
+- Drafted 7.2 Donor Metric -> `docs/writing/thesis/sec_7_2_donor_metric.tex`
+  (occluded-side principle, definition, 4-item validation gate, #37 per-band guard
+  lesson framed as design maturity per claim C7).
+- Both compile clean under TeX Live 2026. Applied personal_agenda P1 phrasing rules.
+  Fixed LaTeX float jank (-> `float` package `[H]` at paragraph boundaries; tables
+  referenced by number). NOT yet advisor-reviewed.
+- Committed `e1fabd3` (both .tex + THESIS_PLAN reconciliation).
+
+### THESIS_PLAN.md reconciled to current state
+- Ticked stale checkboxes (Section 14 actions 2/3/6/7; Phase 2); updated Section 1,
+  Section 3 status rollup, Section 8 (Tab 4.2/4.5), and the end status block
+  (Protocol milestone REACHED; next = Methods milestone).
+
+## Files changed (this session's commits ca67a8a, e1fabd3)
+- New: `scratchpad/gt_eligibility_count.py`,
+  `docs/writing/thesis/sec_4_1_evaluation_protocol.tex`,
+  `docs/writing/thesis/sec_7_2_donor_metric.tex`
+- Modified: `THESIS_PLAN.md`, `docs/findings.md` (#48), `docs/project_state.md`
+- (Build artifacts PDF/aux/log gitignored; `.codegraph/` + `docs/plans/*_2026_08_02.md`
+  left untracked intentionally.)
+
+## Results / findings
+- Finding #48: eligibility rule excludes 25.5% of annotated seq-08 cars (14.6% of
+  >=10-raw-point cars); reported recall 0.730 -> ~0.54 against all annotated cars.
+
+## Next
+- **Methods milestone:** Ch 3 (pipeline) + Ch 6 (completion method) + B5 pipeline
+  diagram (from `output/experiments/timing/timing_seq08_full_n4068.json`).
+- 4.1/7.2 pending advisor review (P1 rhythm). B3 (lit table, Ch 2) + B4 (optional)
+  still open. Two substance Qs flagged: seq-00 dual-role framing in 4.1; whether
+  ~0.54 recall-vs-all belongs in 4.1.
+
+---
+
+# Session — 2026-08-23
+
+## What was done
+
+### Methods milestone — Ch 3 + Ch 6 drafted
+- **Ch 3** `docs/writing/thesis/sec_3_detection_pipeline.tex`: full pipeline
+  (preprocess -> RANSAC ground -> HDBSCAN -> geometric filter -> PointNet classifier
+  -> centroid tracker), frozen-config table, and the **B5 pipeline diagram** as an
+  inline TikZ Fig 3.1 (per-stage ms from `timing_seq08_full_n4068.json`: HDBSCAN
+  502 ms/54%, RANSAC 163 ms, learned stages only 10%). Production classifier
+  written as the from-scratch checkpoint (#31); Stage A framed as Ch-4 ablation.
+- **Ch 6** `sec_6_completion_method.tex`: completion-method debugging story
+  (#15-19 -> #26 data fix -> #26 inference-bug fix -> #27 L-shape gate -> #35/#36
+  length -> #45 closed Step-1c), eval deferred to Ch 7.
+- Both compile clean under TeX Live 2026.
+
+### Ch 6 figures (iterative, user-driven)
+- Fig 6.1 naive-vs-KITTI-like partial -- `scratchpad/fig61_partial_compare.py`
+  (both train_pcn generators on one ShapeNet car). Caption fixed for the
+  "which is better" confusion (both are training inputs; KITTI-like = closer to
+  deployment).
+- Fig 6.2 evolved 3D-scatter -> **BEV box overlay**. The retired PCA+partial-radius
+  "blob" path no longer exists in `completion.py`, so it was reconstructed in a
+  scratchpad (freeze-safe). Final: `scratchpad/fig62_box_overlay.py` reuses the
+  `completion_box_eval` machinery (`world_box`/`box_corners_xz`/`bev_iou`) to show
+  GT amodal box vs old vs corrected completion box, quantified by BEV IoU:
+  0.32->0.73 (sparse) / 0.25->0.74 (mid) / 0.47->0.85 (dense). Superseded and
+  deleted the 3D-scatter script `fig62_deblob.py` (inlined `complete_old_blob` first).
+- Fig 6.3 shipped completion output -- regenerated `output/figures/seq08_completion.png`
+  (6-track) and `output/experiments/completion_shape_08.png` (4-track, embedded)
+  under shipped config via `scratchpad/viz_completion.py` (reads shipped `output/08`).
+- Other-sequences check (user ask): mined seq 00 (31 static cars) + seq 08 (15) at
+  2500 frames; corroborates, diffuseness is model-level not sequence-level. Mining
+  pickle-cached in `output/experiments/fig62_deblob/`.
+
+### Completion-quality scope corrected
+- First over-claimed "clean car", then over-corrected to "diffuse blob"; checking
+  `output/figures/seq08_completion.png` settled it -- real completions are
+  car-shaped (footprint + roofline) in the canonical frame, crispness varying with
+  density, filled 4096-pt clouds not CAD-clean surfaces. Sec 6.5 + captions revised
+  to claim pose+scale recovery + car-shaped output; crisp surface = synthetic, real
+  quantitative gains = Ch 7.
+
+### Ch 6 layout review
+- Figure placement was leaving half-page gaps (`[H]` forbids floating) -> changed
+  to `[htbp]`; trimmed the two long captions (8->7 pages); added the missing
+  in-text reference to Fig 6.1. All three figures now referenced and building clean.
+
+### Bookkeeping
+- Fixed a commit-status inconsistency in `THESIS_PLAN.md` (4.1/7.2 were committed
+  `e1fabd3` but listed uncommitted). Updated THESIS_PLAN + project_state (Methods
+  milestone, Fig 6.1/6.2/6.3, scope corrections).
+
+## Files changed
+- New (untracked): `docs/writing/thesis/sec_3_detection_pipeline.tex`,
+  `docs/writing/thesis/sec_6_completion_method.tex`,
+  `scratchpad/fig61_partial_compare.py`, `scratchpad/fig62_box_overlay.py`
+- Modified: `THESIS_PLAN.md`, `docs/project_state.md`
+- Deleted (uncommitted, was untracked): `scratchpad/fig62_deblob.py` (superseded)
+- output/ renders (fig61_partials/, fig62_deblob/, completion_shape_08.png,
+  figures/seq08_completion.png) are gitignored, regenerable from the scripts.
+- **No commits made this session** (commit was interrupted before greenlight).
+
+## Results / findings
+- No new experimental findings. Fig 6.2 BEV IoU numbers (0.32->0.73 / 0.25->0.74 /
+  0.47->0.85) are illustrative panels from the existing #29/#36 box machinery, not a
+  new result. Completion-quality characterization settled to "car-shaped, crispness
+  varies with density" (see scope correction above).
+
+## Next
+- Commit this session's work (Ch 3/6 .tex + 2 scripts + doc edits).
+- Ch 4/5/7 results chapters (Results milestone); optionally review Ch 3 layout.

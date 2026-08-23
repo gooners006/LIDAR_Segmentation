@@ -1,0 +1,372 @@
+% Chapter 3 -- The Detection Pipeline
+% Standalone, compilable draft (FPT-template article class + booktabs + tikz).
+% Folded into the thesis main document later via \input.
+%
+% Honesty-phrasing rules applied (personal_agenda P1):
+%   - production classifier is the FROM-SCRATCH Stage B checkpoint
+%     (stage_b_scratch_best.pth, Finding #31); synthetic Stage A pretraining
+%     was DROPPED from the final pipeline and is kept only as Ch-4 ablation
+%     material (#25/#30). We do NOT present two-stage training as a contribution.
+%   - measured vs inferred evidence tiers marked in prose; timing numbers are
+%     measured (timing_seq08_full_n4068.json), cited as such.
+%   - every number traceable to a finding / output artifact.
+%   - "the classifier's job is precision" claim deferred to the Ch-4 ablation.
+%
+\documentclass[a4paper,12pt]{article}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{siunitx}
+\usepackage{microtype}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,calc,shapes.geometric}
+
+% Custom siunitx units for per-frame timing (\frame is otherwise the LaTeX
+% kernel box-frame command, not a unit).
+\DeclareSIUnit{\frame}{frame}
+\DeclareSIUnit{\fps}{fps}
+
+\begin{document}
+
+\section{The Detection Pipeline}
+\label{ch:pipeline}
+
+This chapter describes the car-detection pipeline that produces every detection
+evaluated in Chapter~4 and every cluster completed in Chapters~6 and~7. The
+design is deliberately modular and classical: a chain of independent stages,
+each with a small number of interpretable parameters, rather than an end-to-end
+learned detector. This choice trades peak accuracy for interpretability,
+reproducibility, and near-zero manual annotation --- the classifier is trained on
+labels mined automatically from the pipeline itself
+(Section~\ref{sec:pipeline-classifier}) --- and it is what lets Chapter~5
+root-cause the recall shortfall to a single stage rather than to an opaque
+network.
+
+The pipeline takes one raw LiDAR scan and emits a set of car detections, each an
+oriented bounding box with a stable track identity across frames. Every stage
+parameter lives in a single dictionary, \texttt{PIPELINE\_CONFIG} in
+\texttt{src/pipeline.py}, which was frozen before the write-up began; the frozen
+values are collected in Table~\ref{tab:pipeline-config}. Figure~\ref{fig:pipeline}
+gives the full chain with the measured per-stage cost.
+
+\subsection{Overview}
+\label{sec:pipeline-overview}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[
+      font=\small,
+      node distance=6mm,
+      stage/.style={
+        draw, rounded corners, align=center,
+        minimum width=32mm, minimum height=11mm,
+        fill=blue!5, thick},
+      learned/.style={stage, fill=orange!12},
+      io/.style={draw, ellipse, align=center, fill=black!5,
+        minimum width=26mm, minimum height=9mm},
+      ms/.style={font=\footnotesize\itshape, text=black!60},
+      arr/.style={-{Stealth[length=2.2mm]}, thick},
+    ]
+    \node[io] (raw) {Raw LiDAR scan\\$\sim$120k points};
+    \node[stage, below=of raw] (pre) {Preprocess\\{\footnotesize $z$-filter $\to$ voxel $\to$ denoise}};
+    \node[stage, below=of pre] (ground) {Ground removal\\{\footnotesize RANSAC plane}};
+    \node[stage, below=of ground] (cluster) {Clustering\\{\footnotesize HDBSCAN @ \SI{0.10}{\meter}}};
+    \node[stage, below=of cluster] (geo) {Geometric filter\\{\footnotesize OBB gates}};
+    \node[learned, below=of geo] (clf) {Classifier\\{\footnotesize PointNet, car/not-car}};
+    \node[stage, below=of clf] (track) {Tracker\\{\footnotesize centroid + track vote}};
+    \node[io, below=of track] (out) {Car detections\\{\footnotesize boxes + track ids}};
+    \node[learned, right=18mm of track] (comp) {Completion\\{\footnotesize PCN (Ch.~6)}};
+
+    \draw[arr] (raw) -- (pre);
+    \draw[arr] (pre) -- (ground);
+    \draw[arr] (ground) -- (cluster);
+    \draw[arr] (cluster) -- (geo);
+    \draw[arr] (geo) -- (clf);
+    \draw[arr] (clf) -- (track);
+    \draw[arr] (track) -- (out);
+    \draw[arr] (track) -- (comp);
+
+    % per-stage timing annotations (right of each stage)
+    \node[ms, right=2mm of pre]     {\SI{127}{\milli\second} (14\%)};
+    \node[ms, right=2mm of ground]  {\SI{163}{\milli\second} (18\%)};
+    \node[ms, right=2mm of cluster] {\SI{502}{\milli\second} (54\%)};
+    \node[ms, right=2mm of geo]     {\SI{46}{\milli\second} (5\%)};
+    \node[ms, below=0.5mm of comp.south, text width=34mm, align=center]
+      {\footnotesize\itshape +\SI{19}{\milli\second} per completed car};
+    \node[ms, left=2mm of clf]      {\SI{74}{\milli\second} (8\%)};
+    \node[ms, left=2mm of track]    {\SI{0.3}{\milli\second}};
+  \end{tikzpicture}
+  \caption{The detection pipeline. Learned stages are shaded; all others are
+    classical. Per-stage figures are mean wall-clock time on the full
+    sequence~08 (\num{4068} frames, AMD Ryzen 7 7800X3D + RTX 3070~Ti;
+    \texttt{output/experiments/timing/timing\_seq08\_full\_n4068.json}), and are
+    measured, not estimated. The total is
+    \SI{921}{\milli\second\per\frame} ($\approx$\SI{1.1}{\fps}); the two learned
+    stages together account for only \SI{93}{\milli\second} (\SI{10}{\percent}) ---
+    the classical clustering and ground-removal stages dominate. Completion runs
+    off the tracked detections and is optional; its cost is per completed car,
+    not per frame.}
+  \label{fig:pipeline}
+\end{figure}
+
+The system is \emph{offline} by design: the tracker and the track-level filter
+use the whole sequence, and real-time operation is out of scope. At
+\SI{921}{\milli\second\per\frame} the pipeline is roughly \SI{1.1}{\fps}, an order
+of magnitude below sensor rate; we characterise this cost honestly in the runtime
+section of Chapter~4 rather than claiming real-time capability. The one
+observation worth making here is where the cost lives: clustering alone is
+\SI{54}{\percent} of the frame budget, and the two learned components combined
+are only \SI{10}{\percent}. The expensive parts of this pipeline are classical,
+not neural.
+
+\subsection{Preprocessing}
+\label{sec:pipeline-preprocess}
+
+Each raw scan (roughly \num{120000} points) passes through three cleaning steps
+before any object reasoning:
+
+\begin{enumerate}
+  \item \textbf{Ground-height $z$-filter.} Points below
+    $z = \SI{-2.0}{\meter}$ in the sensor frame are dropped. This removes the bulk
+    of the road surface and any sub-ground noise cheaply, before the more
+    expensive steps see them.
+  \item \textbf{Voxel downsampling} at \SI{0.05}{\meter}. Points are collapsed to
+    one representative per \SI{5}{\centi\meter} voxel, which both regularises the
+    range-dependent density of LiDAR and cuts the point count by roughly an order
+    of magnitude.
+  \item \textbf{Statistical outlier removal.} Points whose mean distance to their
+    \num{20} nearest neighbours exceeds \num{2.0} standard deviations of the
+    local distribution are discarded, removing isolated speckle.
+\end{enumerate}
+
+The order of the last two steps matters for cost. In the frozen configuration
+(\texttt{voxel\_\allowbreak before\_\allowbreak denoise = True}) downsampling runs \emph{before}
+denoising, so the statistical outlier test operates on roughly ten times fewer
+points. This ordering was adopted as part of a runtime optimisation that also
+improved detection (Finding~\#34, discussed in Chapter~4); it is behaviour-changing,
+so we flag it here rather than presenting the two orderings as equivalent.
+Preprocessing costs \SI{127}{\milli\second\per\frame} in total, split across the
+$z$-filter (\SI{55}{\milli\second}), denoising (\SI{55}{\milli\second}), and
+downsampling (\SI{17}{\milli\second}).
+
+\subsection{Ground removal}
+\label{sec:pipeline-ground}
+
+The dominant remaining structure after preprocessing is the ground plane, which
+must be removed before clustering or it bridges every object into one component.
+We fit a single plane with RANSAC: over \num{300} iterations, three points are
+sampled, their plane computed, and inliers counted within
+\SI{0.2}{\meter}; the best-supported plane is kept. The plane is
+\emph{accepted only if its normal is near-vertical} --- the $z$-component of the
+unit normal must exceed \num{0.5} --- so a spuriously-fitted vertical surface (a
+wall, the side of a truck) cannot be mistaken for ground. If the check fails, no
+points are removed and the whole cloud is passed on as objects; this fail-safe is
+rare but prevents a bad plane fit from deleting real cars.
+
+A single global plane is a deliberate simplification: it assumes the local ground
+is approximately planar, which holds on the flat urban sequences used here but
+would degrade on strong slopes. A grid-based ground model (Patchwork++-style) is
+listed as future work, not a limitation we claim to have solved. The iteration
+count was reduced from \num{1000} to \num{300} as part of Finding~\#34 after
+confirming the plane fit converges well before \num{1000} iterations on this
+data; the fit uses a fixed seed (\texttt{np.random.default\_rng(42)}) so ground
+removal, and therefore the whole pipeline, is deterministic across runs. Ground
+removal costs \SI{163}{\milli\second\per\frame} (\SI{18}{\percent} of the frame).
+
+\subsection{Clustering}
+\label{sec:pipeline-cluster}
+
+Non-ground points are grouped into object candidates with HDBSCAN, a
+density-based hierarchical clusterer, using a minimum cluster size of \num{10}
+and minimum samples of \num{5}. HDBSCAN is chosen over a fixed-radius method
+because LiDAR density falls off with range: a single Euclidean radius that merges
+nothing at \SI{5}{\meter} will over-segment at \SI{40}{\meter}. HDBSCAN's
+variable-density hierarchy adapts to this without a hand-tuned radius schedule,
+and Chapter~4 reports a controlled benchmark (Finding~\#43) confirming it beats
+DBSCAN and Euclidean extraction on recall at matched settings.
+
+Two details of the frozen configuration are load-bearing. First, clustering runs
+on a \emph{coarser} \SI{0.10}{\meter} voxel grid than the \SI{0.05}{\meter}
+preprocessing grid: the object cloud is re-downsampled to \SI{0.10}{\meter},
+HDBSCAN is run there, and the labels are propagated back to the full-resolution
+points by nearest neighbour. This was adopted (Finding~\#34) because the coarser
+grid closes intra-car density gaps that otherwise cause a single car to split
+into several clusters --- the central mechanism of the recall bottleneck analysed
+in Chapter~5 --- and it added \num{1655} true positives on the full sequence~08.
+Second, HDBSCAN is by far the most expensive stage at
+\SI{502}{\milli\second\per\frame} (\SI{54}{\percent} of the budget), because it is
+superlinear in the point count; the coarse-grid trick is as much a speed measure
+as an accuracy one. The clustering stage produces on average \num{43} candidate
+clusters per frame.
+
+\subsection{Geometric filtering}
+\label{sec:pipeline-geometric}
+
+Most clusters are not cars: they are trees, poles, building facades, and
+fragments. A geometric filter rejects clusters whose oriented bounding box (OBB)
+is inconsistent with a car, using only cheap, interpretable shape gates. For each
+cluster the OBB is computed and the cluster is kept only if it passes \emph{all}
+of the following:
+
+\begin{itemize}
+  \item at least \num{15} points;
+  \item OBB volume in $[\num{0.5}, \num{50}]\,\si{\meter\cubed}$;
+  \item longest OBB extent $\leq \SI{6.0}{\meter}$, and the two largest extents
+    above small floors (\SI{0.5}{} and \SI{0.4}{\meter}), rejecting slivers;
+  \item box centre no more than \SI{1.5}{\meter} above the fitted ground plane,
+    and vertical point span $\leq \SI{1.8}{\meter}$, rejecting tall structures;
+  \item aspect ratio (longest\,/\,shortest extent) $\leq \num{6.0}$, rejecting
+    thin walls and poles.
+\end{itemize}
+
+These bounds are generous car priors, not a tight car model --- they are meant to
+remove obvious non-cars while leaving the fine car/not-car decision to the
+learned classifier. The height gate is computed \emph{relative to the fitted
+ground plane}, not to a fixed world height, so it is robust to the sensor not
+being perfectly level. The filter costs \SI{46}{\milli\second\per\frame}
+(\SI{5}{\percent}). Its individual gates are ablated in Chapter~4; here we note
+only that this stage is high-recall and low-precision by construction, and the
+classifier is what turns its survivors into precise detections.
+
+\subsection{Classifier}
+\label{sec:pipeline-classifier}
+
+Each surviving cluster is classified as \emph{car} or \emph{not-car} by a small
+dual-branch PointNet (\texttt{src/\allowbreak classifier.py}). The binary decision
+replaces
+an earlier multi-class (car/bus/motorcycle) design that was dropped once the data
+showed near-zero real bus and motorcycle instances (Finding~\#20); the scope
+narrowing to cars is deliberate and is owned as such in the introduction.
+
+\paragraph{Architecture.} The network has two branches and about \num{80000}
+parameters --- deliberately small (Finding~\#12):
+\begin{itemize}
+  \item a \textbf{point branch} that takes \num{512} points (sampled or padded)
+    normalised into the unit sphere, and applies shared per-point MLPs
+    ($3 \to 64 \to 128 \to 256$) followed by a max-pool to a \num{256}-d shape
+    descriptor;
+  \item a \textbf{bounding-box branch} that takes an \num{8}-dimensional metric
+    feature vector (sorted OBB extents, volume, two aspect ratios,
+    $\log(1+\text{point count})$, vertical span), $z$-score normalised, through a
+    small MLP to \num{32}-d.
+\end{itemize}
+The two are concatenated and passed through a small head
+($288 \to 128 \to 2$) with dropout. The bounding-box branch is what re-injects
+absolute metric scale, which the unit-sphere normalisation deliberately strips
+from the point branch: a distant small car and a nearby one have the same
+normalised shape but different real extents, and the metric branch is how the
+network sees the difference. There are no T-Nets, since clusters already sit in a
+consistent sensor frame.
+
+\paragraph{Training data (mined, not hand-labelled).} The classifier is trained
+on real LiDAR clusters mined automatically from SemanticKITTI
+(\texttt{src/mine\_stage\_b.py}). For each training frame the pipeline's own
+stages~1--5 are replayed, the ground-truth semantic labels are propagated onto the
+surviving clusters by nearest neighbour, and each cluster is labelled \emph{car}
+or \emph{not-car} by majority vote, keeping only clusters whose majority class
+has purity $\geq \num{0.75}$. This yields \num{420333} training clusters
+(sequences 00--07, 09, 10) and \num{130394} validation clusters (sequence~08),
+with the intrinsic $\approx$21\,\%/79\,\% car/not-car imbalance handled by a
+class-weighted loss. The key property is that the training clusters are produced
+by the \emph{same} clustering and filtering the classifier meets at inference ---
+including HDBSCAN splits and filter survivors --- so it learns on exactly the
+distribution it must classify, at no manual-annotation cost.
+
+\paragraph{Production checkpoint: trained from scratch.} The production classifier
+is \texttt{stage\_b\_\allowbreak scratch\_\allowbreak best.pth}, trained on the
+mined real clusters from
+random initialisation (val macro-$F_1$ \num{0.9285}, Finding~\#31). An earlier
+two-stage design first pretrained on synthetic ShapeNet partial renders
+(``Stage~A'') and then fine-tuned on the real clusters (``Stage~B''). We report
+the two-stage machinery in Chapter~4 as an \emph{ablation}, because a controlled
+comparison (Finding~\#25) showed the synthetic pretraining to be \emph{redundant}
+given \num{420000} real clusters: the from-scratch classifier matches the
+pretrained one (macro-$F_1$ \num{0.9285} vs.\ \num{0.9225}). The final pipeline
+therefore uses the simpler from-scratch checkpoint, and the synthetic
+pretraining, together with the finding that the sim-to-real gap is total and
+symmetric (Finding~\#30), is presented as a negative result rather than as a
+contribution. The classifier costs \SI{74}{\milli\second\per\frame} (about
+\SI{1.7}{\milli\second} per cluster over the \num{43} clusters in a frame).
+
+\subsection{Tracking and track-level filtering}
+\label{sec:pipeline-tracker}
+
+Detections are linked across frames by a centroid tracker
+(\texttt{src/tracker.py}). Each frame, current detections are matched to existing
+tracks by solving a Hungarian assignment on the pairwise centroid-distance
+matrix; matches beyond \SI{2.0}{\meter} are rejected, unmatched detections start
+new tracks, and a track that goes unmatched for more than \num{5} consecutive
+frames is retired. This is an offline, centroid-only tracker --- no motion model,
+no appearance --- which is adequate here because detection, not association, is
+the bottleneck; an IoU-based (SORT-style) tracker is listed as future work.
+
+The tracker also enables a \emph{track-level filter} that improves precision.
+Each detection carries the classifier's per-frame label; a track is accepted as a
+car only if, across its lifetime, it collected at least \num{2} non-rejected
+votes, those known votes are a majority of its votes
+($\geq \num{0.5}$), and they agree on a single class. A cluster that the
+classifier flickers on --- a car in one frame, not-car in the next --- is thus
+resolved by temporal majority rather than trusted per frame. Because this filter
+consults the whole track, it is an offline post-processing step, consistent with
+the offline scope of the system; its contribution is isolated as an ablation row
+in Chapter~4. The tracker itself is effectively free at
+\SI{0.3}{\milli\second\per\frame}.
+
+\subsection{Frozen configuration}
+\label{sec:pipeline-config}
+
+Table~\ref{tab:pipeline-config} lists the frozen parameter values that produce
+every number in this thesis. They are the committed \texttt{PIPELINE\_CONFIG} and
+were not altered to obtain any reported result.
+
+\begin{table}[H]
+  \centering
+  \caption{Frozen pipeline configuration (\texttt{src/pipeline.py}). These values
+    were fixed before the write-up; no reported number was produced by changing
+    them.}
+  \label{tab:pipeline-config}
+  \begin{tabular}{lll}
+    \toprule
+    Stage & Parameter & Value \\
+    \midrule
+    Preprocess & $z$-filter threshold & \SI{-2.0}{\meter} \\
+               & voxel size & \SI{0.05}{\meter} \\
+               & denoise neighbours / std-ratio & \num{20} / \num{2.0} \\
+               & voxel before denoise & true \\
+    \midrule
+    Ground     & RANSAC iterations & \num{300} \\
+               & inlier distance & \SI{0.2}{\meter} \\
+               & min.\ normal $z$ & \num{0.5} \\
+    \midrule
+    Clustering & method & HDBSCAN \\
+               & min.\ cluster size / min.\ samples & \num{10} / \num{5} \\
+               & clustering voxel size & \SI{0.10}{\meter} \\
+    \midrule
+    Geometric  & min.\ points & \num{15} \\
+               & volume range & $[\num{0.5}, \num{50}]\,\si{\meter\cubed}$ \\
+               & max.\ longest extent & \SI{6.0}{\meter} \\
+               & max.\ height above ground & \SI{1.5}{\meter} \\
+               & max.\ vertical span & \SI{1.8}{\meter} \\
+               & max.\ aspect ratio & \num{6.0} \\
+    \midrule
+    Classifier & checkpoint & \texttt{stage\_b\_scratch\_best.pth} \\
+               & input points & \num{512} \\
+    \midrule
+    Tracker    & max.\ match distance & \SI{2.0}{\meter} \\
+               & max.\ disappeared frames & \num{5} \\
+               & min.\ track length & \num{2} \\
+               & min.\ known votes / ratio & \num{2} / \num{0.5} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The completion stage that operates on the tracked car detections
+(Figure~\ref{fig:pipeline}, right) is the subject of Chapter~6; the evaluation of
+the detections themselves is Chapter~4.
+
+\end{document}

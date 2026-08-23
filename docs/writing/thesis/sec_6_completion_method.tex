@@ -1,0 +1,344 @@
+% Chapter 6 -- Point-Cloud Completion: Method and Debugging Story
+% Standalone, compilable draft (FPT-template article class + booktabs + float).
+% Folded into the thesis main document later via \input.
+%
+% Scope: this chapter is the completion METHOD and the debugging narrative that
+% produced it. The completion RESULTS (donor metric, box metric, held-out
+% replication, movers) live in Chapter 7; here we only state each fix's headline
+% effect and defer the full evaluation.
+%
+% Honesty-phrasing rules applied (personal_agenda P1):
+%   - domain-gap failures (#15-19) and Step 1c (#45) presented as FINDINGS, not
+%     apologies; #26 inference bug presented as a debugging lesson.
+%   - shipped path = per-car length estimate ON, Step 1c flags OFF.
+%   - 23% fallback (#41) stated as a live limitation.
+%   - measured vs inferred tiers marked; numbers traceable to findings/artifacts.
+%
+% Figures (all embedded via \graphicspath from the gitignored output/ tree;
+% regenerable from the named scripts):
+%   Fig 6.1 fig61_partial_compare.py    -> fig61_partials/       (naive vs KITTI-like partial)
+%   Fig 6.2 fig62_box_overlay.py        -> fig62_deblob/box_overlay_deblob_08.png
+%           (BEV old vs corrected completion box vs amodal GT; reconstructs the
+%            retired PCA+partial-radius normalization, touches nothing frozen)
+%   Fig 6.3 viz_completion.py           -> completion_shape_08.png (shipped output, output/08)
+% Floats set [htbp]. Draft-grade renders; may get a cosmetic restyle in the figure pass.
+%
+\documentclass[a4paper,12pt]{article}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{siunitx}
+\usepackage{microtype}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[super]{nth}
+\usepackage{graphicx}
+% Figures live under the repo's output/ tree (data-safety: renders stay in output/).
+% Path is relative to this standalone draft in docs/writing/thesis/.
+\graphicspath{{../../../output/experiments/}}
+
+\begin{document}
+
+\section{Point-Cloud Completion}
+\label{ch:completion-method}
+
+The second half of this thesis takes each detected car and \emph{completes} it:
+from the one-sided, partial cluster a single LiDAR frame observes, it predicts
+the full car surface. This chapter describes the completion method. It is written
+as the debugging story that actually produced it, because the useful scientific
+content here is not the network --- a standard Point Completion Network (PCN)
+taken off the shelf --- but the sequence of failures and fixes needed to make a
+completion model trained on synthetic CAD data work on real LiDAR. Several of
+those steps are negative results, and they are reported as findings rather than
+smoothed over. The evaluation of the finished method --- whether it adds
+genuinely unseen surface, and whether that generalises --- is the subject of
+Chapter~7; here we state each fix's headline effect and defer the rest.
+
+\subsection{What is completed, and why}
+\label{sec:completion-what}
+
+Completion runs on the tracked car detections of Chapter~3. The input is a
+\emph{single-frame} cluster in the sensor frame, not the accumulated multi-frame
+track. This is a deliberate choice with an evidence basis (the derisk study
+behind Finding~\#26): accumulating a moving car over many frames produces a
+motion smear up to several metres long, which is neither a valid completion
+target nor matchable to a car shape. A single frame is one clean, if partial,
+observation. The value proposition --- that completing this partial improves the
+car's amodal box and recovers surface the frame never saw --- is what Chapter~7
+measures; this chapter is how the completion is produced.
+
+\subsection{The completion network}
+\label{sec:completion-pcn}
+
+We use PCN (Yuan et al., 2018), an encoder--decoder for point clouds
+(\texttt{src/pcn.py}). The encoder is a stacked PointNet: shared per-point MLPs
+lift each point to a local feature, a max-pool summarises the whole cloud into a
+global vector, that global vector is concatenated back onto every point, and a
+second MLP-plus-max-pool stage produces a single \num{1024}-dimensional shape
+embedding. The decoder is coarse-to-fine: a fully-connected stage predicts
+\num{1024} coarse seed points, then a \emph{grid-folding} stage attaches a small
+2D grid patch to each seed and learns to fold it into local surface geometry,
+densifying the coarse skeleton into the final cloud. Training minimises a
+two-term Chamfer loss, $\mathrm{CD}_{\text{coarse}} + 0.5\,\mathrm{CD}_{\text{fine}}$;
+the fine term is down-weighted so the coarse skeleton is learned first. At
+inference the partial is subsampled to \num{256} points before it enters the
+encoder.
+
+The architecture is not a contribution and was not modified: a controlled
+benchmark against PoinTr (Finding~\#28) found PoinTr's synthetic edge small
+(Chamfer \SI{0.161}{}$\to$\SI{0.153}{\meter}) and its real-data behaviour
+equivalent, so PCN was kept and architecture changes were ruled out. Everything
+that follows is about the \emph{data} PCN is trained on and the \emph{geometry}
+of how a real partial is presented to it --- which is where all the difficulty
+turned out to live.
+
+\subsection{The domain-gap failures (a negative result)}
+\label{sec:completion-domaingap}
+
+The first several attempts to run PCN on real cars all produced ``blobs'' ---
+rounded, car-sized point clouds with no recognisable car structure (Findings
+\#15--\#19). At the time this was attributed to the training data being
+synthetic, and the response was a series of sim-to-real remedies: LiDAR-noise
+augmentation of the synthetic partials, and real-data fine-tuning. None of them
+fixed the blobs, and the fine-tuning attempts (\#16/\#17/\#19) are recorded as a
+negative result: on this data, fine-tuning PCN on mined real pairs did not
+recover real-car geometry. The reason it could not is the subject of the next two
+sections --- the problem was in two places at once, and neither was the network
+weights.
+
+\subsection{Fix 1 --- KITTI-like partials: training on the right input distribution}
+\label{sec:completion-kittilike}
+
+The first real cause was that the synthetic \emph{partials} PCN trained on were
+structurally out-of-distribution from the real clusters it met at inference. A
+derisk study comparing candidate partial generators against real seq-08 clusters
+(\texttt{scratchpad/derisk\_synth\_vs\_real.py}) isolated three mismatches: the
+old generator sampled a dense pinhole depth render, skipped the
+\SI{0.05}{\meter} voxelisation and ground removal the real input has been
+through, and added range-proportional noise (up to \SI{0.15}{\meter} at
+\SI{30}{\meter}) that washed out the scan-ring banding real Velodyne data shows.
+
+The fix (\texttt{\_render\_kitti\_like} in \texttt{src/train\_pcn.py},
+Finding~\#26) makes the synthetic partial match the real one: it orients the
+ShapeNet car to gravity, casts a single HDL-64E viewpoint (64 elevation beams,
+\SI{0.09}{\degree} horizontal resolution) from a sensor at \SI{1.73}{\meter} and
+a sampled range of \SIrange{8}{30}{\meter}, adds small \emph{absolute} noise
+(\SI{0.015}{\meter}), voxelises at \SI{0.05}{\meter} to match the pipeline, and
+removes points within \SI{0.30}{\meter} of the ground plane. The dense complete
+mesh sample remains the target. PCN retrained on these partials
+(\texttt{pcn\_kitti\_best.pth}, best val loss \num{0.1246}) is in-distribution
+with the real input, and on a held-out synthetic set produces clean cars, not
+blobs (Chamfer \SI{0.16}{\meter}, F-score@\SI{0.1}{\meter} \num{0.76}).
+Figure~\ref{fig:kitti-like-partial} contrasts the naive and KITTI-like partials
+for the same ShapeNet car.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{fig61_partials/partials_2668f2d9b8a2daad95551e0d9e50cb0d.png}
+  \caption{The training-input distribution fix (Finding~\#26): one ShapeNet car in
+    three views, with its complete-surface target (left, grey) and two candidate
+    training \emph{inputs}. The naive pinhole partial (centre, orange) is dense and
+    uniform; the KITTI-like partial (right, blue) reproduces what real LiDAR
+    delivers --- scan-ring banding, single-viewpoint coverage, \SI{0.05}{\meter}
+    voxelisation, and the ground cut. Neither is a completion output; ``better''
+    here means closer to deployment, not more complete. Training on the KITTI-like
+    distribution is what removes the blobs on real data.}
+  \label{fig:kitti-like-partial}
+\end{figure}
+
+\subsection{Fix 2 --- the inference-normalisation bug: presenting the partial in the frame PCN was trained in}
+\label{sec:completion-inferencebug}
+
+Retraining alone did not de-blob \emph{real} clusters, and this is the more
+important lesson. The residual failure was not in the model but in the
+\emph{inference code} that normalised a real partial before handing it to the
+model (Finding~\#26). PCN is trained on shapes expressed in a fixed canonical car
+frame, centred on the true car centre and scaled by the true car radius. The
+original \texttt{complete()} instead aligned each real partial with a 3D PCA
+frame and normalised it by the \emph{partial's} own centroid and radius --- a
+normalisation the model had never seen. This mismatch alone produced blobs, and
+it did so for \emph{every} checkpoint, including in-distribution ones (it worsened
+Chamfer by roughly \num{3.5}$\times$ even on synthetic data where the model is
+otherwise clean). The train/inference semantics had silently diverged; this
+incident is the motivating example for the project's rule that any external
+integration gets a written semantics map first.
+
+The corrected inference path (\texttt{estimate\_canonical\_frame}) reconstructs
+the training normalisation from a one-sided partial:
+
+\begin{itemize}
+  \item \textbf{Reorientation.} The sensor frame is rotated into the canonical
+    car frame (X${}={}$width, Y${}={}$up, Z${}={}$length): gravity maps to the
+    up axis, and the horizontal heading axis maps to length. Crucially there is
+    \emph{no} PCA --- the 3D PCA alignment was part of the bug.
+  \item \textbf{Full-car centre estimate.} A one-sided partial's bounding-box
+    centre is not the car centre, so the centre is corrected on each axis: shift
+    \emph{down} to undo the upward bias from the ground cut (the dominant
+    correction, \SI{0.25}{\meter}); push \emph{outward} along width toward the
+    occluded far side to a half-car-width prior (\SI{1.9}{\meter}); and push
+    along length toward the occluded far end (Section~\ref{sec:completion-length}).
+  \item \textbf{Scale.} Normalise by the maximum point-to-centre distance divided
+    by a fixed scale correction (\num{1.137}), the calibrated ratio between a
+    one-sided partial radius and the true car radius.
+\end{itemize}
+
+With this path the same real seq-08 clusters recover the correct pose and scale
+(Figure~\ref{fig:deblob}): the box fitted to the old completion is mis-oriented
+and mis-scaled off the amodal ground-truth box, while the box fitted to the
+corrected completion aligns with it, lifting BEV box IoU at every input density
+(for example \num{0.47}$\to$\num{0.85} on the dense car shown). Viewed in the
+canonical car frame, the corrected completions are recognisably car-shaped: they
+recover the car footprint in bird's-eye view and a rough side silhouette
+(roofline included) even from very sparse input --- a clean car footprint from a
+\num{64}-point cluster in the extreme case. We are nonetheless careful about the
+strength of the claim: crispness varies with input density (cleaner on
+well-observed cars, blobbier on the sparsest), and a completion is a filled
+\num{4096}-point cloud rather than a CAD-clean surface. The sharpest completions
+are the \emph{in-distribution synthetic} ones of
+Section~\ref{sec:completion-kittilike} (Chamfer \SI{0.16}{\meter}); on real data
+the fix's value is corrected geometry --- pose, scale, and the surface-coverage
+gains quantified in Chapter~7. A calibration study on
+synthetic cars (Finding~\#26) further identified the residual dominant error as
+\emph{centre estimation}, not scale --- which is what motivates the geometry work
+in the rest of this chapter.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{fig62_deblob/box_overlay_deblob_08.png}
+  \caption{The inference-normalisation fix (Finding~\#26) in bird's-eye view at
+    three input densities; \emph{same checkpoint}, only the normalisation differs.
+    Each panel fits an oriented box to the completed cloud and compares it to the
+    amodal ground-truth box (black) over the raw points (grey). The old PCA +
+    partial-radius box (red) is mis-oriented and mis-scaled --- the 3D PCA picks an
+    arbitrary principal axis rather than gravity --- while the corrected
+    canonical-frame box (green) aligns with the GT, lifting BEV box IoU at every
+    density: \num{0.32}$\to$\num{0.73} (sparse), \num{0.25}$\to$\num{0.74} (mid),
+    \num{0.47}$\to$\num{0.85} (dense). The figure measures \emph{pose and scale}
+    via the box; the completed cloud is car-shaped in the canonical frame but
+    filled rather than crisp (Chapter~7 quantifies real-data surface coverage).}
+  \label{fig:deblob}
+\end{figure}
+
+\subsection{Fix 3 --- rejecting bad inputs: the L-shape gate}
+\label{sec:completion-lshape}
+
+Even with correct normalisation, some clusters cannot complete into a plausible
+car because the \emph{input} is not one car: HDBSCAN fragments (part of a car) and
+merges (two cars, or a \SI{90}{\degree} heading error) both feed the completer
+junk. To detect them we fit the cluster's ground-plane footprint with a
+search-based L-shape fit (Zhang et al., 2017), which scores edge adherence over
+candidate yaw angles and stays well-defined on near-square footprints where PCA
+degenerates. The fitted footprint gives an input-quality gate (Finding~\#27): a
+cluster is rejected as a fragment if its fitted length is below \SI{2.7}{\meter},
+or as a merge if its fitted width exceeds \SI{2.3}{\meter}.
+
+The gate was validated on seq-08 (\texttt{scratchpad/ab\_heading.py}): of \num{47}
+completed car tracks, \emph{every} implausible completion originated from a
+fragment or merge input, and gating them raised completion precision from
+\num{18}/\num{47} (\SI{38}{\percent}) to \num{18}/\num{26} (\SI{69}{\percent}).
+An honest secondary finding from the same study: the L-shape heading itself is
+neutral against plain PCA on real data --- the fit earns its place by
+\emph{detecting bad inputs}, not by giving a better heading.
+
+\subsection{Fix 4 --- length geometry: from a fixed prior to a per-car estimate}
+\label{sec:completion-length}
+
+The canonical-frame centre estimate re-centres the occluded lateral side and the
+ground cut, but a partial truncated at the occluded far \emph{end} is normalised
+around its observed near portion, so PCN's output stops short of the far end. The
+donor metric of Chapter~7 confirmed the far end as the single worst-covered
+region. Two successive fixes address it, both inference-only (no retraining).
+
+\paragraph{The fixed length prior (Finding~\#35).} A longitudinal, extend-only
+push mirrors the width prior along the length axis: the centre is pushed toward
+the occluded far end so the completion reaches an assumed full car length of
+\SI{4.14}{\meter} (the real amodal-GT median). This more than doubled far-end
+coverage on the donor metric and reversed the box-length regression (signed
+$\Delta L$ \SI{-0.44}{}$\to$\SI{-0.32}{\meter}). A larger \SI{4.5}{\meter} prior
+was rejected because it broke the hallucination guard by over-extending genuinely
+compact cars.
+
+\paragraph{The per-car estimate (Finding~\#36).} A single \SI{4.14}{\meter}
+prior is a population median, so it is wrong in both tails --- it over-extends
+compact cars and under-extends long ones. It is replaced by a per-car length,
+\texttt{track\_length\_estimate}: the \nth{90} percentile of the car's own
+gate-passed footprint-length fits, plus a \SI{0.12}{\meter} bias correction,
+falling back to the fixed prior when a track has fewer than \num{5} gate-passed
+frames. The estimator was chosen offline against amodal GT with no PCN inference:
+a length-from-width shortcut is impossible (the correlation between true length
+and width is \num{0.018}), and the aggregate must be a \emph{quantile}, not the
+maximum, because a single contaminated L-shape fit sets the maximum. This is a
+per-track quantity, so the pipeline (which owns the track) computes it and passes
+it in; the completion module itself stays stateless. It removes the compact
+over-extension (compact signed $\Delta L$ \SI{+0.295}{}$\to$\SI{+0.063}{\meter})
+and improves the box metric overall (BEV IoU \num{0.747}$\to$\num{0.771}), at a
+measured cost in pooled donor coverage that Chapter~7 reports in full.
+
+\paragraph{Limitation (Finding~\#41).} The fallback is not rare: on the
+regenerated seq-08 output, \num{119} of \num{518} completed tracks
+(\SI{23}{\percent}) fell back to the fixed prior because they had fewer than five
+gate-passed frames. This is above a comfortable threshold and is stated as a live
+limitation, not a solved problem; it is revisited in the discussion.
+
+\subsection{A closed negative: the second under-extension mechanism}
+\label{sec:completion-step1c}
+
+Targeting each car's \emph{true} length still leaves completions short on normal
+and long cars, which pointed to a second under-extension mechanism inside the
+completion itself: PCN under-fills its normalised frame, and because the centre
+push also drives the normalisation radius, the length prior doubles as an output
+rescale. This was investigated under pre-registration (Finding~\#45, T13) with
+two decoupled knobs: separating the radius from the length push, and a
+length-axis fill factor calibrated on synthetic true GT. The change fixed the
+target --- normal-car box $|\Delta L|$ \num{0.329}$\to$\num{0.232} --- but
+over-extended compacts and failed the pre-registered compact non-regression guard
+on both test sequences. The verdict was \textbf{do not ship}: the compensation is
+irreducibly length-dependent, which is out of scope. The knobs remain in the code
+defaulted off, and the production completion is unchanged. This negative result is
+reported because it bounds the method: the residual far-end shortfall on long cars
+is a known, characterised limit, not an oversight.
+
+\subsection{The shipped completion path}
+\label{sec:completion-summary}
+
+To summarise, a single-frame car cluster is completed by: fitting its footprint
+and rejecting fragments and merges (L-shape gate); reorienting it into the
+canonical car frame with no PCA; estimating the full-car centre (down-shift for
+the ground cut, width prior for the occluded side, per-car length estimate for
+the occluded far end); normalising by the scale-corrected radius; running the
+KITTI-like-trained PCN; and rotating the output back to the sensor frame. Every
+step is inference-time geometry except the one-off retraining on KITTI-like
+partials; no step fine-tunes on the evaluation cars.
+
+Figure~\ref{fig:completion-shape} shows what this path produces on real seq-08
+cars across the input-density range, in the canonical car frame. The completed
+cloud (green) fills the car footprint and a rough side silhouette that the
+single-frame partial (blue) leaves one-sided --- recognisably car-shaped down to a
+\num{64}-point input, with fitted dimensions in the expected car range
+($L \approx \SI{4.2}{\meter}$, $W \approx \SI{1.9}{\meter}$,
+$H \approx \SI{1.6}{\meter}$ on the well-observed cars). Consistent with the
+caveats above, the sparsest inputs complete more coarsely and can inflate the
+width (Chapter~7, Finding~\#44), and the clouds are filled rather than CAD-clean;
+the point here is qualitative shape, with the quantitative real-data assessment ---
+whether the completion adds genuinely unseen surface, and whether that survives a
+pre-registered held-out replication --- being what Chapter~7 sets out to measure.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{completion_shape_08.png}
+  \caption{What the shipped completion path produces on real seq-08 cars, four
+    tracks spanning the input-density range (\num{4679} down to \num{64} input
+    points), each in the canonical car frame: bird's-eye view (left of each pair)
+    and side elevation (right). Blue is the single-frame partial input, green the
+    PCN completion. The completion recovers the full car footprint and a rough
+    roofline silhouette from a one-sided partial; crispness and dimensional
+    accuracy degrade on the sparsest inputs (the \num{64}-point car shows the
+    width inflation discussed in Chapter~7). Rendered by
+    \texttt{scratchpad/viz\_completion.py} from the shipped-config \texttt{output/08}.}
+  \label{fig:completion-shape}
+\end{figure}
+
+\end{document}
