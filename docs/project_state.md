@@ -41,7 +41,7 @@ in `docs/writing/thesis/` (`sec_4_1_evaluation_protocol.tex`,
 Both apply the `personal_agenda` P1 phrasing rules; NOT yet advisor-reviewed.
 Execution plan + full checklist: `THESIS_PLAN.md`.
 
-**Methods milestone — REACHED 2026-08-23 (uncommitted).** Ch 3
+**Methods milestone — REACHED 2026-08-23 (committed `3ec88be`).** Ch 3
 (`sec_3_detection_pipeline.tex`) + Ch 6 (`sec_6_completion_method.tex`)
 first-drafted as compilable LaTeX (build clean, TeX Live 2026) in
 `docs/writing/thesis/`.
@@ -65,10 +65,10 @@ first-drafted as compilable LaTeX (build clean, TeX Live 2026) in
   quantitative gains = Ch 7. Other-sequences check: seq 00 mined (31 static cars vs
   seq 08's 15) corroborates — diffuseness is model-level.
 
-**Next:** commit this session's work (Ch 3/6 .tex + `fig61_partial_compare.py` +
-`fig62_box_overlay.py` + THESIS_PLAN/project_state edits — no commits made this
-session); then Ch 4/5/7 results chapters (Results milestone). output/ renders
-gitignored, regenerable from scripts.
+**Next:** Ch 4/5/7 results chapters (Results milestone). Methods-milestone work
+(Ch 3/6 .tex + `fig61_partial_compare.py` + `fig62_box_overlay.py` +
+THESIS_PLAN/project_state edits) committed 2026-08-23 in `3ec88be`; working tree
+clean. output/ renders gitignored, regenerable from scripts.
 
 ## Current Architecture
 

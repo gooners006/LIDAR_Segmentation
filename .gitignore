@@ -24,3 +24,6 @@ scratchpad/*
 # Downloaded templates
 docs/writing/ICTA_Word+Template/
 docs/writing/lncs-template/
+
+# CodeGraph index (local, regenerable)
+.codegraph/
