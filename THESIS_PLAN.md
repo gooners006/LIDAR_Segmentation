@@ -371,8 +371,15 @@ Confirmed against the repo, all with negative-result precedent or closed status 
    3D-scatter overlay** (`fig62_deblob.py`, kept; other-sequences check used it — seq
    00 mined = 31 static cars vs seq 08's 15, corroborates, pickle-cached). Ch 6
    rebuilds clean (7 pp). Not yet advisor-reviewed.
-9. [ ] Draft Ch 4/5/7 results chapters, transcribing the Section-8 tables, spot-checking
+9. [~] Draft Ch 4/5/7 results chapters, transcribing the Section-8 tables, spot-checking
    one number per chapter against `docs/findings.md`.
+   **Ch 4 results half (§4.2–§4.5) DRAFTED 2026-08-24** —
+   `docs/writing/thesis/sec_4_results.tex`, builds clean (6 pp). Two freeze-safe
+   read-only runs landed: track-filter ablation (Finding #49, Tab 4.2 middle row
+   0.820/0.677/0.741) and B4-lite recall-by-distance (Finding #50, §4.4, finer
+   0–10/10–20 bins showing the #23 near-range dip). Runtime table anchored on the
+   full-run promoted timing (623.5 ms; stride-20 650.6 reconciled). Uncommitted,
+   not advisor-reviewed. Ch 5 + Ch 7 remain.
 10. [ ] Draft Ch 8 limitations → then Ch 2 (+B3 table) → Ch 1 → Ch 9 → abstract →
     `/humanizer` pass → Phase 8 defense prep with `/quiz-me`.
 
@@ -388,11 +395,12 @@ advisor-reviewed. Ch-6 figures (Fig 6.1/6.2) rendered and embedded 2026-08-23.
 Remaining Section-3 item: B3 table (Ch 2); B4 optional.
 
 ### Immediate next action
-Action 9: draft the results chapters (Ch 4 detection results/ablations, Ch 5 recall
-bottleneck, Ch 7 completion results/held-out replication/movers), transcribing the
-Section-8 tables and spot-checking one number per chapter against `docs/findings.md`.
-Ch 4/7 cite the already-drafted protocol anchors (§4.1, §7.2). Action 8 fully
-closed (Fig 6.1/6.2 rendered and embedded 2026-08-23).
+Action 9 in progress: **Ch 4 results half (§4.2–§4.5) drafted 2026-08-24**
+(`sec_4_results.tex`, Findings #49/#50). Remaining: Ch 5 (recall bottleneck) and
+Ch 7 (completion results/held-out replication/movers), transcribing the Section-8
+tables and spot-checking one number per chapter against `docs/findings.md`. Ch 7
+cites the already-drafted §7.2 donor-metric anchor. Action 8 fully closed
+(Fig 6.1/6.2 rendered and embedded 2026-08-23).
 
 ### Next milestone
 "Methods milestone" — Ch 3 + Ch 6 drafted and the B5 pipeline diagram produced —

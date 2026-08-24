@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-23
+Last updated: 2026-08-24
 
 ## RESEARCH FREEZE — declared 2026-08-21 (write-up phase)
 
@@ -69,6 +69,49 @@ first-drafted as compilable LaTeX (build clean, TeX Live 2026) in
 (Ch 3/6 .tex + `fig61_partial_compare.py` + `fig62_box_overlay.py` +
 THESIS_PLAN/project_state edits) committed 2026-08-23 in `3ec88be`; working tree
 clean. output/ renders gitignored, regenerable from scripts.
+
+**Ch 4 results half (§4.2–§4.5) — DRAFTED + REVIEWED 2026-08-24 (NOT yet committed).**
+`docs/writing/thesis/sec_4_results.tex` written (§4.2 results, §4.3 ablations,
+§4.4 distance, §4.5 runtime); builds clean standalone under TeX Live 2026 (7 pp,
+no undefined refs). Distinct label `ch:detection-eval-results` (folds under §4.1's
+chapter at final assembly). Execution plan was
+`C:\Users\ngovi\.claude\plans\draft-ch-4-modular-valley.md`. Two freeze-safe
+read-only runs ran first (both same category as B1/B2/B6, touched nothing frozen):
+1. **Track-filter ablation DONE** (Finding #49,
+   `output/experiments/track_filter_ablation/seq08_notrackfilter.log`): full seq 08
+   `--no-track-filter` middle row of Tab 4.2 = P 0.820 / R 0.677 / F1 0.741 /
+   mIoU 0.921 (TP 23629 / FP 5204 / FN 11293). Reveals recall is **non-monotonic**:
+   classifier drops recall (0.775→0.677) as the precision mechanism, track filter
+   recovers it (→0.730) via temporal voting → §4.3 reframed as dip-then-recover.
+2. **B4-lite recall-by-distance DONE** (Finding #50,
+   `output/experiments/distance_recall/distance_recall_08{,_fine}.json`): per-frame
+   / track-filter-off trend table; pooled TP/FP/FN 1165/268/572 **byte-identical
+   to T10 HDBSCAN seq-08** (#43, validates the greedy-match replication). Finer
+   0–10/10–20 bins (user call) surfaced the #23 near-range over-segmentation dip
+   (0–10 m R 0.787 < 10–20 m 0.862) + far-range sparsity decline. Supersedes #5.
+**Runtime table (§4.5) anchor decision (user "report both"):** table on the
+full-run promoted timing `timing_seq08_full_n4068_combined.json` (623.5 ms, most
+robust), caption reconciling the stride-20 estimate (650.6 ms, the figure cited
+elsewhere) and the 921 ms pre-opt baseline; the 650.6-vs-623.5 gap is
+stride-20-vs-full-run sampling, both the promoted config.
+**Independent review DONE 2026-08-24** (fresh-session judge, `/review-handoff`;
+handoff at `scratchpad/ch4_review_handoff.md`). ~30 numbers verified — zero
+transcription errors in §4.2–§4.5. Fixes applied to the working tree: (1) §4.2
+recall-limited claim re-grounded in measured #23/#24 split rates (was an
+unquantified figure-only "anti-correlated" claim mis-cited to #34); (2) 66%-split
+citation corrected #23→#24 (distance-binned rates live in #24 line 558) in both
+§4.4 and Finding #50; (3) cross-domain Tab 4.3 diagonal filled (in-domain car-F1
+0.999 / 0.885, #30) so the 0.000 collapse is credible; (4) §4.1 arithmetic fixed
+(F1 drop 0.25→0.50 is 2.6 pts not 2.3; 2.3 is the 0.30→0.50 drop per #47) — edits
+the committed sibling, flagged; (5) clustering ms column labelled "mean", runtime
+"classical CPU" clarified to ~94% incl. geometric filter + JSON cited, FP rate
+corrected to ~0.7/frame. Both files rebuild clean (sec_4_results 7 pp, sec_4_1 3 pp). Also fixed a
+pre-existing 45pt overfull in §4.1's headline table (shortened "Mean IoU (matched)"
+→ "Mean IoU" in both §4.1 tables — captions already qualify "matched" — matching
+the §4.2 convention; +`\tabcolsep` on tab:headline).
+**Remaining Ch 4:** advisor feedback if any; then Ch 5 (recall root-cause) + Ch 7
+(completion results). Do NOT commit unless asked (working tree left for review,
+as Ch 3/6 were).
 
 ## Current Architecture
 

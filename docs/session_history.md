@@ -2207,3 +2207,83 @@ judge separation honored for T9c. All work committed: ac03bed, fb50f15, 8b8be98.
 ## Next
 - Commit this session's work (Ch 3/6 .tex + 2 scripts + doc edits).
 - Ch 4/5/7 results chapters (Results milestone); optionally review Ch 3 layout.
+
+---
+# Session — 2026-08-24
+
+## What was done
+
+### Chapter 4 results half (§4.2–§4.5) drafted
+- New `docs/writing/thesis/sec_4_results.tex` (§4.2 Detection Results, §4.3
+  Ablations, §4.4 Detection Range, §4.5 Runtime); builds clean standalone under
+  TeX Live 2026. Distinct label `ch:detection-eval-results` (folds under §4.1 at
+  final assembly). Every number traced to a finding/artifact.
+- §4.2 interprets the headline + two existing seq-08 figures (precision-saturated,
+  recall-limited). §4.3: Tab 4.2 stage ablation, Tab 4.3 Stage-A redundancy +
+  cross-domain, Tab 4.4 clustering benchmark. §4.4 distance table. §4.5 runtime.
+
+### Two freeze-safe read-only runs (same category as B1/B2/B6)
+- **Track-filter ablation** (Finding #49): `evaluate.py --seq 08 --frames 5000
+  --no-track-filter` → `output/experiments/track_filter_ablation/seq08_notrackfilter.log`.
+  Aggregate P 0.820 / R 0.677 / F1 0.741 / mIoU 0.921 (TP 23629/FP 5204/FN 11293)
+  = Tab 4.2 middle row. Revealed recall is **non-monotonic**: classifier drops
+  recall (0.775→0.677) as precision mechanism, track filter recovers it (→0.730)
+  via temporal voting. §4.3 reframed as dip-then-recover.
+- **B4-lite recall-by-distance** (Finding #50): new `scratchpad/distance_recall.py`
+  (imports `evaluate.py` read-only, replicates greedy IoU≥0.3 matching). Seq 08
+  stride-20, per-frame/track-filter-off → `output/experiments/distance_recall/
+  distance_recall_08{,_fine}.json`. Pooled TP/FP/FN 1165/268/572 **byte-identical
+  to T10 HDBSCAN seq-08** (#43) — validates the replication.
+
+### §4.4 finer bins (user call) resolved a pre-registration miss
+- Coarse 0–20/20–40/40+ bins showed monotone recall (no #23 dip) — contradicted
+  the plan's pre-registered interpretation. Re-ran with 0–10/10–20 split: recall
+  0–10 m (0.787) < 10–20 m peak (0.862) → the #23 near-range over-segmentation dip
+  appears at #23's own granularity, plus far-range sparsity decline. 0–10 m also
+  lowest matched-mIoU (0.902).
+
+### §4.5 runtime anchor (user "report both")
+- Found a full-run promoted-config timing artifact
+  (`timing_seq08_full_n4068_combined.json`, 623.5 ms) initially overlooked. Table
+  anchored on it (most robust); caption reconciles the stride-20 estimate
+  (650.6 ms, cited elsewhere) and the 921 ms pre-opt baseline. Classifier-stage
+  timing differs across runs (33.7 vs 73.7 ms) — measurement-condition, not config.
+
+### Independent review (fresh-session judge) + fixes
+- `/review-handoff` prepared `scratchpad/ch4_review_handoff.md`; a fresh session
+  verified ~30 numbers (zero transcription errors) and returned 9 points; all
+  processed against sources and conceded:
+  - §4.2 "recall anti-correlated with density" was figure-only + mis-cited to #34
+    → re-grounded in measured #23/#24 split rates (66% at 0–10 m).
+  - 66%-split citation corrected #23→#24 (binned rates are in #24 line 558) in
+    §4.4 AND Finding #50.
+  - Cross-domain Tab 4.3 diagonal filled (in-domain car-F1 0.999 / 0.885, #30).
+  - §4.1 arithmetic fixed: F1 drop 0.25→0.50 is 2.6 pts (not 2.3; 2.3 is 0.30→0.50
+    per #47) — edits committed sibling.
+  - Clustering ms column labelled "mean"; runtime "classical CPU" → ~94% (incl.
+    geometric filter) + JSON cited; FP rate → ~0.7/frame.
+  - Fixed a pre-existing 45pt overfull in §4.1's headline table ("Mean IoU
+    (matched)" → "Mean IoU" in both §4.1 tables; captions already qualify).
+- Both files rebuild clean (sec_4_results 7 pp, sec_4_1 3 pp).
+
+## Files changed
+- New (untracked): `docs/writing/thesis/sec_4_results.tex`,
+  `scratchpad/distance_recall.py`
+- Modified: `docs/writing/thesis/sec_4_1_evaluation_protocol.tex`,
+  `docs/findings.md` (Findings #49/#50 added; #23→#24 correction),
+  `docs/project_state.md`, `THESIS_PLAN.md`
+- New output artifacts (gitignored, regenerable):
+  `output/experiments/track_filter_ablation/`, `output/experiments/distance_recall/`
+- Not committed (working tree left for review, as Ch 3/6 were).
+
+## Results / findings
+- Finding #49 (track-filter ablation): three-row stage decomposition; non-monotonic
+  recall (classifier drops, track filter recovers).
+- Finding #50 (B4-lite): near-range over-segmentation dip + far-range sparsity;
+  pooled numbers byte-identical to T10.
+
+## Next
+- Draft Ch 5 (recall root-cause / HDBSCAN splitting) and Ch 7 (completion results).
+- Optionally commit the Chapter-4 work (currently uncommitted).
+- §4.1 is a committed sibling now edited in the working tree (arithmetic + table
+  width) — include in the next commit.

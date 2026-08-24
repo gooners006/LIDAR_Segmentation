@@ -1925,3 +1925,86 @@ timing-sampling lesson), and TP itself is unchanged.
 reports both the eligibility-exclusion percentage (25.5% vs. all annotated /
 14.6% vs. >=10-raw) and the implied ~0.54 recall-against-all-annotated, with the
 stride documented. No code or config change (read-only analysis; freeze intact).
+
+## 49. Track-Filter Ablation — Classifier Drops Recall, Track Filter Recovers It (Ch 4 §4.3) — seq 08 full (2026-08-24)
+
+**Context:** Thesis Ch-4 stage-ablation table (Tab 4.2) needs a like-for-like
+`+classifier (no track filter)` middle row between geometric-only (B6, #47) and
+the full headline, so the classifier and track-filter contributions can be
+separated. Read-only against the frozen `PIPELINE_CONFIG` + production classifier
+during the write-up freeze (same category as B1/B2/B6). Full seq 08 (4,071
+frames). Command / log:
+`.venv\Scripts\python.exe src/evaluate.py --seq 08 --frames 5000 --no-track-filter`
+→ `output/experiments/track_filter_ablation/seq08_notrackfilter.log`.
+
+**Finding — three-row stage decomposition (frozen config, full seq 08):**
+
+| Config | Precision | Recall | F1 | Mean IoU | TP / FP / FN |
+|---|---|---|---|---|---|
+| Geometric only (B6, #47) | 0.149 | 0.775 | 0.250 | 0.907 | 27051 / 154612 / 7871 |
+| + classifier (no track filter) | 0.820 | 0.677 | 0.741 | 0.921 | 23629 / 5204 / 11293 |
+| + classifier, + track filter (headline) | 0.905 | 0.730 | 0.808 | 0.912 | 25478 / 2676 / 9444 |
+
+Recall is **non-monotonic** across the decomposition. The per-frame classifier is
+the precision mechanism — it removes ~149k junk clusters (FP 154612 → 5204,
+P 0.149 → 0.820) — but is conservative, dropping borderline true clusters too
+(R 0.775 → 0.677, TP 27051 → 23629). The **offline track filter then recovers
+recall while raising precision again** (P → 0.905, R → 0.730, TP 23629 → 25478):
+a car seen across many frames is kept even where a single frame classified it as
+unknown (`keep_unknown=True` in tracking pass 1 + track vote), while transient FPs
+fail the track-length test. Net across both stages is still a recall trade
+(geom-only R 0.775 > full 0.730, ~1,600 TP forgone for the ~152k-FP removal), but
+it runs through a dip-and-recover, not a monotone loss.
+
+**Decision:** Fills Tab 4.2's middle row and reframes the §4.3 stage-ablation
+prose from "classifier + track filter trade recall for precision" (endpoint-only)
+to the two-step dip-then-recover story. No code or config change (read-only;
+freeze intact). Deterministic RANSAC (`np.random.default_rng(42)`), reproducible.
+
+## 50. Recall-by-Distance (B4-lite) — Near-Range Over-Segmentation Dip + Far-Range Sparsity (Ch 4 §4.4) — seq 08 (2026-08-24)
+
+**Context:** Thesis Ch-4 §4.4 needs a real distance-stratified detection table
+(B4, `THESIS_PLAN.md` §3) instead of citing the stale Finding #5 (precision-only,
+seq 00, pre-promotion). Read-only against the frozen config + production
+classifier during the write-up freeze (B2 pattern; same category as B1/B2/B6).
+Script: `scratchpad/distance_recall.py` (imports `evaluate.py` read-only, replicates
+`match_detections_to_gt`'s greedy IoU>=0.3 assignment verbatim to recover which GT
+are matched vs missed, bins by `||centroid||` in the sensor frame). Seq 08,
+stride-20 (204 of 4,071 frames), `supported-vehicles` ({10,252}). JSONs:
+`output/experiments/distance_recall/distance_recall_08{,_fine}.json`.
+
+**DEVIATION (logged, as #5/T10):** per-frame, **track-filter-OFF** (stride breaks
+the tracker). Pooled recall (0.671) is a per-frame figure and does NOT restate the
+0.730 track-filtered headline — read as a distance *trend*. **Validation:** pooled
+TP/FP/FN = 1165/268/572 is **byte-identical to T10's HDBSCAN seq-08 per-frame
+result** (#43), confirming the greedy-match replication reproduces `evaluate.py`
+exactly.
+
+**Finding — finer bins expose two mechanisms (recall is non-monotonic in range):**
+
+| Range (m) | Precision | Recall | F1 | Mean IoU (matched) | TP / FP / FN |
+|---|---|---|---|---|---|
+| 0–10 | 0.896 | 0.787 | 0.838 | 0.902 | 311 / 36 / 84 |
+| 10–20 | 0.855 | **0.862** | 0.859 | 0.926 | 432 / 73 / 69 |
+| 20–40 | 0.762 | 0.549 | 0.638 | 0.934 | 400 / 125 / 329 |
+| 40+ | 0.393 | 0.196 | 0.262 | 0.943 | 22 / 34 / 90 |
+| Pooled | 0.813 | 0.671 | 0.735 | 0.923 | 1165 / 268 / 572 |
+
+The **nearest-bin recall dips**: 0–10 m recall (0.787) is *below* the 10–20 m peak
+(0.862), despite near cars carrying far more points. This is **over-segmentation,
+not sparsity** — Finding #24 (line 558) measures 66% HDBSCAN split rate at 0–10 m
+falling to 4% at 30–50 m (the distance-binned rates; #23 has only the aggregate
+31.5%/37.1%), so a close car dissolves into fragments that no longer match the
+whole instance. Corroborating: 0–10 m also has the **lowest matched-mIoU**
+(0.902), fragments eroding overlap even on cars that do match. Beyond the peak the
+decline is ordinary sparsity (R 0.862 → 0.549 → 0.196), while matched-mIoU *rises*
+with range (0.902 → 0.943; far detections are compact single clusters).
+
+**Deviation from plan pre-registration (honest note):** the plan's coarse
+0–20/20–40/40+ bins (chosen to match #5) *masked* the near dip — the 0–20 m
+aggregate recall is 0.829, monotone-looking. Adding the finer 0–10/10–20 split
+(user call) surfaced the #23 signature at the granularity #23 actually uses. Both
+JSONs kept; 0–20 m = 0–10 ∪ 10–20 stays #5-comparable.
+
+**Decision:** Source table for §4.4; supersedes Finding #5 (now a one-line
+historical note). No code or config change (read-only; freeze intact).

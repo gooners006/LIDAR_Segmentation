@@ -151,9 +151,10 @@ sequence~08 under this protocol.
     sequence~00 is a training-split reference. Mean IoU is the mean over matched
     detections only.}
   \label{tab:headline}
+  \setlength{\tabcolsep}{5pt}
   \begin{tabular}{lccccc}
     \toprule
-    Sequence & Precision & Recall & $F_1$ & Mean IoU (matched) & TP / FP / FN \\
+    Sequence & Precision & Recall & $F_1$ & Mean IoU & TP / FP / FN \\
     \midrule
     08 (full, \num{4071} fr.) & 0.905 & 0.730 & 0.808 & 0.912 & \num{25478} / \num{2676} / \num{9444} \\
     00 (100 fr., reference)   & 0.967 & 0.777 & 0.862 & 0.962 & \num{1296} / \num{44} / \num{371} \\
@@ -184,14 +185,14 @@ $\tau \in \{0.25, 0.30, 0.50\}$ with everything else frozen
 \begin{table}[H]
   \centering
   \caption{IoU-threshold sensitivity on the full sequence~08 (frozen
-    configuration). The $\tau = 0.30$ row is the headline. $F_1$ moves by
-    \num{2.3} points across the whole range; mean IoU of matched detections
-    rises at the stricter gate because it keeps only the better-overlapping
-    matches.}
+    configuration). The $\tau = 0.30$ row is the headline. $F_1$ moves by at most
+    \num{2.6} points across the tested range (\num{0.811} at $\tau=0.25$ to
+    \num{0.785} at $\tau=0.50$); mean IoU of matched detections rises at the
+    stricter gate because it keeps only the better-overlapping matches.}
   \label{tab:iou-sensitivity}
   \begin{tabular}{cccccc}
     \toprule
-    $\tau$ & Precision & Recall & $F_1$ & Mean IoU (matched) & TP / FP / FN \\
+    $\tau$ & Precision & Recall & $F_1$ & Mean IoU & TP / FP / FN \\
     \midrule
     0.25 & 0.908 & 0.732 & 0.811 & 0.910 & \num{25576} / \num{2578} / \num{9346} \\
     0.30 & 0.905 & 0.730 & 0.808 & 0.912 & \num{25478} / \num{2676} / \num{9444} \\
@@ -200,9 +201,11 @@ $\tau \in \{0.25, 0.30, 0.50\}$ with everything else frozen
   \end{tabular}
 \end{table}
 
-$F_1$ falls only \num{.23} points from the permissive $\tau = 0.25$ to the strict
-$\tau = 0.50$ (\num{0.811} to \num{0.785}), so the reported quality is stable
-under the choice of threshold and does not depend on the lenient value. We had
+$F_1$ falls only \num{2.3} points from the headline $\tau = 0.30$ to the strict
+$\tau = 0.50$ (\num{0.808} to \num{0.785}), and \num{2.6} points across the full
+tested range from the permissive $\tau = 0.25$ (\num{0.811}), so the reported
+quality is stable under the choice of threshold and does not depend on the lenient
+value. We had
 pre-registered that a threshold-sensitive result would be \emph{reported as a
 finding rather than tuned away}; it was not sensitive.
 
