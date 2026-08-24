@@ -327,8 +327,9 @@ per-stage figures from \texttt{timing\_seq08\_full\_n4068\_combined.json}). The 
 the time goes: the two classical geometric stages --- ground-plane RANSAC and,
 above all, HDBSCAN clustering --- dominate, together taking roughly
 \SI{68}{\percent} of the frame; adding preprocessing and the geometric filter,
-the classical CPU stages account for about \SI{94}{\percent}, leaving the learned
-components (classifier and tracker) at only $\sim$\SI{5.5}{\percent}. The
+the classical CPU stages account for about \SI{94}{\percent}, leaving the single
+learned component --- the classifier --- at only $\sim$\SI{5.4}{\percent} (the
+centroid/Hungarian tracker is a classical assignment step, not learned). The
 classifier is \SI{33.7}{\milli\second} for the $\sim$\num{45} clusters in a frame
 ($\sim$\SI{0.75}{\milli\second} each) and the tracker is negligible.
 

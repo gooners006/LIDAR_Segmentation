@@ -113,14 +113,15 @@ test --- the same paired, per-car design used for the box evaluation.
 
 A metric that will carry the completion claims must itself be shown to behave.
 Before using it we required it to pass four pre-stated checks
-(Table~\ref{tab:donor-gate}); it passes all four.
+(Table~\ref{tab:donor-gate}, Finding~\#32); it passes all four.
 
 \begin{table}[H]
   \centering
   \caption{The four validation checks for the donor metric, and the observed
-    outcome (seq~08, per-car medians, $n=39$). Coverage figures are the
-    car-median \texttt{cov@0.1}; the guard figures are car-median out-of-box
-    fractions.}
+    outcome (seq~08, per-car medians, $n=39$; the metric's original acceptance
+    run, Finding~\#32, on the production path as it stood \emph{before} the
+    Chapter~6 length prior). Coverage figures are the car-median
+    \texttt{cov@0.1}; the guard figures are car-median out-of-box fractions.}
   \label{tab:donor-gate}
   \begin{tabular}{p{0.44\linewidth} p{0.48\linewidth}}
     \toprule
@@ -154,7 +155,9 @@ place only by beating it.
 
 The guard as first designed --- check~(d) above --- was a single median pooled
 over all cars, and that pooling hid a real failure mode. When we later evaluated
-a geometry change (the per-car length prior of Chapter~6) with this guard, the
+a geometry change (the per-car length prior of Chapter~6) with this guard ---
+now re-run on the promoted configuration, whose well-observed static set is
+$n=40$ ($8+27+5$ across the compact/normal/long bands; Finding~\#37) --- the
 pooled out-of-box fraction stayed comfortably low (\num{0.0020}) and the change
 appeared safe. Splitting the same guard by car length told a different story
 (Table~\ref{tab:d2}): on the \emph{compact} band the length prior over-extended

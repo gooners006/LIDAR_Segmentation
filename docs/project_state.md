@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-24
+Last updated: 2026-08-25
 
 ## RESEARCH FREEZE — declared 2026-08-21 (write-up phase)
 
@@ -48,7 +48,8 @@ first-drafted as compilable LaTeX (build clean, TeX Live 2026) in
 - **Ch 3:** every pipeline stage + frozen-config table; production classifier as
   the from-scratch checkpoint (#31), Stage A as Ch-4 ablation; **B5 pipeline
   diagram** embedded as inline TikZ Fig 3.1 (per-stage ms from
-  `timing_seq08_full_n4068.json`).
+  `timing_seq08_full_n4068_combined.json`, i.e. the promoted config — corrected
+  2026-08-25 from the pre-#34 `_n4068.json`; see the cross-file audit block).
 - **Ch 6:** completion debugging story (#15-19 → #26 data fix → #26 inference-bug
   fix → #27 L-shape gate → #35/#36 length → #45 closed Step-1c), eval deferred to
   Ch 7. Three figures, all referenced + building clean (7 pp): Fig 6.1
@@ -70,7 +71,7 @@ first-drafted as compilable LaTeX (build clean, TeX Live 2026) in
 THESIS_PLAN/project_state edits) committed 2026-08-23 in `3ec88be`; working tree
 clean. output/ renders gitignored, regenerable from scripts.
 
-**Ch 4 results half (§4.2–§4.5) — DRAFTED + REVIEWED 2026-08-24 (NOT yet committed).**
+**Ch 4 results half (§4.2–§4.5) — DRAFTED + REVIEWED 2026-08-24; COMMITTED `151bde9`.**
 `docs/writing/thesis/sec_4_results.tex` written (§4.2 results, §4.3 ablations,
 §4.4 distance, §4.5 runtime); builds clean standalone under TeX Live 2026 (7 pp,
 no undefined refs). Distinct label `ch:detection-eval-results` (folds under §4.1's
@@ -110,8 +111,22 @@ pre-existing 45pt overfull in §4.1's headline table (shortened "Mean IoU (match
 → "Mean IoU" in both §4.1 tables — captions already qualify "matched" — matching
 the §4.2 convention; +`\tabcolsep` on tab:headline).
 **Remaining Ch 4:** advisor feedback if any; then Ch 5 (recall root-cause) + Ch 7
-(completion results). Do NOT commit unless asked (working tree left for review,
-as Ch 3/6 were).
+(completion results).
+
+**Cross-file audit fixes — DONE 2026-08-25.** An external audit (5 thesis drafts
+vs. frozen evidence, ~30 numbers) flagged one must-fix + should/optional items;
+all six applied (Ch 3/4/6/§7.2). Central fix: **Ch 3 was reporting pre-#34
+timings** (`timing_seq08_full_n4068.json`, 921 ms / 1.1 fps) for the promoted
+pipeline its own Table 3.1 documents — regenerated every Ch 3 timing from
+`timing_seq08_full_n4068_combined.json` (623.5 ms / 1.6 fps; ground 56, HDBSCAN
+370 = 59%, classifier 34, geo 36, preproc 126, 45 clusters/frame, completion +13
+ms/car), so Ch 3 now agrees with §4.5. Also: "learned stages" accounting
+corrected (classifier-only, not classifier+completion/tracker) in Ch 3 + §4.5;
+§7.2 n=39 (acceptance run #32) vs n=40 (promoted re-run #37) reconciled with
+inline cites; Ch 6 Fig 6.2 box-IoU triples cite the `fig62_box_overlay.py` render;
+Ch 3 preprocessing-order framing softened. No frozen artifact changed (the
+evidence was correct; Ch 3 had cited the wrong file). Text-only edits, no
+recompile run.
 
 ## Current Architecture
 

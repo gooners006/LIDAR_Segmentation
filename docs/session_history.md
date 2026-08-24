@@ -2287,3 +2287,69 @@ judge separation honored for T9c. All work committed: ac03bed, fb50f15, 8b8be98.
 - Optionally commit the Chapter-4 work (currently uncommitted).
 - §4.1 is a committed sibling now edited in the working tree (arithmetic + table
   width) — include in the next commit.
+
+---
+
+# Session — 2026-08-25
+
+## What was done
+
+### Cross-file thesis audit — applied all six fixes
+An external cross-file audit (5 thesis drafts vs. frozen evidence, ~30 numbers
+verified) flagged one must-fix plus should/optional items. Verified the central
+claim against the timing JSONs and §4.5 before editing, then applied all six.
+
+- **#1 (must-fix) — Ch 3 timings regenerated from the promoted-config run.**
+  `sec_3_detection_pipeline.tex` drew Fig 3.1 and all prose timings from
+  `timing_seq08_full_n4068.json` (the pre-#34 run) while its Table 3.1 documents
+  the promoted config (`ransac_iterations=300`, `cluster_voxel_size=0.10`) — a
+  self-contradiction, and 1.1 fps vs §4.5's 1.6 fps. Rewrote every Ch 3 timing
+  from `timing_seq08_full_n4068_combined.json` and updated the Fig 3.1 citation:
+  total 921 ms/1.1 fps → 623.5 ms/1.6 fps; ground 163→56 ms (18%→9%); HDBSCAN
+  502→370 ms (54%→59%); classifier 74→34 ms (1.7→0.75 ms/cluster); geometric
+  46→36 ms; preprocessing 127→126 ms (splits 55/55/17 → 58/50/18); clusters/frame
+  43→45; completion +19→+13 ms/car. Now matches Table 3.1 and §4.5. Qualitative
+  claims survive (clustering still dominates, 370/623 ≈ 59%).
+- **#2 — "learned stages" accounting corrected in both chapters.** Ch 3's "two
+  learned stages = 93 ms (10%)" folded per-car completion into the per-frame
+  budget → now "the only learned per-frame stage, the classifier, ~34 ms (~5%)",
+  completion explicitly excluded as per-car. §4.5 (`sec_4_results.tex`) no longer
+  calls the tracker a "learned component" → "the single learned component, the
+  classifier, ~5.4% (the centroid/Hungarian tracker is classical, not learned)".
+- **#3 — §7.2 n=39 vs n=40 reconciled.** `sec_7_2_donor_metric.tex`: tab:donor-gate
+  caption marked as the metric's original acceptance run (Finding #32, n=39,
+  pre-length-prior); guard-lesson paragraph marked as the promoted-config re-run
+  (Finding #37, n=40 = 8+27+5 across compact/normal/long).
+- **#4 — §7.2 inline Finding cites added** (#32 at validation, #37 at guard-lesson)
+  to match house style in the other four files.
+- **#5 — Ch 6 Fig 6.2 box-IoU triples sourced.** `sec_6_completion_method.tex`
+  caption now cites the `fig62_box_overlay.py` render (0.32→0.73 / 0.25→0.74 /
+  0.47→0.85 are per-panel render values, not an aggregate finding).
+- **#6 — Ch 3 preprocessing-order framing softened.** "The order of the last two
+  steps matters for cost" → "is behaviour-changing"; reframed as adopted under
+  Finding #34 primarily for the detection gain, timing effect noted as small.
+
+Items the audit checked and found correct (headline consistency, eligibility, IoU
+sensitivity, ablations, distance table, cross-domain matrix, completion narrative)
+were left untouched.
+
+## Files changed
+- Modified: `docs/writing/thesis/sec_3_detection_pipeline.tex`,
+  `docs/writing/thesis/sec_4_results.tex`,
+  `docs/writing/thesis/sec_6_completion_method.tex`,
+  `docs/writing/thesis/sec_7_2_donor_metric.tex`, `docs/project_state.md`,
+  `docs/session_history.md`
+- Untracked, NOT part of this session (excluded from commit): `docs/LVTN.pptx`,
+  `docs/LVTN_extracted.md` (a peer's defense deck, kept as a structure template).
+
+## Results / findings
+- No new experiments; this was a documentation-consistency pass. No finding added
+  to `docs/findings.md` (the frozen evidence was already correct — the defect was
+  Ch 3 citing the wrong config's timing file).
+- Verification: text-only annotation edits, no LaTeX recompile run; a grep sweep
+  confirmed no stale pre-optimisation numbers remain in Ch 3.
+
+## Next
+- Draft Ch 5 (recall root-cause / HDBSCAN splitting) and Ch 7 (completion results).
+- If desired, recompile the four edited `.tex` files under TeX Live 2026 to
+  reconfirm clean builds before advisor review.
