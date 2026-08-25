@@ -2290,7 +2290,7 @@ judge separation honored for T9c. All work committed: ac03bed, fb50f15, 8b8be98.
 
 ---
 
-# Session — 2026-08-25
+# Session — 2026-08-25 (cross-file audit + Chapter 5 draft & external review)
 
 ## What was done
 
@@ -2333,23 +2333,67 @@ Items the audit checked and found correct (headline consistency, eligibility, Io
 sensitivity, ablations, distance table, cross-domain matrix, completion narrative)
 were left untouched.
 
+### (Later same-day session) Drafted Chapter 5 "The Recall Bottleneck"
+New file `docs/writing/thesis/sec_5_recall_bottleneck.tex` — the mechanism +
+negative-results chapter. Planned via the plan-mode workflow: 2 Explore agents
+(thesis conventions + recall findings), then AskUserQuestion decisions — (a) Ch-4
+overlap = cross-reference only (#43/#50 not re-tabulated); (b) temporal aggregation
+included in the strategy table with a footnote (later moved to prose during review).
+Plan file: `C:\Users\ngovi\.claude\plans\chapter-5-velvet-bubble.md`.
+- Verified temporal-aggregation traceability before citing: primary record is
+  `docs/session_history.md:898-906` (F1 0.844→0.073, R 0.039, `temporal_window=3`,
+  code reverted). Not reproducible — feature reverted + research freeze.
+- Structure §5.1 clustering- not classifier-bound (#22/#47) → §5.2 root cause
+  HDBSCAN splitting (#23, Fig 5.1 `seq08_failure_zooms.png`) → §5.3 failed repairs
+  (Tab 5.1: BEV #21, MCS/merge/adaptive #24) → §5.4 resolution fix (#34, recall
+  0.699→0.730) + walk-back of the retracted "~0.74 hard limit" (#24 Correction) →
+  §5.5 summary. Compiled clean (latexmk, TeX Live 2026 at `D:\texlive\2026`), 6 pp.
+
+### (Later same-day session) Processed external review (/review-handoff, 12 points)
+Verified each point against source (`docs/findings.md`, `src/tracker.py`,
+`src/evaluate.py`, `src/analyze_clustering.py`) before conceding or pushing back.
+- CONCEDED + fixed: Tab 5.1a rebuilt as a true partition (ok/split/noisy+all-noise
+  sum to the denominator; `merged` demoted to a cross-cutting memo — old rows summed
+  to 1639/810 vs headers 1631/811, confirmed via `analyze_clustering.py:165-182`);
+  §5.2 reframed (recall EXCEEDS the ok fraction → floor not ceiling; split cars lost
+  ~81%; dropped "usually still detected"/"recoverable ceiling"; added the shrinking
+  clean-vs-recall gap 7.1→3.1 pt as the resolution-fix predictor); §5.1 "fragments
+  not whole cars" softened to an inference (ablation checks GT-overlap, not survivor
+  co-occurrence); §5.3 "post-hoc" over-generalisation fixed (only fragment-merge is
+  post-hoc; real axis = alter-formation vs reassemble) and section retitled "Repair
+  strategies fail to generalise"; temporal aggregation moved from table to prose;
+  811/810 & 37.1/37.7 reconciled in a footnote; range bins shown (66/40/19/4).
+- PUSHED BACK with evidence: "1600 TP" is correct (27051−25478=1573, same full-seq08
+  sample, #47/#49) — added cite, disambiguated from #34's coincidental +1655;
+  "monotonically" defensible (#24 has all four bins); the citation-drift flag was a
+  handoff-note error (.tex already cited #24 correctly).
+- Confirmed tracker is filter-only (`tracker.py` emits current-frame clusters, no
+  interpolation; `evaluate.py:558-567`) → added a guard clause.
+- Final: rebuilds clean, 7 pp, no undefined refs. `project_state.md` updated with a
+  Ch-5 draft + review-revision block.
+
 ## Files changed
 - Modified: `docs/writing/thesis/sec_3_detection_pipeline.tex`,
   `docs/writing/thesis/sec_4_results.tex`,
   `docs/writing/thesis/sec_6_completion_method.tex`,
   `docs/writing/thesis/sec_7_2_donor_metric.tex`, `docs/project_state.md`,
   `docs/session_history.md`
+- New (later same-day session): `docs/writing/thesis/sec_5_recall_bottleneck.tex`
 - Untracked, NOT part of this session (excluded from commit): `docs/LVTN.pptx`,
   `docs/LVTN_extracted.md` (a peer's defense deck, kept as a structure template).
 
 ## Results / findings
-- No new experiments; this was a documentation-consistency pass. No finding added
-  to `docs/findings.md` (the frozen evidence was already correct — the defect was
-  Ch 3 citing the wrong config's timing file).
-- Verification: text-only annotation edits, no LaTeX recompile run; a grep sweep
+- Cross-file audit: no new experiments; documentation-consistency pass, no finding
+  added to `docs/findings.md` (the frozen evidence was already correct — the defect
+  was Ch 3 citing the wrong config's timing file). Text-only edits, grep sweep
   confirmed no stale pre-optimisation numbers remain in Ch 3.
+- Chapter 5: no new experiments (research frozen); all numbers transcribed from
+  `docs/findings.md` / `docs/session_history.md` and spot-checked against source.
+  Chapter compiles clean under TeX Live 2026 (7 pp after review revisions).
 
 ## Next
-- Draft Ch 5 (recall root-cause / HDBSCAN splitting) and Ch 7 (completion results).
-- If desired, recompile the four edited `.tex` files under TeX Live 2026 to
-  reconfirm clean builds before advisor review.
+- Draft Ch 7 (completion results) — the last remaining results chapter.
+- All chapter drafts (incl. Ch 5) still NOT advisor-reviewed.
+- Optional Ch 4 remainder: B3 literature table, B4 distance-recall figure.
+- If desired, recompile the audit-edited `.tex` files (Ch 3/4/6/§7.2) under TeX Live
+  2026 to reconfirm clean builds before advisor review.

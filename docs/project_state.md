@@ -110,8 +110,43 @@ corrected to ~0.7/frame. Both files rebuild clean (sec_4_results 7 pp, sec_4_1 3
 pre-existing 45pt overfull in §4.1's headline table (shortened "Mean IoU (matched)"
 → "Mean IoU" in both §4.1 tables — captions already qualify "matched" — matching
 the §4.2 convention; +`\tabcolsep` on tab:headline).
-**Remaining Ch 4:** advisor feedback if any; then Ch 5 (recall root-cause) + Ch 7
-(completion results).
+**Remaining Ch 4:** advisor feedback if any; then Ch 7 (completion results).
+
+**Chapter 5 (The Recall Bottleneck) — DRAFTED 2026-08-25.**
+`docs/writing/thesis/sec_5_recall_bottleneck.tex` written; builds clean standalone
+under TeX Live 2026 (6 pp, no undefined refs). Mechanism + negative-results chapter,
+cross-referencing (not re-tabulating) Ch 4's #43/#50 tables per user decision. Owns:
+§5.1 recall is clustering- not classifier-bound (#22/#47), §5.2 root cause = HDBSCAN
+splitting (#23, Fig 5.1 = `seq08_failure_zooms.png`), §5.3 Tab 5.1 failed post-hoc
+repairs (BEV #21, MCS/merge/adaptive #24, temporal aggregation footnoted from
+`session_history.md:898-906` — code reverted, pre-promotion baseline; per user call),
+§5.4 the resolution fix (#34, recall 0.699→0.730) + explicit walk-back of the
+retracted "~0.74 hard limit" (#24 Correction), §5.5 summary. All numbers traced;
+no `src/`/frozen artifact touched. Plan:
+`C:\Users\ngovi\.claude\plans\chapter-5-velvet-bubble.md`.
+
+**Ch 5 external review processed — REVISED 2026-08-25** (`/review-handoff`, 12
+points). Verified each against source before acting (findings.md, tracker.py,
+evaluate.py, analyze_clustering.py). Fixes applied to the working tree: (1) Tab 5.1a
+(tab:split) rebuilt as a true partition (ok/split/noisy+all-noise sum to the
+denominator; merged demoted to a cross-cutting memo row, not summed) — the old rows
+summed to 1639/810 vs headers 1631/811; (2) §5.2 reframed — dropped "usually still
+detected" and "recoverable ceiling" (recall EXCEEDS the ok fraction, so it's a floor
+not a ceiling; split cars are lost ~81% of the time; a large point-fraction ≠ a
+match), added the shrinking clean-vs-recall gap 7.1→3.1 pt as the resolution-fix
+predictor; (3) §5.1 "fragments not whole cars" softened to an inference
+(analyze_clustering.py checks GT-overlap, not co-occurrence with a surviving
+cluster); (4) §5.1 "1600 TP" pinned to 27051 vs 25478 (#47/#49, same full-seq08
+sample) + disambiguated from #34's coincidental +1655; tracker-is-filter-only guard
+clause added (tracker.py emits current-frame clusters only, no interpolation);
+(5) §5.3 "post-hoc" over-generalisation fixed (only fragment-merge is post-hoc; the
+real axis is alter-formation vs reassemble; objectness is the shared *ceiling*, §5.4)
+— section retitled "Repair strategies fail to generalise"; (6) temporal aggregation
+moved from Tab 5.1 to prose (reverted feature, session-log-only); (7) minors: all
+four range-split bins shown (66/40/19/4, justifies "monotonically"); 811-vs-810 /
+37.1-vs-37.7 reconciled in a footnote. NOTE: reviewer's citation-drift flag (66→4%
+#24 vs #23) was a handoff-note error, not a .tex error — .tex already cited #24
+correctly. Rebuilds clean (7 pp, no undefined refs). Still NOT advisor-reviewed.
 
 **Cross-file audit fixes — DONE 2026-08-25.** An external audit (5 thesis drafts
 vs. frozen evidence, ~30 numbers) flagged one must-fix + should/optional items;

@@ -1,0 +1,390 @@
+% Chapter 5 -- The Recall Bottleneck
+% Standalone, compilable draft (FPT-template article class + booktabs), sibling to
+% sec_4_results.tex. Root-causes the recall shortfall established in Chapter 4 and
+% reports the failed repair strategies as a negative-results contribution.
+%
+% MERGE/NUMBERING NOTE: this file opens with \section{The Recall Bottleneck} for
+% standalone compilation and numbering, but at final assembly the assembler
+% promotes it to a chapter (Chapter 5). Forward/back references to sibling chapters
+% and their tables use typed numerals ("Chapter~4", "Section~4.3", "Table~4.1")
+% because the chapter files do not share a label namespace when built separately;
+% Chapter-4 sub-tables are referenced by section + Finding number rather than by
+% hard-coded table number, to stay robust to final renumbering.
+%
+% Honesty-phrasing rules applied (personal_agenda P1):
+%   - recall denominator restated / cross-referenced (>=10 surviving points, Sec 4.1)
+%   - "mean IoU" always qualified as "of matched detections"
+%   - negative results (#21/#24, temporal aggregation) reported AS FINDINGS, not
+%     apologised for
+%   - the retracted "~0.74 hard limit" is corrected explicitly (#24 Correction / #34)
+%   - two measurement eras kept separate: the pre-promotion seq-00 repair search
+%     (baseline F1 0.844; #21/#24/temporal) vs the promoted-config seq-08 fix (#34)
+%   - every number traces to a finding / session log artifact (cited Finding~\#NN /
+%     session_history.md)
+%
+\documentclass[a4paper,12pt]{article}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{siunitx}
+\usepackage{microtype}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{multirow}
+\graphicspath{{../../../output/figures/}{../../../output/experiments/}}
+
+\begin{document}
+
+\section{The Recall Bottleneck}
+\label{ch:recall-bottleneck}
+
+Chapter~4 established two facts about the headline operating point: the pipeline is
+precision-saturated (false positives are low and flat, about \num{0.7} per frame),
+and it is recall-limited, missing roughly one car in four
+($R=\num{0.730}$ on sequence~08). This chapter explains \emph{why} the recall is
+limited. We show that the shortfall is a clustering failure rather than a
+classification failure (Section~\ref{sec:recall-diagnosis}), root-cause it to
+HDBSCAN splitting large, close cars into fragments (Section~\ref{sec:split-analysis}),
+report a search of repair strategies that all fail on held-out data
+(Section~\ref{sec:repairs}), and describe the one intervention that did help ---
+coarsening the clustering resolution --- which forces a correction of an earlier,
+overstated ``hard ceiling'' claim (Section~\ref{sec:resolution-fix}). The negative
+results are reported as findings, not apologised for: mapping which repairs fail,
+and why, is itself a contribution, and it is what justifies the residual limitation
+carried to Chapter~8. Unless stated otherwise, the recall denominator throughout is
+the one defined in Section~4.1 --- ground-truth car instances with at least
+\num{10} points surviving preprocessing.
+
+\subsection{The shortfall is a clustering failure, not a classifier failure}
+\label{sec:recall-diagnosis}
+
+The recall ceiling is upstream of the learned classifier. The stage decomposition
+of Section~4.3 (Findings~\#47/\#49) makes this direct: geometric clustering with the
+size/shape filters but \emph{no} learned classifier and \emph{no} track filter
+already reaches recall \num{0.775}, which is \emph{higher} than the full pipeline's
+\num{0.730}. Every learned stage that follows can only hold or reduce that recall:
+the classifier discards clusters, and the centroid tracker only re-labels and
+filters clusters that geometric clustering has already produced --- it emits a
+detection in a frame only where a cluster exists in that frame, and never
+interpolates a detection across a gap (\texttt{src/tracker.py};
+\texttt{src/evaluate.py}), so neither stage can invent a detection where clustering
+found nothing. Across the full sequence the two stages together trade roughly
+\num{1600} true positives (\num{27051} geometric-only versus \num{25478} full;
+Findings~\#47/\#49) for the removal of $\sim$\num{152000} false positives; this is a
+distinct trade from the $+\num{1655}$ true positives that the resolution change of
+Section~\ref{sec:resolution-fix} later recovers. Whatever caps recall is therefore
+already present in the clusters that geometric clustering produces, before the
+classifier sees them.
+
+The geometric filters are not the cap either. Table-level ablation of the
+size/shape gates (Finding~\#22, sequence~00, \num{100} frames) shows that of the
+\num{16454} HDBSCAN clusters in the sample, only \num{2651} (\SI{16.1}{\percent})
+pass the filters, and \num{1827} of the rejected clusters do overlap a ground-truth
+car --- dominated by \texttt{min\_volume} (\SI{67.9}{\percent} of the GT-matching
+rejections) and \texttt{min\_points} (\SI{26.4}{\percent}); sequence~08 shows the
+same pattern (\SI{66.5}{\percent} / \SI{28.0}{\percent}). The dominant gates are
+\texttt{min\_volume} and \texttt{min\_points} --- the two that reject \emph{small}
+clusters. This is consistent with the rejected clusters being the smaller
+sub-fragments of cars that HDBSCAN has already split (the dominant fragment passing
+while the splinters fail the size gates), which the split analysis of
+Section~\ref{sec:split-analysis} then confirms is the prevailing failure mode. We
+state this as an inference rather than a direct measurement: the ablation records
+only that a rejected cluster overlaps \emph{some} ground-truth car
+(\texttt{src/analyze\_clustering.py}), not whether that same car also retains a
+surviving cluster, so it establishes that the rejections are dominated by small
+fragments, not that every one belongs to an otherwise-detected car. Either way the
+diagnosis points one stage further upstream, at the clustering itself.
+
+\subsection{Root cause: HDBSCAN splits large, close cars}
+\label{sec:split-analysis}
+
+To quantify how clustering caps recall we measured, for every eligible ground-truth
+car, how its points distribute across HDBSCAN clusters (Finding~\#23). Each car is
+assigned to exactly one of four states that partition the population: \emph{ok} (one
+dominant cluster, under \SI{30}{\percent} noise), \emph{split} (points spread over
+two or more clusters), \emph{noisy} (one cluster but at or above \SI{30}{\percent}
+noise), or \emph{all-noise}. A separate, cross-cutting flag marks \emph{merged} cars
+(a car whose dominant cluster is shared with another car); a merged car still has a
+dominant cluster, so it is \emph{not} a fifth partition class and is reported below
+as a memo count rather than a table row that would be summed.
+Table~\ref{tab:split} gives the result on both sequences.
+
+\begin{table}[H]
+  \centering
+  \caption{Distribution of ground-truth cars across HDBSCAN clusters
+    (Finding~\#23; pre-promotion configuration; sequence~00, \num{100} frames;
+    sequence~08, held-out sample). The four states partition the population and sum
+    to the denominator; \emph{split} is the dominant failure mode and \emph{merging}
+    (the cross-cutting memo row, not summed) is negligible. Split cars are uneven ---
+    the largest fragment holds a median \num{0.92} of the points on sequence~00 and
+    \num{0.77} on sequence~08 --- but a large point-fraction does not guarantee a
+    match (see text): recall shows most split cars are lost.}
+  \label{tab:split}
+  \begin{tabular}{lcccc}
+    \toprule
+    & \multicolumn{2}{c}{Seq 00 (\num{1631} cars)} & \multicolumn{2}{c}{Seq 08 (\num{811} cars)} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}
+    Status & Count & \% & Count & \% \\
+    \midrule
+    ok (single dominant cluster) & 1117 & 68.5 & 509 & 62.8 \\
+    split (2+ clusters)          & 514  & 31.5 & 301 & 37.1 \\
+    noisy / all-noise            & 0    & 0.0  & 1   & 0.1  \\
+    \midrule
+    partition total              & 1631 & 100  & 811 & 100  \\
+    \addlinespace
+    \textit{merged} (cross-cutting) & 8 & 0.5 & 0 & 0.0 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Three things follow. First, \textbf{splitting, not merging, is the failure mode}:
+\SIrange{31}{37}{\percent} of cars split, while merging is at most
+\SI{0.5}{\percent}. The pipeline almost never fuses two cars into one detection; it
+repeatedly breaks one car into several. Second, \textbf{the split is worst where
+cars are largest and nearest}: the split rate falls monotonically with range ---
+\SI{66}{\percent} at \SIrange{0}{10}{\metre}, \SI{40}{\percent} at
+\SIrange{10}{20}{\metre}, \SI{19}{\percent} at \SIrange{20}{30}{\metre}, and
+\SI{4}{\percent} at \SIrange{30}{50}{\metre} (Finding~\#24). Large, close cars return many points, and
+HDBSCAN finds internal density variations within that dense return --- the roof line
+against the body, the near side against the far side --- and cuts the car along
+them. This is the mechanism behind the counter-intuitive near-range recall dip
+reported in Section~4.4 (Finding~\#50): the nearest bin has \emph{lower} recall than
+the \SIrange{10}{20}{\metre} bin despite carrying far more points, because a close
+car dissolves into fragments that no longer match the whole instance. Third,
+\textbf{the cleanly-clustered fraction tracks recall, and splitting usually loses
+the car}. The fraction of cars that form one dominant cluster
+(\SI{68.5}{\percent} on sequence~00, \SI{62.8}{\percent} on sequence~08) sits just
+\emph{below} the recall the pipeline achieves on the same configuration
+(\num{0.739} and \num{0.699} respectively). Two things follow. The pipeline recovers
+essentially every cleanly-clustered car, so that fraction is close to a floor on
+recall --- not a ceiling; recall exceeds it only by the few split cars whose dominant
+fragment happens to survive matching and filtering. And because recall
+(\num{0.699}) barely exceeds the clean fraction (\SI{62.8}{\percent}) while
+\SI{37.1}{\percent} of cars split, the great majority of split cars are \emph{not}
+recovered: a large dominant point-fraction (median \num{0.77}--\num{0.92}) does not
+translate into a match, because matching depends on spatial overlap and on the
+fragment clearing the size filters, not on point count. Splitting is therefore the
+mechanism by which cars are lost, which is exactly why it is the recall bottleneck.
+This also predicts the resolution fix of Section~\ref{sec:resolution-fix}: coarsening
+the voxel converts split cars into clean ones, which should lift recall by shrinking
+the reliance on recovering splits --- and it does, narrowing the sequence-08 gap
+between the clean fraction and recall from \num{7.1} points (\SI{62.8}{\percent}
+versus \num{0.699}) to \num{3.1} points (\SI{69.9}{\percent} versus \num{0.730}).
+
+Figure~\ref{fig:failure-zooms} shows the mechanism directly on three sequence~08
+frames. Missed cars (orange) appear as broken rows of points close to the ego
+vehicle, each row too small on its own to survive the size filters, while cleaner
+mid- and far-range cars (green) are detected as single clusters.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{seq08_failure_zooms.png}
+  \caption{Failure close-ups on sequence~08 (true positives green, false positives
+    red, missed ground-truth cars orange; dashed outlines are ground-truth car
+    footprints). Near-ego missed cars are fragmented into several small point groups
+    rather than one cluster, matching the split mechanism of
+    Table~\ref{tab:split}. Although the panel title mentions both merge and split,
+    merging is measured at $\leq\!\SI{0.5}{\percent}$ (Table~\ref{tab:split}), so the
+    misses shown are fragmentation, not fusion of neighbouring cars.}
+  \label{fig:failure-zooms}
+\end{figure}
+
+\subsection{Repair strategies fail to generalise}
+\label{sec:repairs}
+
+Given that splitting caps recall, the obvious responses fall into two families:
+change how clusters \emph{form} (a larger minimum cluster size, a different
+clusterer, distance-adaptive parameters, or pre-clustering point accumulation) or
+\emph{reassemble} fragments after HDBSCAN has split them. We tried both;
+Table~\ref{tab:strategies} collects the ones with a recorded quantitative outcome.
+All were evaluated against the same pre-promotion sequence-00 baseline (full
+pipeline, classifier and track filter on; $F_1=\num{0.844}$), and the load-bearing
+ones were re-checked on the held-out sequence~08.
+
+\begin{table}[H]
+  \centering
+  \caption{Recall-repair strategies against the pre-promotion baseline (full
+    pipeline, sequence~00, \num{100} frames; held-out sequence-08 $F_1$ where
+    measured). Every strategy either loses $F_1$ outright or fails to hold its
+    sequence-00 gain on the held-out sequence. This is the \emph{pre-promotion}
+    repair search --- it predates the coarse-voxel configuration of
+    Section~\ref{sec:resolution-fix}, which is why the baseline here is
+    $F_1=\num{0.844}$, not the promoted headline. Sources in the ``Src'' column are
+    finding numbers. A sixth strategy, temporal point accumulation, is discussed in
+    the text but omitted here: it is single-sourced to a reverted feature in the
+    session log, not reproducible under the research freeze, and belongs in prose
+    rather than the main results table.}
+  \label{tab:strategies}
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{llcccc}
+    \toprule
+    Strategy & Src & Seq 00 $P$ & Seq 00 $R$ & Seq 00 $F_1$ & Seq 08 $F_1$ \\
+    \midrule
+    Baseline (HDBSCAN, MCS \num{10}) & \#24 & 0.984 & 0.739 & \textbf{0.844} & \textbf{0.829} \\
+    BEV clustering (res \SI{0.30}{\metre})   & \#21 & 0.993 & 0.640 & 0.779 & --- \\
+    Higher MCS \num{20}                       & \#24 & 0.976 & 0.755 & 0.852 & 0.801 \\
+    Fragment merge (\SI{1.5}{\metre}, \num{30}\,pt) & \#24 & 0.931 & 0.755 & 0.834 & 0.815 \\
+    Adaptive HDBSCAN (\num{30}/\num{15}/\num{10}) & \#24 & 0.935 & 0.748 & 0.831 & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Each strategy fails for a structural reason, and the reasons are consistent with the
+diagnosis of Section~\ref{sec:split-analysis}:
+
+\begin{itemize}
+  \item \textbf{Higher minimum cluster size (MCS \num{20})} is the most instructive.
+    It is the only variant to \emph{improve} $F_1$ on sequence~00
+    (\num{0.844}~$\rightarrow$~\num{0.852}), by discouraging the small splinter
+    clusters. But it does not generalise: on the held-out sequence~08 it drops to
+    $F_1$~\num{0.801}, \emph{below} the \num{0.829} baseline, because a larger
+    minimum also erases genuinely sparse distant cars. The sequence-00 gain was
+    over-fitting.
+  \item \textbf{Post-clustering fragment merge} (join clusters within
+    \SI{1.5}{\metre}) raises sequence-00 recall to \num{0.755} but loses precision
+    (\num{0.984}~$\rightarrow$~\num{0.931}), because the same proximity rule also
+    fuses nearby non-car structure --- walls, poles --- into oversized clusters. On
+    held-out data the precision loss cancels the recall gain
+    ($F_1$~\num{0.815}~$<$~\num{0.829}).
+  \item \textbf{Distance-adaptive HDBSCAN} (a larger minimum cluster size near the
+    ego, smaller far away) introduces boundary artefacts at the ring transitions and
+    is worse than the global setting.
+  \item \textbf{Bird's-eye-view clustering} (Finding~\#21), a cheaper
+    connected-component alternative, collapses recall to \num{0.640}: projecting to
+    two dimensions merges objects that overlap in the ground plane but are separated
+    in height, and morphological cleanup destroys sparse distant clusters.
+  \item \textbf{Temporal aggregation} --- accumulating object points over three
+    consecutive frames before clustering, to densify sparse cars --- collapses the
+    pipeline ($F_1$~\num{0.073}, recall \num{0.039}).\footnote{Source:
+    \texttt{docs/session\_history.md} (2026-06 exploratory session). The
+    \texttt{temporal\_window} feature was implemented and then fully reverted, so
+    this result is on the pre-promotion baseline and was not re-run under the
+    research freeze; it is reported here in prose, not in Table~\ref{tab:strategies},
+    for that reason, and its value is the mechanism below rather than the exact
+    figure.} Accumulating points does not densify
+    the existing clusters; it reshapes the clustering landscape entirely
+    (about \num{134000} accumulated points yield \num{645}+ clusters versus
+    $\sim$\num{240} single-frame, of which fewer pass the geometric filters,
+    \num{17} versus \num{34}).
+  \item \textbf{Lowering the cluster-size thresholds} to admit sparser groups
+    produced no change in true positives at all: the binding constraint is cluster
+    quality, not the count threshold, so relaxing the threshold merely admits more
+    noise (Finding~\#24; \texttt{docs/session\_history.md}).
+\end{itemize}
+
+The failure modes are strategy-specific --- over-fitting, precision loss, ring
+artefacts, projection ambiguity, a reshaped clustering landscape --- but they share
+a limit. The two strategies that reassemble after the split (fragment merge, and to
+a lesser extent the proximity-based part of the adaptive scheme) run into the fact
+that density-based clustering has no notion of objectness: once a dense car is
+partitioned along an internal density gap, no proximity- or size-based rule can
+reliably tell ``rejoin these two fragments of one car'' apart from ``do not join
+these two adjacent cars.'' The strategies that instead change how clusters
+\emph{form} --- a larger minimum size, a different clusterer, per-ring parameters,
+pre-clustering accumulation --- avoid the reassembly trap but hit the same wall from
+the other side: any single global density criterion that is loose enough to keep a
+split car whole is also loose enough to fuse a close pair, so a sequence-00 gain
+becomes a held-out loss. The one lever that helped, changing the clustering
+\emph{resolution} (Section~\ref{sec:resolution-fix}), is also a formation change; it
+works not by escaping this limit but by happening to sit at a resolution that closes
+intra-car gaps before it starts closing inter-car ones. This is why the earlier
+project conclusion --- that recall was fixed at a hard ceiling of about \num{0.74}
+(Finding~\#24, original 2026-06-24 verdict) --- was reasonable given only the evidence
+in Table~\ref{tab:strategies}, and also, as the next section shows, wrong: it read a
+limit on \emph{these} repairs as a limit on the approach.
+
+\subsection{What worked: clustering resolution, and the corrected ceiling}
+\label{sec:resolution-fix}
+
+The intervention that helped was not a repair at all but a change to the clustering
+\emph{resolution}: re-voxelising the object cloud to a \SI{0.10}{\metre} grid
+\emph{before} running HDBSCAN, rather than clustering the full-resolution
+\SI{0.05}{\metre} cloud (Finding~\#34, adopted in the runtime optimisation of
+Section~4.5). A coarser grid closes the small intra-car density gaps that HDBSCAN was
+cutting along, so fewer splits form in the first place. It is a formation change like
+the failed ones in Section~\ref{sec:repairs}, but it lands on the favourable side of
+the trade described there --- coarse enough to close intra-car gaps, still fine
+enough not to fuse neighbouring cars.
+
+\begin{table}[H]
+  \centering
+  \caption{Effect of coarsening the clustering voxel from \SI{0.05}{\metre} to
+    \SI{0.10}{\metre} on the split rate (Finding~\#34; sequence~08, \num{100}
+    frames, \num{810} ground-truth cars). More cars cluster cleanly and none newly
+    merge --- the coarsening removes splits without fusing neighbours.}
+  \label{tab:splitrate}
+  \begin{tabular}{lcc}
+    \toprule
+    & Full-res (\SI{0.05}{\metre}) & Coarse (\SI{0.10}{\metre}) \\
+    \midrule
+    clustered ``ok''            & 504 (62.2\%) & 566 (69.9\%) \\
+    split                        & 305 (37.7\%) & 242 (29.9\%) \\
+    merged                       & 0 (0.0\%)    & 0 (0.0\%) \\
+    mean clusters per split car  & 3.3          & 2.7 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Table~\ref{tab:splitrate} shows the split rate falling by \num{7.8} points
+(\SI{37.7}{\percent}~$\rightarrow$~\SI{29.9}{\percent}) with \emph{zero} new
+merges.\footnote{The full-resolution counts here (Finding~\#34: \num{810} cars, split
+\SI{37.7}{\percent}) and those in Table~\ref{tab:split} (Finding~\#23: \num{811}
+cars, split \SI{37.1}{\percent}) are separate runs of the same analysis on the same
+pre-promotion configuration; they differ by at most one car and \num{0.6} percentage
+points, and the percentages are unaffected.}
+At the pipeline level, on the full sequence~08, this lifts recall from \num{0.699} to
+\num{0.730} ($+\num{1655}$ true positives) with precision essentially unchanged
+(\num{0.903}~$\rightarrow$~\num{0.905}) and $F_1$ from \num{0.788} to \num{0.808}
+(Finding~\#34). The same coarsening also reduces clustering runtime, which is why it
+was adopted; its detection benefit is the subject here and its runtime co-benefit is
+reported in Section~4.5.
+
+This result forces a correction to the earlier ceiling claim, which we state plainly
+rather than bury (Finding~\#24, Correction of 2026-07-24). The ``$\sim$\num{0.74}
+hard limit'' was \emph{partly a resolution artefact}, not a fundamental property of
+the approach: the strategies of Section~\ref{sec:repairs} genuinely do fail, but none
+of them tried this particular resolution setting, and changing it recovered part of
+the loss. The standing recommendation is therefore
+\texttt{cluster\_voxel\_size}~$=\SI{0.10}{\metre}$ in production, not ``accept
+\num{0.74}.''
+
+A smaller structural limit does remain, and it is architectural. Coarsening the voxel
+further would eventually start merging adjacent cars, trading the split problem for a
+merge problem; and the clustering-method benchmark of Section~4.3 (Finding~\#43)
+shows that no fixed-radius density clusterer, at any tested radius, reaches even
+HDBSCAN's recall. The ceiling that remains is the one imposed by density-based
+clustering having no model of what a car is: it groups points by proximity and
+density alone, so it cannot be pushed to the recall of a learned object detector by
+tuning. Reaching that level would require replacing the clustering stage with a
+learned detector, which is outside the scope of this thesis (Chapter~8). The
+contribution of this chapter is to have located the ceiling precisely --- it is in
+the clustering stage, it is splitting rather than classification or merging, and it
+is lower than first claimed --- and to have mapped which repairs cannot move it and
+which one can.
+
+\subsection{Summary}
+\label{sec:recall-summary}
+
+The recall shortfall is clustering-bound, not classifier-bound: the classifier and
+track filter sit on top of a recall ceiling that geometric clustering already imposes
+(Section~\ref{sec:recall-diagnosis}). The dominant mechanism is HDBSCAN splitting
+large, close cars into fragments --- \SIrange{31}{37}{\percent} of cars, worst at
+short range --- while merging is negligible, and the cleanly-clustered fraction sits
+just below the achieved recall, so most split cars are lost
+(Section~\ref{sec:split-analysis}). A search of repair strategies --- higher minimum
+cluster size, fragment merging, adaptive and BEV clustering, temporal aggregation ---
+all fail on held-out data, for a shared reason: density-based clustering has no notion
+of objectness, so any criterion loose enough to keep a split car whole also fuses
+adjacent cars, and reassembling fragments after the split faces the same ambiguity
+(Section~\ref{sec:repairs}). The one effective lever was clustering
+resolution: a coarser pre-clustering voxel prevents splits from forming, lifting
+recall \num{0.699}~$\rightarrow$~\num{0.730} and correcting the earlier overstated
+``hard ceiling'' (Section~\ref{sec:resolution-fix}). The residual limit is
+architectural --- density clustering has no notion of objectness --- and is carried
+to the limitations and future-work discussion of Chapter~8.
+
+\end{document}
