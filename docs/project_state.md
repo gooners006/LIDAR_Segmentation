@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-25
+Last updated: 2026-08-26
 
 ## RESEARCH FREEZE — declared 2026-08-21 (write-up phase)
 
@@ -66,10 +66,11 @@ first-drafted as compilable LaTeX (build clean, TeX Live 2026) in
   quantitative gains = Ch 7. Other-sequences check: seq 00 mined (31 static cars vs
   seq 08's 15) corroborates — diffuseness is model-level.
 
-**Next:** Ch 4/5/7 results chapters (Results milestone). Methods-milestone work
-(Ch 3/6 .tex + `fig61_partial_compare.py` + `fig62_box_overlay.py` +
-THESIS_PLAN/project_state edits) committed 2026-08-23 in `3ec88be`; working tree
-clean. output/ renders gitignored, regenerable from scripts.
+**Next (historical, as of 2026-08-23):** Ch 4/5/7 results chapters (Results
+milestone). Methods-milestone work (Ch 3/6 .tex + `fig61_partial_compare.py` +
+`fig62_box_overlay.py` + THESIS_PLAN/project_state edits) committed 2026-08-23 in
+`3ec88be`; working tree clean. output/ renders gitignored, regenerable from
+scripts. **Superseded: Ch 4, Ch 5, and Ch 7 are all now drafted — see below.**
 
 **Ch 4 results half (§4.2–§4.5) — DRAFTED + REVIEWED 2026-08-24; COMMITTED `151bde9`.**
 `docs/writing/thesis/sec_4_results.tex` written (§4.2 results, §4.3 ablations,
@@ -110,7 +111,8 @@ corrected to ~0.7/frame. Both files rebuild clean (sec_4_results 7 pp, sec_4_1 3
 pre-existing 45pt overfull in §4.1's headline table (shortened "Mean IoU (matched)"
 → "Mean IoU" in both §4.1 tables — captions already qualify "matched" — matching
 the §4.2 convention; +`\tabcolsep` on tab:headline).
-**Remaining Ch 4:** advisor feedback if any; then Ch 7 (completion results).
+**Remaining Ch 4:** advisor feedback if any. (Ch 7 completion results now DRAFTED
+2026-08-26 — see the Chapter 7 block below.)
 
 **Chapter 5 (The Recall Bottleneck) — DRAFTED 2026-08-25.**
 `docs/writing/thesis/sec_5_recall_bottleneck.tex` written; builds clean standalone
@@ -147,6 +149,26 @@ four range-split bins shown (66/40/19/4, justifies "monotonically"); 811-vs-810 
 37.1-vs-37.7 reconciled in a footnote. NOTE: reviewer's citation-drift flag (66→4%
 #24 vs #23) was a handoff-note error, not a .tex error — .tex already cited #24
 correctly. Rebuilds clean (7 pp, no undefined refs). Still NOT advisor-reviewed.
+
+**Chapter 7 (Completion Evaluation) — DRAFTED; COMMITTED 2026-08-26.** The full
+completion-results chapter is written across two standalone-compilable files in
+`docs/writing/thesis/` (both build clean under TeX Live 2026, zero undefined refs /
+overfull >20pt / warnings; fold together at final assembly via the merge note in
+`sec_7_results.tex`):
+- **`sec_7_2_donor_metric.tex` (§7.1–§7.2, 4 pp)** — metric *definition* half:
+  §7.1 why plain Chamfer is invalid on real cars (one-sided pseudo-GT rewards
+  under-completion; raw partial scores best, #26), §7.2 the leakage-free donor
+  metric (occluded-side principle, definition, validation battery, per-band
+  hallucination guard #37). §7.1 was added this session; §7.2 dates to the
+  2026-08-21 Protocol milestone.
+- **`sec_7_results.tex` (§7.3–§7.7, 8 pp)** — *results* half: §7.3 real-data
+  surface coverage (#32), §7.4 downstream amodal-box utility + length geometry
+  (#29/#35/#36, #45 cross-ref), §7.5 moving cars (#44), §7.6 pre-registered
+  held-out replication on seq 00 (#42, PARTIALLY HOLDS), §7.7 summary +
+  limitations. Figures 7.1–7.3 via `\graphicspath` into gitignored `output/`
+  (regenerable). Numbers traceable to Findings #29/#32/#35/#36/#37/#41/#42/#44/#45.
+Both files were previously untracked/uncommitted; committed together this session.
+Still NOT advisor-reviewed.
 
 **Cross-file audit fixes — DONE 2026-08-25.** An external audit (5 thesis drafts
 vs. frozen evidence, ~30 numbers) flagged one must-fix + should/optional items;

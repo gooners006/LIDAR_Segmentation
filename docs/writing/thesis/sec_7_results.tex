@@ -1,0 +1,428 @@
+% Chapter 7 (results half) -- Completion Evaluation: §7.3-§7.7
+% Standalone, compilable draft (FPT-template article class + booktabs + float).
+% Folded into the thesis main document later via \input.
+%
+% MERGE / NUMBERING NOTE. This file is the RESULTS half of Chapter 7. Its
+% \section{Completion Evaluation} line exists only so the file compiles on its
+% own; at final assembly the assembler DROPS this duplicate \section (the chapter
+% is opened by sec_7_2_donor_metric.tex, which owns \label{ch:completion-eval}),
+% and §7.3-§7.7 below fold in after §7.1/§7.2. Because separate standalone builds
+% do NOT share a label namespace, cross-FILE references use typed numerals
+% ("Section~7.2", "Chapter~6") rather than \ref{}; only within-file refs use \ref.
+%
+% Scope: the completion RESULTS. §7.3 surface coverage (donor metric, #32);
+% §7.4 downstream box utility + length geometry (#29/#35/#36, #45 cross-ref);
+% §7.5 moving cars (#44); §7.6 pre-registered held-out replication on seq 00
+% (#42); §7.7 summary + limitations. The metric itself is defined in §7.2; the
+% method in Chapter 6.
+%
+% Honesty rules (personal_agenda P1): per-car medians / paired Wilcoxon; static
+% cars by construction; trade-offs stated plainly (per-car length estimate costs
+% donor coverage); negatives (#45) as findings, not apologies; measured/inferred
+% marked. Numbers traceable to docs/findings.md #29/#32/#35/#36/#37/#41/#42/#44/#45,
+% docs/completion/donor_metric.md, and docs/plans/t9{b,c}_*heldout_seq00.md.
+%
+% Figures (via \graphicspath into the gitignored output/ tree; regenerable):
+%   Fig 7.1 donor_metric_08.png              (donor_metric_viz.py)
+%   Fig 7.2 completion_box_overlays_08.png   (completion_box_eval_viz.py)
+%   Fig 7.3 t11_mover_completions_bev.png    (t11_mover_plausibility.py)
+% Floats set [htbp].
+%
+\documentclass[a4paper,12pt]{article}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{siunitx}
+\usepackage{microtype}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage[super]{nth}
+% Figures live under the repo's output/ tree (data-safety: renders stay in output/).
+\graphicspath{{../../../output/figures/}{../../../output/experiments/}}
+
+\begin{document}
+
+\section{Completion Evaluation}
+\label{ch:completion-eval-results}
+
+Section~7.2 established a metric that measures, on real cars, how much
+previously-unseen surface a completion recovers, and showed that it passes an
+explicit validation battery. This part of the chapter uses it. It reports three
+things the completion method was built to deliver and one it was not: that the
+completion adds genuinely unseen surface (Section~\ref{sec:results-coverage}),
+that this translates into a better amodal bounding box (Section~\ref{sec:results-box}),
+that moving cars --- which the static-car metrics cannot score --- complete no
+worse than static ones (Section~\ref{sec:results-movers}), and that both headline
+claims survive a pre-registered replication on a held-out sequence
+(Section~\ref{sec:results-heldout}). Section~\ref{sec:results-summary} draws the
+limitations together. Throughout, the unit of analysis is the car: because the
+frames of one parked car are autocorrelated, each car is reduced to its per-car
+median and significance is tested across cars with the Wilcoxon signed-rank test,
+the paired design of Section~7.2.
+
+\subsection{Real-data surface coverage}
+\label{sec:results-coverage}
+
+The primary completion result is that PCN reconstructs surface the input frame
+never observed. Table~\ref{tab:donor-coverage} reports the donor metric on \num{39} of seq~08's
+\num{40} well-observed static cars (one car's pairs are all gate-skipped), scoring
+three clouds --- the raw partial, its symmetry mirror, and the completion ---
+against each car's
+donor-only novel set. This is the metric's acceptance run (Finding~\#32), taken
+on the production path \emph{before} the Chapter~6 length prior; the length
+geometry is evaluated in Section~\ref{sec:results-box}.
+
+\begin{table}[H]
+  \centering
+  \caption{Real-data surface coverage on the donor metric (seq~08, per-car
+    medians, $n=39$ of the \num{40} well-observed static cars --- one car's pairs
+    are all gate-skipped; $\tau=\SI{0.15}{\meter}$;
+    Finding~\#32). \texttt{cov@0.1} is the fraction of never-observed (donor-only)
+    surface recovered within \SI{0.1}{\meter}; median novel distance is its
+    threshold-free companion; out-of-box is the hallucination guard. All three
+    pairwise contrasts are significant at $p<10^{-6}$.}
+  \label{tab:donor-coverage}
+  \begin{tabular}{lccc}
+    \toprule
+    Cloud & \texttt{cov@0.1} $\uparrow$ & med.\ novel dist.\ (m) $\downarrow$ & out-of-box $\downarrow$ \\
+    \midrule
+    raw partial       & 0.000          & 0.518          & 0.000 \\
+    mirrored          & 0.043          & 0.332          & 0.008 \\
+    \textbf{completed} & \textbf{0.304} & \textbf{0.161} & \textbf{0.000} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The completion recovers about \SI{30}{\percent} of never-observed surface within
+\SI{0.1}{\meter} --- \emph{seven times} the symmetry-mirror baseline --- while its
+out-of-box fraction stays at the raw partial's floor, so the coverage is real
+surface, not surface invented everywhere. The mirror is the informative
+comparison: reflecting the input across the car's symmetry plane is a real,
+zero-parameter way to add surface, and the learned model earns its place only by
+beating it, which it does more than sixfold. This is the project's first positive
+real-data evidence that completion adds unseen structure, and it complements the
+box-level value of Section~\ref{sec:results-box}.
+
+Two breakdowns qualify the headline. First, coverage is uneven over the car
+(Finding~\#32): the occluded \emph{far side} is well recovered (completed cov
+\num{0.321}) and the roof reasonably so (\num{0.203}), but the \emph{far end} ---
+the portion of the car truncated by the single viewpoint --- is the weakest
+region (\num{0.133}). The far end is exactly where a one-sided partial is
+normalised around its observed near portion, and it is what the length geometry
+of Section~\ref{sec:results-box} sets out to move. (The mirror scores essentially
+zero on the far end by construction --- a reflection across the length plane
+cannot add end surface --- which is a built-in sanity check on the region split.)
+Second, the coverage is robust to input sparsity: completed \texttt{cov@0.1}
+holds at \num{0.30}--\num{0.33} from the sparsest (${<}100$ points) to the densest
+(${\geq}300$) inputs, while the mirror falls from \num{0.083} on the densest
+inputs to \num{0.010} on the sparsest, as the reflection of a sparse cluster
+leaves ever more of the car uncovered.
+Completion helps most, relative to the cheap baseline, exactly where the sensor
+saw least.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{donor_metric_08.png}
+  \caption{The donor metric in bird's-eye view on six seq-08 cars, ordered
+    best to worst completed coverage. Grey is the single-frame partial input; the
+    coloured points are the donor-only novel set (surface the input frame never
+    saw), coloured by whether the completion (green overlay) recovers them within
+    \SI{0.1}{\meter}. The best panels close the occluded far side almost entirely;
+    the worst isolate the two residual failure modes --- far-end under-completion
+    and heading/centre error on diagonal or sparse views --- that
+    Section~\ref{sec:results-box} and Chapter~6 address. Rendered by
+    \texttt{scratchpad/donor\_metric\_viz.py}.}
+  \label{fig:donor-coverage}
+\end{figure}
+
+\subsection{Downstream utility: the amodal bounding box}
+\label{sec:results-box}
+
+Surface coverage shows the completion is geometrically faithful; the box
+evaluation shows it is \emph{useful}. For each true-positive (frame, car) pair on
+the well-observed static cars we fit an oriented box to the raw partial and to the
+completion with the \emph{same} fitter used to build the amodal ground-truth
+boxes (so fitter bias cancels), and compare each against the GT box. This is the
+pre-registered ``completion adds value'' test of Finding~\#29.
+Table~\ref{tab:box-quality} reports it.
+
+\begin{table}[H]
+  \centering
+  \caption{Amodal box quality, raw partial vs.\ completion (seq~08, per-car
+    medians, $n=39$ of the \num{40} well-observed static cars --- one has no
+    completed pair; Finding~\#29). BEV IoU is the oriented
+    bird's-eye-view box overlap; $|\Delta W|,|\Delta H|,|\Delta L|$ are absolute
+    dimension errors; centre error is in the ground plane. $p$ is the Wilcoxon
+    signed-rank across cars. These figures use the original Finding~\#29 detection
+    configuration; the width, height, and overlap wins reproduce under the promoted
+    configuration of Table~\ref{tab:length-geometry} (BEV IoU
+    \num{0.725}$\to$\num{0.747}, $|\Delta W|$ \num{0.210}$\to$\num{0.122},
+    $|\Delta H|$ \num{0.227}$\to$\num{0.144}).}
+  \label{tab:box-quality}
+  \begin{tabular}{lcccl}
+    \toprule
+    Metric & Raw & Completed & Wilcoxon $p$ & \\
+    \midrule
+    BEV IoU $\uparrow$        & 0.707 & \textbf{0.747} & \num{1.9e-3}  & better \\
+    $|\Delta W|$ (m) $\downarrow$ & 0.270 & \textbf{0.170} & \num{1.5e-4}  & better \\
+    $|\Delta H|$ (m) $\downarrow$ & 0.255 & \textbf{0.131} & \num{1.6e-10} & better \\
+    centre err.\ (m) $\downarrow$ & 0.286 & \textbf{0.234} & \num{2.8e-5}  & better \\
+    $|\Delta L|$ (m) $\downarrow$ & 0.447 & 0.456          & 0.65          & neutral \\
+    yaw err.\ (deg) $\downarrow$  & 3.5   & 3.0            & 0.74          & neutral \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Completion improves the box on width, height, centre, and overall BEV overlap
+with strong significance, and nothing degrades significantly. The improvements
+are largest where the sensor saw least --- BEV IoU by input size rises
+\num{0.461}$\to$\num{0.599} on the sparsest cars (${<}100$ points),
+\num{0.585}$\to$\num{0.678} at \num{100}--\num{300}, and \num{0.703}$\to$\num{0.744}
+above \num{300} --- which is the right profile for the use case, since a
+well-observed car needs little help. The width gain is not an artefact of the
+GT accumulation: it holds both for the \num{13} cars whose width the accumulation
+genuinely constrains (both flanks eventually seen: \num{0.291}$\to$\num{0.182})
+and for the other \num{26} (\num{0.167}$\to$\num{0.118}).
+
+\paragraph{Length was the exception, and the geometry work fixed it.} In
+Table~\ref{tab:box-quality} length is neutral --- the completion neither helps nor
+hurts $|\Delta L|$. That was too generous a reading of an untreated defect: the
+completion of a partial truncated at the occluded far end stops short, so it
+\emph{under}-completes length. Table~\ref{tab:length-geometry} isolates this on
+the promoted configuration ($n=40$) and tracks the two Chapter~6 fixes ---
+the fixed \SI{4.14}{\meter} prior (Finding~\#35) and the per-car length estimate
+(Finding~\#36) --- against the raw partial and the completion \emph{without} any
+length correction.
+
+\begin{table}[H]
+  \centering
+  \caption{Length geometry on the amodal box (seq~08, well-observed static cars,
+    per-car medians, $n=40$, promoted configuration; Findings~\#35/\#36).
+    ``no prior'' is the completion with the canonical-frame centre but no
+    longitudinal push; ``fixed \SI{4.14}{}'' is the population-median prior;
+    ``per-car'' is the shipped \nth{90}-percentile track estimate. The compact
+    row is signed $\Delta L$ on cars ${<}\SI{3.6}{\meter}$ ($n=8$), where a fixed
+    prior over-extends.}
+  \label{tab:length-geometry}
+  \begin{tabular}{lcccc}
+    \toprule
+    Metric & Raw & no prior & fixed \SI{4.14}{} & \textbf{per-car (shipped)} \\
+    \midrule
+    $|\Delta L|$ (m) $\downarrow$   & 0.428 & 0.476 & 0.354 & \textbf{0.304} \\
+    BEV IoU $\uparrow$              & 0.725 & 0.743 & 0.747 & \textbf{0.771} \\
+    centre err.\ (m) $\downarrow$   & 0.271 & 0.227 & 0.229 & \textbf{0.184} \\
+    \midrule
+    compact signed $\Delta L$ (m)   & $-0.007$ & --- & $+0.295$ & \textbf{$+0.063$} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Two things are visible here, and both are stated as the honest picture rather
+than the flattering one. First, Table~\ref{tab:box-quality}'s neutral
+$|\Delta L|$ averages over- and under-completion and so hides a real regression:
+the \emph{signed} length shows the completion systematically \emph{under}-extends
+the occluded far end (normal cars $-0.485\to-0.545$; Finding~\#29). On the
+promoted configuration this surfaces even in the absolute $|\Delta L|$, where
+completion \emph{without} a length prior makes box length \emph{worse} than the
+raw partial (\num{0.428}$\to$\num{0.476}, $p=0.027$), which the far-end truncation
+causes. The fixed prior
+reverses it (\num{0.354}) and the per-car estimate improves it further
+(\num{0.304}) while lifting BEV IoU to \num{0.771} and cutting centre error to
+\num{0.184}. Second, moving from the fixed prior to the per-car estimate is what
+removes the over-extension of genuinely compact cars: their signed $\Delta L$ goes
+from \num{+0.295} (the fixed median over-extends a short car) to \num{+0.063}
+($p=0.016$ at $n=8$), with the same fix showing up in the per-band hallucination
+guard of Section~7.2 (Finding~\#37).
+
+\paragraph{The trade-off, stated plainly.} The per-car estimate buys this box
+accuracy at a measured cost in donor coverage: pooled completed \texttt{cov@0.1}
+falls \num{0.403}$\to$\num{0.364} and far-end coverage \num{0.346}$\to$\num{0.316}
+relative to the fixed prior (Finding~\#36). Per band it is better on compact and
+long cars and worse on normal ones. The two metrics genuinely disagree here, and
+a control run settled which reading is right: deliberately over-extending
+(\nth{90} percentile $+\SI{0.45}{\meter}$) improved \emph{both} coverage and the
+box on normal and long cars, which means those completions are still honestly too
+short rather than the metric being fooled. In other words the per-car estimate
+trades a little pooled coverage --- driven by the normal band it slightly
+shortens --- for a correctly-sized box across all bands, and the residual
+shortfall is a real limitation, addressed next.
+
+\paragraph{A bounded negative on the residual shortfall.} Targeting each car's
+\emph{true} length still leaves completions short on normal and long cars, which
+pointed to a second under-extension mechanism inside the completion itself (PCN
+under-fills its normalised frame, and the centre push doubles as an output
+rescale). Chapter~6 investigated this under pre-registration (Finding~\#45, the
+``closed negative''): decoupling the scale from the length push and adding a
+calibrated fill factor did fix the target (normal-car $|\Delta L|$
+\num{0.329}$\to$\num{0.232}) but over-extended compacts and failed the
+pre-registered compact non-regression guard on both test sequences. The verdict
+was do-not-ship; the knobs stay in the code defaulted off. It is reported here
+because it \emph{bounds} the result: the residual far-end shortfall on long cars
+is a characterised, length-dependent limit, not an oversight.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{completion_box_overlays_08.png}
+  \caption{Amodal box overlays on six seq-08 cars: the ground-truth box (black),
+    the box fitted to the raw single-frame partial (blue), and the box fitted to
+    the completion (green), over the raw points (grey). The completion tightens
+    the box on the occluded width and far end and centres it better; the one
+    strong regression panel is a heading error on a sparse (\num{109}-point)
+    input, a diagonal-view failure mode also visible in
+    Figure~\ref{fig:donor-coverage}. Rendered by
+    \texttt{scratchpad/completion\_box\_eval\_viz.py}.}
+  \label{fig:box-overlays}
+\end{figure}
+
+\subsection{Moving cars}
+\label{sec:results-movers}
+
+Both metrics so far are defined on \emph{static} cars by construction: a paired
+amodal reference needs a stationary target. Production nonetheless completes
+moving cars, and those completions were never validated. Because completion runs
+on a single reference frame's cluster --- not on accumulated points --- there is
+no motion smear in its input, so there is a mechanistic reason to expect motion
+not to matter; this section checks it (Finding~\#44). On the shipped seq-08 output
+(\num{518} completed car tracks) each track is labelled static, moving, or
+ambiguous by the net horizontal displacement of its centroid (a label-free proxy,
+since the output tracks are unlabelled), and each completion is scored by a
+size-plausibility recipe (bird's-eye dimensions falling in the car range).
+Table~\ref{tab:movers} gives the result.
+
+\begin{table}[H]
+  \centering
+  \caption{Completion plausibility by track motion (shipped seq-08 output,
+    \num{518} completed car tracks; Finding~\#44). Motion is the net displacement
+    of the track centroid (median of first vs.\ last five frames). Plausible =
+    bird's-eye dimensions in the car range ($L\in[3.3,4.9]$, $W\in[1.5,2.1]$,
+    $H\in[1.1,1.7]$~m).}
+  \label{tab:movers}
+  \begin{tabular}{lcccc}
+    \toprule
+    Group (net displacement) & $n$ & plausible & rate & median $L/W/H$ (m) \\
+    \midrule
+    static ($\leq\SI{2}{\meter}$)   & 419 & 225 & \SI{53.7}{\percent} & 3.81 / 1.94 / 1.49 \\
+    \textbf{moving ($\geq\SI{5}{\meter}$)} & \textbf{19} & \textbf{11} & \textbf{\SI{57.9}{\percent}} & 3.84 / 2.05 / 1.44 \\
+    ambiguous (\SIrange{2}{5}{\meter}) & 80  & 46  & \SI{57.5}{\percent} & 3.95 / 1.92 / 1.49 \\
+    all                             & 518 & 282 & \SI{54.4}{\percent} & 3.83 / 1.94 / 1.49 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Moving cars complete \emph{no worse} than static ones --- slightly higher, in
+fact (\SI{57.9}{} vs.\ \SI{53.7}{\percent}), well within noise at $n=19$ --- with
+near-identical median dimensions, and every motion bucket clusters at
+\SIrange{54}{58}{\percent}. Motion does not degrade completion plausibility, as
+the single-frame input predicts. One honest caveat about the absolute level, not
+the comparison: the plausibility recipe uses axis-aligned dimensions, which
+overestimate width and length for cars oriented diagonally to the world axes, so
+the \raisebox{0pt}[0pt][0pt]{$\sim$}\SI{54}{\percent} rate \emph{understates}
+completion quality (most failures are inflated width on genuine car-shaped
+footprints). Since both groups use the identical recipe, the static-vs-moving
+conclusion is unaffected. The value of the check is that the statics-only design
+of the earlier sections does not hide a mover failure mode.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{t11_mover_completions_bev.png}
+  \caption{Bird's-eye completions of moving-car tracks on seq~08 (blue partial
+    input, green completion). Most form recognisable car footprints; the failures
+    are width inflation on diagonally-oriented cars, an artefact of the
+    axis-aligned plausibility measure rather than of motion. Rendered by
+    \texttt{scratchpad/t11\_mover\_plausibility.py}.}
+  \label{fig:movers}
+\end{figure}
+
+\subsection{A pre-registered held-out replication}
+\label{sec:results-heldout}
+
+The completion constants --- the width and length priors, the scale correction,
+the gate thresholds --- were all developed on seq~08. A fair test of whether the
+method \emph{generalises} therefore has to run on a sequence that took no part in
+that development, under a protocol fixed in advance so the outcome cannot be
+reinterpreted after the fact. We pre-registered one (\texttt{preregistration\_heldout.md},
+committed with an immutable timestamp before any held-out run). The held-out
+sequence is seq~00 (the intended default, seq~05, had too few well-observed
+static cars to test); the two \emph{primary} metrics were fixed as BEV box IoU
+(Section~\ref{sec:results-box}) and donor \texttt{cov@0.1}
+(Section~\ref{sec:results-coverage}), each requiring the completion to beat the
+raw partial with $p<0.05$; three refutation rules (fails to generalise / seq-08
+specific length constants / an uncovered result) and a three-level outcome
+taxonomy were registered alongside. Nothing was retuned for seq~00.
+
+One confound is logged rather than hidden: seq~00 is in the classifier's training
+split, so its \emph{detection} recall reads optimistically. This does not touch
+the completion claim, which is a \emph{paired} raw-vs-completed comparison on
+identical true-positive inputs, and PCN was trained only on synthetic data and
+never saw seq~00. Table~\ref{tab:heldout} gives the outcome on the \num{45}
+well-observed static cars.
+
+\begin{table}[H]
+  \centering
+  \caption{Held-out replication on seq~00 (well-observed static cars, per-car
+    medians, $n=45$; the two pre-registered primaries in bold, secondary
+    dimensions below; Finding~\#42). Both primaries are decisive wins over the
+    raw partial.}
+  \label{tab:heldout}
+  \begin{tabular}{lccl}
+    \toprule
+    Metric & Raw & Completed & Wilcoxon $p$ \\
+    \midrule
+    \textbf{BEV IoU} $\uparrow$          & \textbf{0.739} & \textbf{0.766} & \textbf{\num{1.6e-3}} \\
+    \textbf{donor \texttt{cov@0.1}} $\uparrow$ & \textbf{0.000} & \textbf{0.413} & \textbf{${\approx}0$} \\
+    $|\Delta W|$ (m) $\downarrow$        & 0.203 & 0.165 & \num{4.0e-4} \\
+    $|\Delta H|$ (m) $\downarrow$        & 0.278 & 0.120 & \num{7.8e-9} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Both headline claims replicate: on a sequence that played no part in tuning, the
+completion beats the raw partial on box overlap (\num{0.739}$\to$\num{0.766},
+$p=\num{1.6e-3}$) and on surface coverage (\num{0.000}$\to$\num{0.413},
+$p\approx0$), with the secondary width and height errors improving as they did on
+seq~08. Applying the pre-registered rules verbatim, the arbitration verdict was
+\textbf{partially holds} (Finding~\#42): neither generalisation rule triggered ---
+both primaries won and no testable length band regressed against its seq-08 level
+--- but seq~00's well-observed set contains \emph{no} long cars
+(${\geq}\SI{4.6}{\meter}$), so the long-band predictions and the long-band
+hallucination guard are simply untestable on it. The downgrade from ``holds'' to
+``partially holds'' is therefore a \emph{coverage gap in the held-out data, not a
+weak result}: everything that could be tested passed, and the one thing that could
+not be tested is a property of seq~00's car population, not of the method.
+
+\subsection{Summary and limitations}
+\label{sec:results-summary}
+
+The completion method rests on three measured results. It adds genuinely unseen
+surface --- about \SI{30}{\percent} of never-observed surface within
+\SI{0.1}{\meter}, seven times the symmetry-mirror baseline, with essentially no
+hallucination (Section~\ref{sec:results-coverage}). It improves the amodal box on
+width, height, centre, and overall overlap, most where the sensor saw least, and
+the length-geometry work turns an untreated length regression into a net gain
+(Section~\ref{sec:results-box}). And both headline claims survive a
+pre-registered replication on a held-out sequence
+(Section~\ref{sec:results-heldout}). Moving cars, which the static-car metrics
+cannot score, complete no worse than static ones
+(Section~\ref{sec:results-movers}).
+
+The limitations are stated as findings, each already quantified. The
+\emph{far end} of the car is the weakest-covered region, and on long cars the
+residual under-extension is a characterised, length-dependent limit that a
+pre-registered fix could not remove without regressing compacts (Finding~\#45).
+The per-car length estimate falls back to the fixed population prior on
+\SI{23}{\percent} of shipped tracks --- those with fewer than five gate-passed
+frames (Finding~\#41) --- which is above a comfortable threshold and is not
+solved. The sparsest inputs complete more coarsely, and the axis-aligned plausibility
+measure inflates the \emph{reported} width of diagonally-oriented cars
+(Finding~\#44). And the two quantitative metrics measure static cars directly;
+moving cars are covered only by the weaker plausibility check. None of these
+overturns the headline --- completion adds unseen surface and a better box, and
+generalises --- but they mark exactly where the method is soft, and they set the
+agenda for the discussion that follows.
+
+\end{document}

@@ -1,9 +1,10 @@
-% Section 7.2 -- A Leakage-Free Metric for Real-Data Completion (the donor metric)
+% Sections 7.1 + 7.2 -- Chamfer invalidity (7.1) and the leakage-free donor metric (7.2)
 % Standalone, compilable draft (FPT-template article class + booktabs + float).
 % Folded into the thesis main document later via \input.
 %
-% Scope: this section defines and VALIDATES the metric. The completion coverage
-% results it produces are reported in Section 7.3. Honesty rules (personal_agenda
+% Scope: 7.1 motivates why plain Chamfer is invalid on real cars (Finding #26);
+% 7.2 defines and VALIDATES the donor metric. The completion coverage
+% results it produces are reported in Section 7.3 (sec_7_results.tex). Honesty rules (personal_agenda
 % P1): per-car medians / paired; static cars by construction; #37 presented as a
 % metric-design lesson, not an erratum (claim C7). Numbers traceable to
 % docs/completion/donor_metric.md and Findings #26/#32/#37.
@@ -25,18 +26,52 @@
 \section{Completion Evaluation}
 \label{ch:completion-eval}
 
+\subsection{Why Chamfer distance is invalid on real cars}
+\label{sec:chamfer-invalid}
+
+The natural way to score a completed car is Chamfer distance (CD) against a
+ground-truth surface. Real LiDAR offers no such surface: a car is seen once, from
+one side. The obvious substitute is a \emph{pseudo}-ground-truth cloud --- the
+labelled points of one static car accumulated across every ego frame that
+observed it. This subsection explains why that substitute is not a valid target,
+and hence why the completion work of Chapter~6 needed a different metric
+altogether.
+
+The trouble is that the accumulation is itself one-sided. A parked car is
+observed from a road running past one of its flanks, so every frame sees broadly
+the same near faces --- the road-facing side, the near end, the roofline edge ---
+and none sees the occluded far side or the underbody. Pooling those frames
+densifies the \emph{visible} surface but adds almost no genuinely new surface: the
+pseudo-ground-truth is a denser partial, not a whole car.
+
+Scored against such a reference, plain Chamfer \emph{rewards under-completion}.
+The distance is symmetric, so every predicted point pays the distance to its
+nearest reference point. A completion that correctly reconstructs the occluded
+far side places points where the reference has nothing, and each such point adds
+cost; a model that predicts only the already-observed surface pays nothing for
+what it omits. The raw partial --- which by construction sits exactly on observed
+surface and predicts nothing new --- therefore scores the \emph{lowest} (best) CD
+of any cloud, on every real example (Finding~\#26). A metric that ranks the
+un-completed input first cannot be used to measure completion.
+
+This is a measured failure rather than a conjecture: across the real seq-08 cars
+we scored, the raw partial had the lowest pseudo-ground-truth CD of the raw /
+mirrored / completed clouds in every case (renders in
+\texttt{output/experiments/verify\_pcn\_step2/}). Its consequence is that when the geometry work
+began, completion had no valid real-data metric at all --- the in-distribution
+synthetic CD of Chapter~6 (\SI{0.16}{\meter}) measures the network on synthetic
+cars but says nothing about a real cluster. The next subsection turns the very
+one-sidedness that breaks Chamfer into the basis of a metric that works.
+
 \subsection{A Leakage-Free Metric for Real-Data Completion}
 \label{sec:donor-metric}
 
-Section~7.1 established that the obvious metric --- Chamfer distance against an
-accumulated pseudo-ground-truth cloud --- is invalid for real LiDAR completion:
-because a static car accumulated over many ego viewpoints is \emph{itself}
-one-sided, plain Chamfer rewards under-completion, and the raw partial scored
-best on every real example. Completion therefore had no valid real-data metric
-at all, which is what blocked measuring any geometry improvement on real cars.
-This section defines the metric that replaces it and shows that it passes an
-explicit validation battery. The metric is defined on static cars by
-construction; moving cars are treated separately in Section~7.5.
+The preceding subsection established that completion had no valid real-data
+metric: Chamfer against a one-sided pseudo-ground-truth rewards under-completion
+and ranks the raw partial first. This subsection defines the metric that replaces
+it and shows that it passes an explicit validation battery. The metric is defined
+on static cars by construction; moving cars are treated separately in
+Section~7.5.
 
 \subsubsection{The donor-frame occluded-side principle}
 \label{sec:donor-principle}
@@ -155,7 +190,7 @@ place only by beating it.
 
 The guard as first designed --- check~(d) above --- was a single median pooled
 over all cars, and that pooling hid a real failure mode. When we later evaluated
-a geometry change (the per-car length prior of Chapter~6) with this guard ---
+a geometry change (the fixed length prior of Chapter~6) with this guard ---
 now re-run on the promoted configuration, whose well-observed static set is
 $n=40$ ($8+27+5$ across the compact/normal/long bands; Finding~\#37) --- the
 pooled out-of-box fraction stayed comfortably low (\num{0.0020}) and the change
