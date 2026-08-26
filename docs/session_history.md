@@ -2397,3 +2397,52 @@ Verified each point against source (`docs/findings.md`, `src/tracker.py`,
 - Optional Ch 4 remainder: B3 literature table, B4 distance-recall figure.
 - If desired, recompile the audit-edited `.tex` files (Ch 3/4/6/§7.2) under TeX Live
   2026 to reconfirm clean builds before advisor review.
+
+---
+# Session — 2026-08-26 (Ch 7 discovered drafted, verified, committed)
+
+## What was done
+- Session-start recap initially reported Ch 7 as unwritten, following a stale
+  `docs/project_state.md` (whose "Next" line still pointed at Ch 4/5/7). User
+  challenged this ("haven't we written it?").
+- Inspected `docs/writing/thesis/` and found Chapter 7 **already drafted** across
+  two files, both uncommitted (`sec_7_results.tex` untracked, `sec_7_2_donor_metric.tex`
+  modified) and unrecorded in project_state:
+  - `sec_7_2_donor_metric.tex` (§7.1–§7.2) — §7.1 "Why Chamfer distance is invalid
+    on real cars" (#26) had been added; §7.2 leakage-free donor metric.
+  - `sec_7_results.tex` (§7.3–§7.7) — coverage (#32), amodal-box utility
+    (#29/#35/#36, #45 cross-ref), movers (#44), pre-registered held-out seq-00
+    replication (#42), summary + limitations.
+- Recompiled both under TeX Live 2026 via `latexmk`: **both clean** —
+  `sec_7_2_donor_metric` 4 pp, `sec_7_results` 8 pp; zero undefined refs, zero
+  overfull boxes >20 pt, zero LaTeX warnings.
+- Reviewed the `sec_7_2_donor_metric.tex` diff (48 ins / 13 del): the §7.1 Chamfer
+  subsection plus an §7.2 opener rework and a "fixed length prior" wording fix —
+  legitimate content, no accidental changes.
+- Updated `docs/project_state.md`: added a "Chapter 7 — DRAFTED; COMMITTED
+  2026-08-26" block, flagged the stale 2026-08-23 "Next" line as superseded, fixed
+  the "Remaining Ch 4 → then Ch 7" pointer, bumped the date to 2026-08-26.
+- Committed Ch 7 + project_state as `6af89c9` (main).
+
+## Files changed
+- Modified: `docs/writing/thesis/sec_7_2_donor_metric.tex` (§7.1 added),
+  `docs/project_state.md`
+- New: `docs/writing/thesis/sec_7_results.tex` (§7.3–§7.7)
+- This session: append to `docs/session_history.md`
+- Untracked, NOT part of this session (excluded from commit): `docs/LVTN.pptx`,
+  `docs/LVTN_extracted.md` (peer's defense deck, structure template).
+- Build artifacts (`.aux/.log/.pdf/.fdb_latexmk/.fls`) gitignored, not committed.
+
+## Results / findings
+- No new experiments (research frozen). Ch 7 numbers transcribed from
+  `docs/findings.md` #29/#32/#35/#36/#37/#41/#42/#44/#45,
+  `docs/completion/donor_metric.md`, and `docs/plans/t9{b,c}_*heldout_seq00.md`.
+- Both Ch 7 files verified to build clean under TeX Live 2026 (4 pp / 8 pp).
+
+## Next
+- Chapters 3–7 now all drafted; **none advisor-reviewed yet** — advisor review is
+  the main open item.
+- Optional Ch 4 remainder: B3 literature table, B4 distance-recall figure; B5
+  pipeline diagram already embedded in Ch 3.
+- Thesis assembly: merge the two Ch 7 files per the merge note in
+  `sec_7_results.tex` (drop the duplicate `\section`, fold §7.3–§7.7 after §7.2).
