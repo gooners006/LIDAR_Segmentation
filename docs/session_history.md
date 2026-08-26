@@ -2446,3 +2446,62 @@ Verified each point against source (`docs/findings.md`, `src/tracker.py`,
   pipeline diagram already embedded in Ch 3.
 - Thesis assembly: merge the two Ch 7 files per the merge note in
   `sec_7_results.tex` (drop the duplicate `\section`, fold §7.3–§7.7 after §7.2).
+
+---
+
+# Session — 2026-08-26 (Ch 2 Tab 2.1 primary-source verification + reference archive)
+
+## What was done
+- Processed an external review of `docs/writing/thesis/sec_2_background.tex` (Ch 2,
+  Background & Related Work). Diffed the review against the current `.tex`: found the
+  major content-gap fixes (recall→paradigm reframe, 3D-detection omission paragraph,
+  §4.1 forward pointer, tracking/AB3DMOT sentence, §4.5 runtime pointer) were ALREADY
+  applied earlier in the Ch 2 drafting lineage — no rework needed.
+- **Restarted the PARKED Tab 2.1 number verification from primary sources.** Sandbox
+  `curl` cannot reach arXiv.org / CVF (network-filtered; google + semanticscholar OK),
+  but `ar5iv.labs.arxiv.org` renders paper tables cleanly through WebFetch. Verified
+  every published cell against each paper's own results table:
+  - Semantic (test set): RangeNet++ 52.2 / car 91.4; RandLA-Net 53.9 / car 94.2
+    (own paper; Cylinder3D's table lists it as 50.3 / 94.0 — `.tex` correctly uses the
+    own-paper number); Cylinder3D 67.8 / car 97.1.
+  - Panoptic (test set): RangeNet++&PointPillars PQ 37.1 / PQ^Th 20.2; Panoptic-PolarNet
+    PQ 54.1 / PQ^Th 53.3 (RQ 65.0); DS-Net PQ 55.9 / mIoU 61.6; EfficientLPS PQ 57.4 /
+    PQ† 63.2.
+  - **Zero transcription errors.** The parked note's suspected Cylinder3D 97.1→96.4 fix
+    was REJECTED — Cylinder3D's own Table I prints 67.8 and 97.1 in the same row (96.4
+    was a secondary-source artifact). Test-vs-val closed: online single-scan eval track
+    = test benchmark, so the semantic rows are test numbers.
+- **Applied the four external-review minors** to `sec_2_background.tex` +
+  `references.bib` (chapter rebuilds clean, 7 pp): Tab 2.1 caption footnote for the two
+  RangeNet++ rows; Cylinder3D puffery→factual; §2.1 22-sequences clarification (11–21
+  withheld); EfficientLPS bib year 2021→2022 (+volume 38, number 3).
+- **Built the Ch 2 reference archive in `docs/papers/`** — all 25 cited papers, each
+  pdfminer-verified as a readable copy of the correct paper. Downloads mostly via
+  WebFetch (saves binary to tool-results temp → copied in); WebFetch hard-caps at 10 MB
+  and cannot fetch arXiv PDFs >10 MB, and RangeNet++ is not on arXiv — those 5 stragglers
+  (RangeNet++, EfficientLPS, SeedFormer, KITTI, DBSCAN, campello2013, JOSS-hdbscan) were
+  filled by the user directly. Final: 25/25 present and readable.
+
+## Files changed
+- Modified: `docs/writing/thesis/sec_2_background.tex` (4 minor review fixes),
+  `docs/references.bib` (EfficientLPS venue-of-record + prior-lineage Ch 2 entries),
+  `docs/project_state.md` (PARKED→RESOLVED block; minors-applied + archive-complete),
+  `THESIS_PLAN.md`.
+- New (committed this session): `docs/writing/thesis/sec_2_background.tex`,
+  `docs/writing/thesis/sec_8_discussion.tex` (Ch 8 draft, previously orphaned/uncommitted).
+- Deleted: two superseded paper notes `docs/papers/AdaPoinTr …md` and
+  `docs/papers/PoinTr Diverse …md` (old naming; replaced by `PoinTr.md`).
+- Reference PDFs in `docs/papers/*.pdf` are gitignored (local archive, not committed).
+- Excluded from commit: `docs/LVTN.pptx`, `docs/LVTN_extracted.md` (peer's defense deck).
+
+## Results / findings
+- No new experiments (research frozen). All Tab 2.1 numbers now primary-source verified
+  (measured against paper tables, not WebSearch summaries) — supersedes the earlier
+  overstated "web-verified" claim. Reference archive 25/25 complete.
+
+## Next
+- **Ch 1 (Introduction)** — next in plan order (THESIS_PLAN.md: Ch 8 → Ch 2 → Ch 1 →
+  Ch 9 → abstract). Needs problem/approach/contributions, car-only+offline scope, and
+  the proposal-drift reconciliation (dropped bus/motorcycle support; CD+EMD→CD-only).
+- Then Ch 9 (conclusion) → abstract.
+- None of the drafted chapters (2–8) are advisor-reviewed yet.

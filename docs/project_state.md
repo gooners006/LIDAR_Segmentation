@@ -170,6 +170,121 @@ overfull >20pt / warnings; fold together at final assembly via the merge note in
 Both files were previously untracked/uncommitted; committed together this session.
 Still NOT advisor-reviewed.
 
+**Chapter 8 (Discussion & Limitations) — DRAFTED 2026-08-26.**
+`docs/writing/thesis/sec_8_discussion.tex` written; builds clean standalone under
+TeX Live 2026 (5 pp, zero undefined refs / zero overfull). Synthesis-then-limitations
+chapter that names every audit-identified weakness so the committee cannot surface one
+first. §8.1 what the thesis establishes (donor metric + completion value = strongest
+evidence; detection = engineering result not SOTA; #25/#30 negative replaces two-stage
+contribution); §8.2 eval validity (val-as-test for detection #18/Q1 — bounded because
+recall ceiling is upstream of the classifier; held-out coverage gaps — empty long band
++ compact d2 fail, PARTIALLY HOLDS #42); §8.3 completion scope (statics-only accuracy /
+movers plausibility-only #44; #41 23% length-estimate fallback; #45 length-dependent
+residual under-extension; #37 band-blind guard as metric-design lesson, ratios reported);
+§8.4 GT/dataset (amodal GT unvalidatable — tracklet cross-check impossible, 3 defences;
+B2 recall-vs-all-annotated ≈0.54 / two distinct ≥10-point rules #48; SemanticKITTI label
+quality assumed); §8.5 architectural (clustering-objectness ceiling from Ch 5 #34/#43;
+offline runtime 623.5 ms, real-time out of scope #33/#34); §8.6 what generalises
+(mechanisms transfer, constants are seq-08-derived, accuracy scoped to static compact+
+normal cars). All six mandatory named limitations present; P1 phrasing rules applied.
+First of the four remaining chapters (plan order: Ch 8 → Ch 2+B3 → Ch 1 → Ch 9 → abstract).
+
+**Ch 8 external review processed — REVISED 2026-08-26** (`/review-handoff`, verified each
+point against findings.md before acting; conceded all, no pushback). Fixes applied to the
+working tree (now 6 pp, rebuilds clean): (A1, the load-bearing fix) §8.3 mislabelled the
+0.0433/100× compact hallucination as "the shipped length prior" — it is the fixed 4.14 m
+prior (#37 table; now only the 23% fallback), while the shipped per-car estimate is 16×
+(0.0065); reattributed and connected to the #41 fallback. (A2) §8.1 BEV IoU 0.771 stated
+"against the raw partial" → corrected to "against the amodal GT box, up from 0.725 for the
+raw partial." (A3) §8.3 guard direction made explicit (out-of-box ≤ mirrored baseline;
+>1 fails, higher worse; seq 08 16×/100× fails worst, seq 00 1.8× confirms held-out).
+(B1) donor-metric novelty narrowed to the specific construction. (B2, the weakest defence)
+§8.2 val-as-test bound repaired — conceded the classifier's realized recall contribution
+is also seq-08-tuned (geom-only R 0.775 → classifier 0.677 → track filter 0.730, #47/#49),
+dropped the "least in doubt" overclaim, bounded optimism to that band vs the
+classifier-independent upstream ceiling. (B3) §8.1 "both claims survive" now carries the
+PARTIALLY HOLDS qualifier. (B5) §8.6 grades the three mechanisms (Chamfer-invalidity +
+donor construction transfer by argument; split diagnosis is an inference from two
+sequences). (C1) compact hallucination named as a completion defect, #37↔#41 connected.
+(C2) single held-out sequence stated. (C3) completion sim-to-real domain gap added (#26
+residual flatness; #16/#17/#19 fine-tuning negative). (C4) unquantified-tracking limitation
+added (no MOTA/IDF1; tracker feeds the 23% fallback). (C5) detection single-sequence
+breadth caveat added, distinct from val-as-test optimism. Reviewer's B4 (a "wording
+tightening" point) was referenced in the priority list but its text was absent from the
+pasted review — not actioned. Still NOT advisor-reviewed. Uncommitted.
+
+**Chapter 2 (Background & Related Work) + B3 table — DRAFTED 2026-08-26.**
+`docs/writing/thesis/sec_2_background.tex` written; builds clean standalone under TeX
+Live 2026 (7 pp, zero undefined citations, one 1.09 pt overfull). First literature
+chapter, so it introduces classic BibTeX into the thesis tree:
+`\bibliographystyle{IEEEtran}` + `\bibliography{../../references}` (relative path to
+`docs/references.bib`, same pattern as `docs/report/progress_report_2026_05_12.tex`).
+Scope = **related-work-focused** (user decision): positions the field, defers method
+mechanics to Ch 3/6. Sections: §2.1 SemanticKITTI/KITTI + the seg/instance/panoptic
+tasks + annotation cost; §2.2 deep segmentation (projection/point/voxel + panoptic);
+§2.3 classical clustering (RANSAC + DBSCAN/HDBSCAN, the paradigm used); §2.4 object
+completion (PCN/PoinTr/SnowflakeNet/SeedFormer + synthetic-to-real gap + Chamfer-
+invalidity foreshadowing Ch 7); §2.5 positioning + the **B3 table** (Tab 2.1).
+**B3 = real published numbers, conservative non-head-to-head layout** (user decision):
+requirements columns lead, each metric cell labelled with its own metric, explicit
+non-comparability caveat in caption + prose (defends Q2/Q10). **All Tab 2.1 numbers
+web-verified against primary papers** (SemanticKITTI test set): RangeNet++ mIoU 52.2 /
+car IoU 91.4, RandLA-Net 53.9 / 94.2, Cylinder3D 67.8 / car IoU 97.1;
+RangeNet++△+PointPillars PQ 37.1 / PQ^Th 20.2, Panoptic-PolarNet PQ 54.1 / PQ^Th 53.3,
+DS-Net PQ 55.9 / mIoU 61.6, EfficientLPS PQ 57.4 / PQ† 63.2; this work car-F1 0.808 /
+R 0.730 / P 0.905 (point-IoU≥0.3, seq 08, Finding #34). Note: the "PQ 63.6" seen in
+secondary sources is Panoptic-PolarNet's **RQ**, not PQ — corrected to test PQ 54.1.
+**`docs/references.bib` appended** (additive, safe) with 8 new entries:
+`zhu2021cylindrical`, `zhou2021panopticpolarnet`, `hong2021dsnet`,
+`sirohi2021efficientlps`, `behley2021panoptic`, `gasperini2021panoster`,
+`ester1996dbscan`, `campello2013hdbscan`, `mcinnes2017hdbscan`, plus `lim2025longrange`
+(Lim & Park, *IEEE Access* 13, 2025, DOI 10.1109/ACCESS.2025.3541267) — the closest
+**same-paradigm** prior work (BEV clustering + ML vehicle classifier for long-range
+LiDAR detection), extracted from the `.md` conversion of the previously
+password-protected PDF and cited in §2.3 (paradigm anchor) + §2.5 (contribution
+boundary). PoinTr (`yu2021pointr`) and PCN (`yuan2019pcnpointcompletionnetwork`)
+confirmed already cited in §2.4 and correct against their paper `.md` files.
+Uncommitted; NOT advisor-reviewed. Remaining chapters (plan order): Ch 1 → Ch 9 →
+abstract.
+
+**✅ RESOLVED 2026-08-26 — Ch 2 Tab 2.1 numbers PRIMARY-SOURCE verified; zero errors.**
+The parked verification was restarted and completed against each paper's own results
+table (ar5iv.labs.arxiv.org rendered them cleanly this pass; arxiv.org was back up).
+This is now a *measured* read of the primary tables, not a WebSearch summary. **All
+seven published Tab 2.1 rows confirmed, all test-set, no transcription errors:**
+- Semantic (RandLA-Net arXiv 1911.11236 Table 3 "online single scan eval track" = test;
+  Cylinder3D arXiv 2109.05441 Table I "single-scan test set"): RangeNet++ 52.2 / car
+  91.4; RandLA-Net 53.9 / car 94.2 (own paper — Cylinder3D's table lists RandLA-Net as
+  50.3 / 94.0; the `.tex` correctly uses each method's own-paper number); Cylinder3D
+  67.8 / car 97.1.
+- Panoptic (each own paper, test set): RangeNet++ & PointPillars PQ 37.1 / PQ^Th 20.2
+  (via Panoptic-PolarNet Table 1); Panoptic-PolarNet PQ 54.1 / PQ^Th 53.3 (RQ 65.0);
+  DS-Net PQ 55.9 / mIoU 61.6; EfficientLPS PQ 57.4 / PQ† 63.2.
+- **The suspected Cylinder3D 97.1→96.4 fix is REJECTED.** Cylinder3D's own Table I
+  prints mIoU 67.8 and car IoU 97.1 *in the same row* — the 96.4 was itself a
+  secondary-source artifact. `sec_2_background.tex` line 241 is correct as-is; NO edit.
+- **Test-vs-val (external-review concern #1) closed:** the online single-scan eval track
+  is the test benchmark (seq 11–21; val cannot be submitted), so the two semantic rows
+  are test numbers and the caption's "test-set" claim holds. The earlier extraction's
+  "validation" label was the error, not the numbers.
+- The earlier "all Tab 2.1 numbers web-verified against primary papers" wording (above)
+  was overstated *when written* (it rested on WebSearch summaries, one of which returned
+  a wrong 76.1 mIoU); it is now genuinely primary-verified.
+- **External-review minors — ALL APPLIED 2026-08-26 (rebuilds clean, 7 pp):**
+  RangeNet++-appears-twice footnote added to Tab 2.1 caption; Cylinder3D "among the
+  strongest" → factual "reports 67.8 mIoU… among the higher single-scan results"; §2.1
+  "22 sequences" clarified (00–10 labelled, 11–21 withheld to the online test server);
+  `references.bib` EfficientLPS → `year=2022, volume=38, number=3` (citation-of-record).
+- **Reference archive COMPLETE 2026-08-26 (`docs/papers/`, PDFs gitignored/local):**
+  all 25 Ch-2 cited papers downloaded + pdfminer-verified readable (RangeNet++ not on
+  arXiv → IPB PDF; EfficientLPS/SeedFormer >10 MB → user-fetched; DBSCAN/campello2013
+  paywalled → user-fetched; rest via WebFetch, sandbox `curl` cannot reach arXiv/CVF).
+- **Already applied this session (independent of the above, compiles clean, exit 0):**
+  §2.5 reworded recall to a paradigm claim (no cross-metric implication); new paragraph
+  on the 3D-detection omission (why point-IoU not box-AP) + §4.1 forward pointer;
+  tracking-as-filter sentence; §4.5 runtime pointer. `references.bib` gained 3 entries:
+  `lang2019pointpillars`, `yin2021centerpoint`, `weng2020ab3dmot`.
+
 **Cross-file audit fixes — DONE 2026-08-25.** An external audit (5 thesis drafts
 vs. frozen evidence, ~30 numbers) flagged one must-fix + should/optional items;
 all six applied (Ch 3/4/6/§7.2). Central fix: **Ch 3 was reporting pre-#34

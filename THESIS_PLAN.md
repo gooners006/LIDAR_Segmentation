@@ -380,8 +380,21 @@ Confirmed against the repo, all with negative-result precedent or closed status 
    0–10/10–20 bins showing the #23 near-range dip). Runtime table anchored on the
    full-run promoted timing (623.5 ms; stride-20 650.6 reconciled). Uncommitted,
    not advisor-reviewed. Ch 5 + Ch 7 remain.
-10. [ ] Draft Ch 8 limitations → then Ch 2 (+B3 table) → Ch 1 → Ch 9 → abstract →
+10. [~] Draft Ch 8 limitations → then Ch 2 (+B3 table) → Ch 1 → Ch 9 → abstract →
     `/humanizer` pass → Phase 8 defense prep with `/quiz-me`.
+    **Ch 8 (Discussion & Limitations) DRAFTED 2026-08-26** —
+    `docs/writing/thesis/sec_8_discussion.tex`, builds clean standalone (5 pp,
+    zero undefined refs / zero overfull). Synthesis (§8.1) + four limitation
+    groups: eval validity (§8.2 val-as-test detection; held-out coverage gaps —
+    empty long band, compact d2), completion scope (§8.3 statics-only accuracy,
+    #41 23% fallback, #45 length-dependent under-extension, #37 band-blind guard),
+    GT/dataset assumptions (§8.4 amodal GT unvalidatable, B2 recall-vs-all-cars
+    ≈0.54 / two ≥10-rules, label quality assumed), architectural/operational
+    limits (§8.5 clustering objectness ceiling, offline runtime), what generalises
+    (§8.6). All six mandatory named limitations present; P1 phrasing rules applied
+    (mIoU-of-matched, recall denominator, negatives-as-findings, #37 as
+    metric-design lesson). Uncommitted, not advisor-reviewed. Remaining: Ch 2
+    (+B3 table) → Ch 1 → Ch 9 → abstract.
 
 ### Current status
 GREEN; research complete; writing underway. Phases 1–2 done; Phase 3 (methodology)

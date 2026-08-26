@@ -1,0 +1,301 @@
+% Chapter 2 -- Background and Related Work
+% Standalone, compilable draft (FPT-template article class + booktabs), sibling to
+% sec_3_detection_pipeline.tex / sec_8_discussion.tex. Positions this thesis's
+% classical-clustering + binary-classifier + PCN-completion pipeline against the
+% deep-learning LiDAR-segmentation and point-completion literature, and carries the
+% B3 mandatory literature-positioning table (Table 2.1) that defends examiner Q2
+% ("why F1 0.808 / R 0.73 vs SOTA?") and Q10 ("what is yours vs. reimplementation?").
+%
+% MERGE/NUMBERING NOTE: this file opens with \section{Background and Related Work} for
+% standalone compilation and numbering, but at final assembly the assembler promotes it
+% to a chapter (Chapter 2). Forward references to sibling chapters use typed numerals
+% ("Chapter~3", "Chapter~5", "Chapter~7") because the chapter files do not share a label
+% namespace when built separately.
+%
+% CITATIONS: unlike the results/methods siblings (which cite the internal Finding record),
+% this is a literature chapter and uses classic BibTeX. \bibliography{../../references}
+% resolves to docs/references.bib (same relative-path pattern as
+% docs/report/progress_report_2026_05_12.tex, confirmed to compile in this repo).
+%
+% Scope decision (settled with advisor/author): RELATED-WORK-FOCUSED. Method mechanics
+% (PointNet architecture, HDBSCAN internals, PCN encoder/decoder, Chamfer distance) are
+% explained in Chapter~3 (pipeline) and Chapter~6 (completion) and are NOT re-derived
+% here; this chapter carries only the light conceptual grounding needed to read the
+% related work and the positioning table.
+%
+% Honesty-phrasing rules applied (personal_agenda P1):
+%   - the positioning table (Table 2.1) presents NO protocol-mismatched number as
+%     head-to-head: each cell is labelled with its own metric, requirements columns lead,
+%     and the caption states the metric/protocol/scope mismatch explicitly
+%   - every quantitative claim about a published method traces to a cited primary source;
+%     all Table 2.1 numbers are SemanticKITTI test-set figures verified against the paper
+%   - this work's own row uses the frozen headline numbers (F1 0.808 / R 0.730 / P 0.905,
+%     seq 08; Chapter~4, Finding~#34) with the point-IoU>=0.3 protocol named
+%   - "recall" is stated against its car-only, >=10-surviving-points denominator where used
+%
+\documentclass[a4paper,12pt]{article}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{siunitx}
+\usepackage{microtype}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{url}
+
+\begin{document}
+
+\section{Background and Related Work}
+\label{ch:background}
+
+This chapter places the thesis in its research context. It reviews the two bodies of
+work the pipeline draws on --- LiDAR point-cloud segmentation and object-level
+point-cloud completion --- and then positions the specific design choices of this
+work against them. The organising contrast runs throughout: the dominant approach to
+LiDAR segmentation is a single end-to-end network trained on dense per-point
+annotation, whereas this thesis builds an interpretable pipeline from training-free
+geometric clustering plus a lightweight learned classifier, and treats completion as a
+separate, downstream problem. Section~\ref{sec:bg-positioning} makes that contrast
+quantitative in a positioning table. The mechanics of each component are deferred to
+the method chapters (Chapter~3 for detection, Chapter~6 for completion); here the aim
+is to say what exists, and where this work sits within it.
+
+\subsection{LiDAR point clouds and the SemanticKITTI benchmark}
+\label{sec:bg-dataset}
+
+A rotating LiDAR sensor returns, for each scan, an unordered set of 3D points sampled
+from the surfaces around the vehicle. The points are sparse, irregularly spaced, and
+strongly range-dependent: nearby objects are dense, distant ones may be a handful of
+returns, and every object is seen from a single viewpoint and is therefore partial.
+These properties --- irregularity, sparsity, single-view partiality --- shape every
+method discussed below and every difficulty this thesis reports.
+
+The KITTI Vision Benchmark~\cite{geiger2012we} established the standard automotive
+LiDAR setting (a Velodyne HDL-64E on a car, with synchronised camera and pose). Its
+segmentation-oriented successor, SemanticKITTI~\cite{Behley_2019_ICCV}, provides
+dense per-point semantic labels for the 22 sequences of the KITTI odometry split
+(sequences 00--10 are released with labels; the labels for sequences 11--21 are withheld
+and scored only through the online test server), and a later extension adds temporally
+consistent instance identities for a LiDAR-based panoptic benchmark~\cite{behley2021panoptic}. Three tasks are defined on
+it. \emph{Semantic segmentation} assigns every point a class and is scored by the mean
+intersection-over-union across classes (mIoU). \emph{Instance segmentation} separates
+individual objects within the ``thing'' classes (car, pedestrian, cyclist, and so on).
+\emph{Panoptic segmentation} unifies the two and is scored by panoptic quality (PQ),
+which factorises into a segmentation-quality term (SQ, the mean IoU of matched
+segments) and a recognition-quality term (RQ, an F$_1$-like matching score);
+PQ$^{\text{Th}}$ restricts PQ to the ``thing'' classes, and PQ$^\dagger$ is a variant
+that scores ``stuff'' by IoU. These definitions matter for
+Section~\ref{sec:bg-positioning}, because they are the metrics the literature reports
+and none of them is the point-level per-class F$_1$ this thesis uses.
+
+The decisive property of SemanticKITTI for this work is its \emph{annotation cost}.
+The labels are dense and per-point across billions of points, and the panoptic
+extension adds a manual instance-association pass over sequences. This is the resource
+the mainstream methods below consume and the one this thesis is built to avoid: its
+segmentation stage requires no labelled point clouds at all, and its classifier is
+trained on clusters mined and weakly labelled automatically from the pipeline's own
+output (Chapter~3).
+
+\subsection{Deep segmentation of LiDAR point clouds}
+\label{sec:bg-deep}
+
+The current benchmark leaders are deep networks trained end-to-end on the dense labels.
+They differ mainly in how they impose structure on the irregular point set.
+\emph{Projection-based} methods rasterise the scan into a 2D range image and apply
+image convolutions: SqueezeSeg~\cite{10.1109/ICRA.2018.8462926} and
+RangeNet++~\cite{milioto2019rangenet++} are representative, and are fast because they
+reuse mature 2D machinery, at the cost of discretisation artefacts at depth
+discontinuities. \emph{Point-based} methods operate on the raw points through
+permutation-invariant operators: PointNet~\cite{Qi_2017_CVPR} introduced the
+shared-MLP-plus-symmetric-pooling design, PointNet++~\cite{NIPS2017_d8bf84be} added
+hierarchical local grouping, and RandLA-Net~\cite{Hu_2020_CVPR} made the point-based
+route scale to full driving scans through efficient random sampling. \emph{Voxel-based}
+methods discretise 3D space and run sparse convolutions; Cylinder3D~\cite{zhu2021cylindrical}
+uses a cylindrical partition matched to the sensor's polar geometry and reports
+\num{67.8} mIoU on the SemanticKITTI test set, among the higher single-scan results.
+
+Panoptic methods extend semantic backbones with instance reasoning.
+Panoptic-PolarNet~\cite{zhou2021panopticpolarnet} predicts instances proposal-free in a
+polar bird's-eye-view; DS-Net~\cite{hong2021dsnet} clusters in a learned embedding via a
+dynamic shifting module; Panoster~\cite{gasperini2021panoster} learns instance ids
+end-to-end; and EfficientLPS~\cite{sirohi2021efficientlps} targets an efficient
+architecture for the joint task. The dataset authors' own baselines pair a semantic
+network with a 3D detector to supply instances~\cite{behley2021panoptic}.
+
+Two properties are common to this whole family and frame the thesis's alternative.
+First, all of them require the dense per-point (and, for panoptic, per-instance)
+supervision described above; their accuracy is inseparable from that annotation budget.
+Second, they are end-to-end networks whose decisions are not individually inspectable
+--- a misclassified region has no stage-level explanation. PointNet and PointNet++ are
+relevant to this thesis for a narrower reason as well: they are the backbone family from
+which its car/not-car classifier is built (Chapter~3). The classifier, however, is a
+small binary network applied to already-segmented clusters, not a full-scene
+segmentation model, and it is trained without any hand-drawn labels.
+
+\subsection{Classical geometric segmentation}
+\label{sec:bg-classical}
+
+Before end-to-end learning dominated the benchmarks, LiDAR objects were extracted by
+geometric reasoning, and that route is the one this thesis takes for the segmentation
+stage. The standard recipe removes the ground plane --- commonly by RANSAC plane
+fitting --- and clusters the remaining points into objects. The clustering step is
+where the design choice lives. Fixed-radius methods such as Euclidean clustering and
+DBSCAN~\cite{ester1996dbscan} group points within a single distance threshold
+$\varepsilon$; this is fast and fully interpretable, but a single $\varepsilon$ cannot
+serve both the dense near field and the sparse far field of a LiDAR scan.
+HDBSCAN~\cite{campello2013hdbscan}, in the widely used implementation
+of~\cite{mcinnes2017hdbscan}, replaces the fixed radius with a hierarchy over density
+levels and extracts clusters that are stable across scales, which is better matched to
+range-varying point density.
+
+This clustering-plus-classification recipe remains an active design point wherever
+interpretability and real-time efficiency are valued over benchmark accuracy. Recent
+work for autonomous racing, for instance, pairs bird's-eye-view clustering with a
+lightweight machine-learning vehicle classifier to reach long-range detection without a
+deep dense-feature network~\cite{lim2025longrange}. The pipeline in this thesis is of
+the same family --- ground removal, clustering, then a learned per-object classifier ---
+applied to the SemanticKITTI setting.
+
+The appeal of this route is that it needs no training data for segmentation and every
+stage is inspectable. Its weaknesses are equally concrete and are documented directly in
+this thesis: density-based clustering has no notion of objectness, so it fragments a
+single car into several clusters when internal density gaps appear, and this
+fragmentation --- not classification error --- is the dominant recall limiter
+(Chapter~5). The positioning below should be read with that trade in view: the
+interpretability and near-zero annotation of the classical route are bought at a
+measurable recall cost relative to the supervised networks.
+
+\subsection{Object-level point-cloud completion}
+\label{sec:bg-completion}
+
+The second phase of the pipeline reconstructs a denser shape from the sparse, single-view
+partial cloud of a detected car. Point-cloud completion learns this partial-to-complete
+mapping. PCN~\cite{yuan2019pcnpointcompletionnetwork} established the coarse-to-fine
+design --- a PointNet encoder producing a global shape code, decoded first to a coarse
+set and then folded to a dense output --- and remains a strong, compact baseline. Later
+work improves detail through attention and progressive refinement:
+PoinTr~\cite{yu2021pointr} casts completion as set-to-set translation with a
+geometry-aware transformer, SnowflakeNet~\cite{xiang2021snowflakenet} generates points
+by hierarchical ``snowflake'' deconvolution, and SeedFormer~\cite{zhou2022seedformer}
+introduces patch-seed representations. These models are trained on synthetic CAD shapes,
+most commonly ShapeNet~\cite{chang2015shapenetinformationrich3dmodel}, with partial
+inputs produced by virtual rendering.
+
+Two points from this literature bear directly on later chapters. First, models trained
+on clean synthetic partials face a synthetic-to-real domain gap when applied to noisy,
+sparse LiDAR clusters; this thesis adopts PCN and confronts that gap head-on
+(Chapter~6), and its comparison of PCN against a transformer alternative found no
+decisive real-data advantage for the heavier model (Chapter~7). Second, and more
+consequentially, the standard completion metric --- Chamfer distance to a reference
+shape --- presupposes a complete ground-truth surface, which real accumulated LiDAR does
+not provide: the accumulation is itself one-sided. Chapter~7 shows this makes pseudo
+ground-truth Chamfer scoring invalid on real cars and develops an alternative metric in
+its place. This should be distinguished from \emph{semantic scene completion}, which
+fills a whole voxelised scene from a single scan; the present work completes individual
+segmented objects, a different and narrower task.
+
+\subsection{Positioning of this work}
+\label{sec:bg-positioning}
+
+The pipeline studied here is a car-only instance detector built from training-free
+clustering and a binary classifier, followed by object completion. It occupies a
+different point in the design space from the benchmark leaders of
+Section~\ref{sec:bg-deep}, and the honest way to state that is to show the published
+numbers alongside its own while being explicit that they are not the same measurement.
+Table~\ref{tab:positioning} does this. The columns that carry the argument are the
+requirement columns --- approach and supervision --- not the last column: the reported
+figures are shown to be candid about the accuracy gap, not to claim a win on a shared
+axis, and no two cells in that column are the same metric unless their headers say so.
+
+\begin{table}[H]
+  \centering
+  \caption{Positioning against representative SemanticKITTI methods. \textbf{The
+    figures in the last column are not comparable across rows and must not be read as a
+    ranking.} They are different metrics (semantic mIoU and per-class IoU; panoptic PQ,
+    PQ$^{\text{Th}}$, PQ$^\dagger$; and this work's point-level car F$_1$), obtained
+    under different protocols (the published rows are official test-set results over
+    sequences 11--21 with the benchmark's own matching; this work is scored on
+    sequence~08 by greedy point-level IoU$\,\ge\,$0.3 one-to-one matching, car class
+    only), and over different scopes (all classes vs.\ car-only; online vs.\ offline).
+    All published rows additionally require GPU training on dense per-point labels;
+    this work's segmentation stage requires no training and no labels, and its
+    classifier uses only automatically mined, weakly labelled clusters. The table
+    compares \emph{requirements and paradigm}; on raw accuracy the supervised networks
+    are stronger by design. Published figures are the test-set numbers reported by the
+    cited papers; this work's row is the frozen sequence~08 headline (Chapter~4,
+    Finding~\#34). RangeNet++ appears in two rows: as a standalone semantic backbone
+    (mIoU 52.2) and as the semantic half of the semantics-plus-detector panoptic
+    baseline of~\cite{behley2021panoptic} (PQ 37.1).}
+  \label{tab:positioning}
+  \small
+  \renewcommand{\arraystretch}{1.25}
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{@{}p{2.7cm}p{3.5cm}p{3.0cm}p{4.4cm}@{}}
+    \toprule
+    Method & Approach & Supervision & Reported on SemanticKITTI (own metric) \\
+    \midrule
+    RangeNet++~\cite{milioto2019rangenet++} & Range-image CNN, semantic & Dense per-point & mIoU 52.2; car IoU 91.4 \\
+    RandLA-Net~\cite{Hu_2020_CVPR} & Point-based, semantic & Dense per-point & mIoU 53.9; car IoU 94.2 \\
+    Cylinder3D~\cite{zhu2021cylindrical} & Voxel (cylindrical), semantic & Dense per-point & mIoU 67.8; car IoU 97.1 \\
+    \addlinespace[2pt]
+    RangeNet++ \& PointPillars~\cite{behley2021panoptic} & Semantic net + detector, panoptic & Dense per-point + boxes & PQ 37.1; PQ$^{\text{Th}}$ 20.2 \\
+    Panoptic-PolarNet~\cite{zhou2021panopticpolarnet} & End-to-end panoptic & Dense per-point + instance & PQ 54.1; PQ$^{\text{Th}}$ 53.3 \\
+    DS-Net~\cite{hong2021dsnet} & End-to-end panoptic & Dense per-point + instance & PQ 55.9; mIoU 61.6 \\
+    EfficientLPS~\cite{sirohi2021efficientlps} & End-to-end panoptic & Dense per-point + instance & PQ 57.4; PQ$^\dagger$ 63.2 \\
+    \midrule
+    \textbf{This work} & Geometric clustering + binary classifier (+ completion) & None for segmentation; auto-mined weak labels for the classifier & car F$_1$ 0.808 (R 0.730, P 0.905); point-IoU$\,\ge\,$0.3, seq~08 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Read as requirements, the table states the thesis's position plainly. The supervised
+networks reach substantially higher accuracy on their own metrics, and this work does
+not contest that; its car-only recall of \num{0.730} (against the
+$\ge$-10-surviving-points denominator of Chapter~4) is well below the accuracy of those
+networks --- a difference of paradigm, not a lower score on a shared axis, since none of
+the published metrics is this work's point-level car F$_1$. What the pipeline offers instead is a different set of properties: it
+segments without any labelled point clouds, it runs on a single consumer GPU without a
+training stage for detection (its runtime is reported in Section~4.5), and every stage of
+its decision is inspectable, so its
+failure modes can be --- and are --- root-caused rather than left opaque (the recall
+shortfall is traced to clustering fragmentation, not classifier error, in Chapter~5).
+The accuracy gap is therefore a deliberate consequence of choosing interpretability and
+near-zero annotation over benchmark accuracy, not an unexplained deficiency.
+
+A related question the table anticipates is why the comparison is drawn against
+segmentation methods rather than 3D object detection, the task the ``detector'' label
+most naturally invokes. Detection benchmarks score oriented 3D bounding boxes by average
+precision, as in PointPillars~\cite{lang2019pointpillars} and
+CenterPoint~\cite{yin2021centerpoint}. This pipeline, however, emits point-level clusters
+--- it must, because those clusters are the input to the completion stage (Chapter~6) ---
+and never fits an oriented box; box AP would require a box-fitting stage the pipeline
+deliberately does not have. Point-level IoU against the ground-truth car points is
+therefore the metric that matches the actual output, and the choice of IoU threshold and
+recall denominator that make that measurement precise --- together with its sensitivity
+to those choices --- is examined directly in Section~4.1.
+
+This framing also sets the boundary of the thesis's contribution, which is not a claim
+of pipeline novelty. Classical ground-removal-plus-clustering detection --- including recent
+clustering-plus-classifier detectors for LiDAR vehicles~\cite{lim2025longrange} ---
+a lightweight multi-object tracking stage used only to filter transient detections
+across frames (in the tradition of 3D multi-object trackers such as
+AB3DMOT~\cite{weng2020ab3dmot}, and not a contribution of this work), and PCN-style
+completion are established building blocks, reimplemented and tuned here. The
+contributions this work does claim are methodological and diagnostic: a leakage-free
+metric for completion quality on real LiDAR where reference-based Chamfer distance is
+invalid (Chapter~7), the root-cause analysis of the recall bottleneck together with the
+chain of negative repair results (Chapter~5), and the finding that synthetic
+pretraining is redundant for the classifier at scale (Chapter~4). The positioning table
+is the backdrop against which those contributions are argued: this is an interpretable,
+annotation-light system whose value is in what it explains and measures, not in topping a
+benchmark it was never designed to win.
+
+\bibliographystyle{IEEEtran}
+\bibliography{../../references}
+
+\end{document}
