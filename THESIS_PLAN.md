@@ -16,9 +16,10 @@ Repo-verified facts are marked **[V]**; everything else is planning recommendati
   demonstrated (#29/#32) and replicated held-out under pre-registration (#42); mover
   plausibility (#44); clustering benchmark (#43); timing.
 - **Remains:** thesis writing (T14 — the delegate brief's only open task **[V]**). All
-  mandatory evidence *experiments* are done (B1/B2/B6 — #47/#48); the remaining
-  Section-3 items (B3 literature table, B5 pipeline diagram) are writing/figure work
-  bundled into their host chapters.
+  mandatory evidence *experiments* are done (B1/B2/B6 — #47/#48), and both writing/figure
+  Section-3 items are now complete (B5 pipeline diagram 2026-08-23, B3 literature table
+  2026-08-26). Chapters 2–8 all first-drafted and committed; remaining prose: Ch 1 →
+  Ch 9 → abstract.
 - **Optional:** distance-stratified recall refresh (B4) — not run; geometric-only
   ablation re-run under promoted config **done** (B6, #47).
 - **Frozen from today:** everything in Section 2.
@@ -47,9 +48,9 @@ and run them in parallel with writing.
 
 ## 3. Remaining experimental tasks
 
-**Status (2026-08-21):** all mandatory *experiments* done — B1 ✅ (#47), B2 ✅ (#48),
-B6 ✅ (#47). Remaining: B3 (literature table — writing, Ch 2) and B5 (pipeline diagram
-— figure, Ch 3), both bundled into their host chapters; B4 optional, not run.
+**Status (2026-08-26):** all mandatory items done — B1 ✅ (#47), B2 ✅ (#48), B6 ✅ (#47),
+B5 ✅ (Fig 3.1 inline TikZ, Ch 3, 2026-08-23), B3 ✅ (Tab 2.1, Ch 2, 2026-08-26; published
+numbers primary-source verified). B4 optional, not run.
 
 ### B1 — IoU-threshold sensitivity (MANDATORY)
 - [x] **Done** 2026-08-21 (#47): F1 0.811/0.808/0.785 at IoU 0.25/0.30/0.50 — stable, PASS. Logs in `output/experiments/iou_sensitivity/`.
@@ -77,7 +78,10 @@ B6 ✅ (#47). Remaining: B3 (literature table — writing, Ch 2) and B5 (pipelin
 - Acceptance: a single defensible percentage with the stride documented.
 
 ### B3 — Literature-positioning table (MANDATORY, writing work)
-- [ ] **Done**
+- [x] **Done** 2026-08-26 — Tab 2.1 in Ch 2 (`sec_2_background.tex`); requirements-columns-
+  lead non-head-to-head layout, per-metric cells, explicit non-comparability caveat. All
+  published numbers primary-source verified (test-set, each paper's own table); reference
+  archive in `docs/papers/` (25/25 cited papers, pdfminer-verified).
 - Objective: context for "why is F1 0.808 / R 0.73 interesting" (Q2). No experiments —
   a table of published SemanticKITTI panoptic/instance numbers + annotation/compute
   requirements vs. yours, with an explicit "not directly comparable, different
@@ -96,7 +100,8 @@ B6 ✅ (#47). Remaining: B3 (literature table — writing, Ch 2) and B5 (pipelin
 - Skip if time-pressed: the thesis can cite Finding #5 with its date/config caveat.
 
 ### B5 — Pipeline diagram (MANDATORY)
-- [ ] **Done**
+- [x] **Done** 2026-08-23 — inline TikZ Fig 3.1 in Ch 3, per-stage ms from the promoted
+  timing (`timing_seq08_full_n4068_combined.json`).
 - Already on the deferred list **[V]**. One block diagram: raw scan → preprocess →
   ground removal → HDBSCAN → geometric filter → classifier → tracker → completion,
   annotated with per-stage ms from
@@ -204,7 +209,7 @@ d2; empty long band; 23% length-estimate fallback; SemanticKITTI label quality a
 | Tab 7.1 | Donor metric headline (raw/mirrored/completed) | #32 / donor_perf_lenon JSON | 7 | ✅ |
 | Tab 7.2 | Box metric raw vs completed (+ band split) | #29/#36 JSONs | 7 | ✅ |
 | Tab 7.3 | Held-out replication | `docs/plans/t9b_results_heldout_seq00.md` | 7 | ✅ |
-| Fig 3.1 | Pipeline diagram (+ per-stage ms) | **B5** | 3 | ❌ generate |
+| Fig 3.1 | Pipeline diagram (+ per-stage ms) | **B5** | 3 | ✅ inline TikZ (2026-08-23) |
 | Fig 4.1/4.2 | seq08_bev_detections / seq08_timeseries | output/figures **[V]** | 4 | ✅ |
 | Fig 5.1 | seq08_failure_zooms (split cars) | output/figures | 5 | ✅ |
 | Fig 6.1 | KITTI-like partial vs naive render | `output/experiments/fig61_partials/` (fig61_partial_compare.py) | 6 | ✅ rendered 2026-08-23 |
@@ -258,9 +263,9 @@ file's P2 section is the defense syllabus.
   **[V]**). Done when: every number traces to a finding/artifact.
 - [ ] **Phase 5 — Discussion (~1 day).** Ch 8 from the limitation list. Done when: every
   audit-identified weakness appears *by name*.
-- [ ] **Phase 6 — Intro / related work (~2 days).** B3 table, Ch 2, then Ch 1 with
-  contribution statement + proposal-drift reconciliation. Done when: Ch 1 claims
-  match Section 6's map exactly.
+- [~] **Phase 6 — Intro / related work (~2 days).** B3 table ✅ + Ch 2 ✅ done 2026-08-26;
+  remaining: Ch 1 with contribution statement + proposal-drift reconciliation. Done when:
+  Ch 1 claims match Section 6's map exactly.
 - [ ] **Phase 7 — Finalization (~2 days).** Ch 9, abstract, reference pass, template
   formatting, `/humanizer` pass, full read-through. Done when: PDF builds clean;
   checklist §12 green.
@@ -393,33 +398,37 @@ Confirmed against the repo, all with negative-result precedent or closed status 
     limits (§8.5 clustering objectness ceiling, offline runtime), what generalises
     (§8.6). All six mandatory named limitations present; P1 phrasing rules applied
     (mIoU-of-matched, recall denominator, negatives-as-findings, #37 as
-    metric-design lesson). Uncommitted, not advisor-reviewed. Remaining: Ch 2
-    (+B3 table) → Ch 1 → Ch 9 → abstract.
+    metric-design lesson). Committed `baba54b` 2026-08-26, not advisor-reviewed.
+    **Ch 2 (Background & Related Work) + B3 table DRAFTED 2026-08-26** (`sec_2_background.tex`,
+    committed `baba54b`): related-work-focused; Tab 2.1 positioning table with all published
+    numbers primary-source verified against each paper's own results table (test-set,
+    non-head-to-head); reference archive `docs/papers/` complete (25/25). Remaining:
+    Ch 1 → Ch 9 → abstract.
 
 ### Current status
-GREEN; research complete; writing underway. Phases 1–2 done; Phase 3 (methodology)
-substantially drafted. All mandatory evidence experiments landed (B1/B2/B6 —
-#47/#48). Protocol milestone reached 2026-08-21 (§4.1 + §7.2, committed `e1fabd3`).
-**Methods milestone reached 2026-08-23:** Ch 3 (`sec_3_detection_pipeline.tex`) +
-Ch 6 (`sec_6_completion_method.tex`) first-drafted and the B5 pipeline diagram
-produced (inline TikZ Fig 3.1 in Ch 3). All four method/protocol sections build
-clean under TeX Live 2026; §4.1/§7.2 committed, Ch 3/Ch 6 uncommitted, none yet
-advisor-reviewed. Ch-6 figures (Fig 6.1/6.2) rendered and embedded 2026-08-23.
-Remaining Section-3 item: B3 table (Ch 2); B4 optional.
+GREEN; research complete; writing well advanced. Phases 1–2 done; Phases 3–5 drafted;
+Phase 6 underway. All mandatory evidence experiments landed (B1/B2/B6 — #47/#48) and
+both writing/figure items done (B5 2026-08-23, B3 2026-08-26). **Chapters 2–8 all
+first-drafted and committed**, building clean under TeX Live 2026 (§4.1/§7.2 `e1fabd3`;
+Ch 3/6 `3ec88be`; Ch 4 `151bde9`; Ch 5 `07cacad`; Ch 7 `6af89c9`; Ch 2 + Ch 8
+`baba54b`). Ch 2's Tab 2.1 numbers are primary-source verified and its reference archive
+(`docs/papers/`, 25/25) is complete. **None advisor-reviewed yet.** Remaining prose:
+Ch 1 → Ch 9 → abstract.
 
 ### Immediate next action
-Action 9 in progress: **Ch 4 results half (§4.2–§4.5) drafted 2026-08-24**
-(`sec_4_results.tex`, Findings #49/#50). Remaining: Ch 5 (recall bottleneck) and
-Ch 7 (completion results/held-out replication/movers), transcribing the Section-8
-tables and spot-checking one number per chapter against `docs/findings.md`. Ch 7
-cites the already-drafted §7.2 donor-metric anchor. Action 8 fully closed
-(Fig 6.1/6.2 rendered and embedded 2026-08-23).
+Action 10 in progress: **Ch 1 (Introduction)** — the last substantive writing chapter
+before Ch 9 + abstract. Needs problem/approach/contributions, car-only + offline scope,
+and the proposal-drift reconciliation (dropped bus/motorcycle support; CD+EMD → CD-only
+training) framed as deliberate narrowing, each backed by a finding per Section 6's claims
+map (C5/#25/#30; #20). Ch 1 claims must be ⊆ the Section-6 map. Chapters 2, 4, 5, 7, 8
+are all drafted and committed; none advisor-reviewed.
 
 ### Next milestone
-"Methods milestone" — Ch 3 + Ch 6 drafted and the B5 pipeline diagram produced —
-**REACHED 2026-08-23** (first drafts, uncommitted, pending advisor review; Fig
-6.1/6.2 rendered and embedded). Next: "Results milestone" — Ch 4 + Ch 5 + Ch 7
-results sections drafted, every number traced to a finding/artifact.
+"Results milestone" — Ch 4 + Ch 5 + Ch 7 drafted, every number traced — **REACHED**
+(Ch 4 `151bde9`, Ch 5 `07cacad`, Ch 7 `6af89c9`). "Discussion + Related-work milestone"
+— Ch 8 + Ch 2 (+B3 table) — **REACHED 2026-08-26** (`baba54b`). Next: **"Framing
+milestone"** — Ch 1 drafted (contribution statement + proposal-drift reconciliation),
+then Ch 9 + abstract → `/humanizer` pass → Phase 8 defense prep.
 
 ### Thesis-ready
 All Section-12 boxes green; every claim within the Section-6 scoping; PDF builds;
