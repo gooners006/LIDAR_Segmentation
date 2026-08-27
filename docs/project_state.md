@@ -345,7 +345,27 @@ clustering" → "adaptive clustering, BEV clustering" (unambiguously six, matchi
 #34's stride-20 650.6 ms) — no Ch-9 change: the number is already cited to §4.5, with
 #33/#34 attached only to the ≤400 ms-wall claim (findings.md:1102-1104 confirms #34 =
 650.6 ms / 1.54 fps stride-20; §4.5's full-run promoted timing is 623.5 ms / 1.6 fps).
-Committed this session; NOT advisor-reviewed. **Remaining prose: abstract only.**
+Committed this session; NOT advisor-reviewed.
+
+**Abstract — DRAFTED 2026-08-27 (last prose item).**
+`docs/writing/thesis/sec_0_abstract.tex` written; builds clean standalone under TeX Live
+2026 (1 pp, exit 0, zero overfull/underfull, zero warnings). English-only (user decision;
+FPT templates carry no Vietnamese abstract, no abstract environment at all — this is a
+fresh `sec_0_*` standalone matching the sibling preamble; `\section*{Abstract}`, unnumbered
+front matter, assembler slots it before Ch 1). One dense paragraph (~245 words): modular
+near-annotation-free detection+completion pipeline → seq-08 detection headline (P 0.905 /
+R 0.730 / F1 0.808, point-IoU 0.3, single reporting sequence) with recall stated against
+its car-only ≥10-surviving-point denominator → recall root-caused to HDBSCAN fragment
+splitting (31–37%, #23) + repair-strategy chain fails to generalise (#21/#24) + synthetic
+pretraining redundant, gap total/symmetric (#25/#30) → completion core: pseudo-GT Chamfer
+invalid (#26), leakage-free donor metric (#32/#37), coverage 0.000→0.304 above the mirror
+baseline + amodal-box gain, **PARTIALLY HOLDS** held-out (#42). All numbers traced to the
+frozen headline; P1 hedges applied (partially-holds not "holds"; "a validated, leakage-free"
+metric not "first"; negatives as findings; no mover-accuracy claim; ⊆ Section-6 map C1–C11).
+**`/humanizer` self-check pass applied** (removed a duplicate "genuinely" and a stacked
+double-"rather than" in the closer; substance/numbers unchanged, rebuilds clean). Uncommitted;
+NOT advisor-reviewed. **All prose (Ch 1–9 + abstract) now first-drafted; remaining: reference
+pass + template assembly + advisor review + Phase 8 defense prep.**
 
 **✅ RESOLVED 2026-08-26 — Ch 2 Tab 2.1 numbers PRIMARY-SOURCE verified; zero errors.**
 The parked verification was restarted and completed against each paper's own results

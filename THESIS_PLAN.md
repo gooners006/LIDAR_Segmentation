@@ -18,7 +18,8 @@ Repo-verified facts are marked **[V]**; everything else is planning recommendati
 - **Remains:** thesis writing (T14 — the delegate brief's only open task **[V]**). All
   mandatory evidence *experiments* are done (B1/B2/B6 — #47/#48), and both writing/figure
   Section-3 items are now complete (B5 pipeline diagram 2026-08-23, B3 literature table
-  2026-08-26). Chapters 1–9 all first-drafted; remaining prose: abstract only.
+  2026-08-26). Chapters 1–9 **and the abstract** all first-drafted (abstract 2026-08-27,
+  `sec_0_abstract.tex`, humanizer-passed); all thesis prose now drafted.
 - **Optional:** distance-stratified recall refresh (B4) — not run; geometric-only
   ablation re-run under promoted config **done** (B6, #47).
 - **Frozen from today:** everything in Section 2.
@@ -264,9 +265,10 @@ file's P2 section is the defense syllabus.
   audit-identified weakness appears *by name*.
 - [x] **Phase 6 — Intro / related work (~2 days).** B3 table ✅ + Ch 2 ✅ done 2026-08-26;
   Ch 1 ✅ drafted + reviewed 2026-08-27 (`aa1f551`). Done: Ch 1 claims match Section 6's map.
-- [~] **Phase 7 — Finalization (~2 days).** Ch 9 ✅ drafted + reviewed 2026-08-27 (this
-  session); remaining: abstract, reference pass, template formatting, `/humanizer` pass,
-  full read-through. Done when: PDF builds clean; checklist §12 green.
+- [~] **Phase 7 — Finalization (~2 days).** Ch 9 ✅ drafted + reviewed 2026-08-27; abstract
+  ✅ drafted + humanizer-passed 2026-08-27 (`sec_0_abstract.tex`); all prose drafted.
+  Remaining: reference pass, template/master assembly, full read-through, advisor review.
+  Done when: PDF builds clean; checklist §12 green.
 - [ ] **Phase 8 — Defense prep (multiple days, after full draft).** `/quiz-me` per block
   (donor metric, length chain, replication, Step 1c); rehearse the 5 cold questions;
   slide deck. Done when: the pre-registration argument and the d2 defense can be
@@ -410,22 +412,22 @@ items done (B5 2026-08-23, B3 2026-08-26). **Chapters 1–9 all first-drafted**,
 clean under TeX Live 2026 (§4.1/§7.2 `e1fabd3`; Ch 3/6 `3ec88be`; Ch 4 `151bde9`; Ch 5
 `07cacad`; Ch 7 `6af89c9`; Ch 2 + Ch 8 `baba54b`; Ch 1 `aa1f551`; **Ch 9 committed
 2026-08-27, this session**). Ch 2's Tab 2.1 numbers are primary-source verified and its
-reference archive (`docs/papers/`, 25/25) is complete. **None advisor-reviewed yet.**
-Remaining prose: abstract only.
+reference archive (`docs/papers/`, 25/25) is complete. **Abstract DRAFTED 2026-08-27**
+(`sec_0_abstract.tex`, humanizer-passed) — **all thesis prose now first-drafted. None
+advisor-reviewed yet.**
 
 ### Immediate next action
-Action 10 continues: the **abstract** (last prose item), then the `/humanizer` pass and
-Phase 8 defense prep. **Ch 9 (Conclusion & Future Work) is DRAFTED + REVIEWED 2026-08-27**
-(`docs/writing/thesis/sec_9_conclusion.tex`, 3 pp, builds clean, zero undefined refs / zero
-overfull; committed this session): answers Ch 1's three RQs one-by-one (RQ1 real-data
-completion metric → Ch 7; RQ2 completion value + held-out PARTIALLY HOLDS → Ch 7; RQ3 recall
-limit + synthetic necessity → Ch 5/4), restates the three contributions ⊆ Section-6 map, and
-carries the three-item future-work list (real-time #33/#34; completion real-data fine-tuning
-#16/#17/#19; long-band amodal GT). A `/review-handoff` pass removed a "first leakage-free"
-overclaim (→ "a validated" per C7) and tightened the RQ2 band scope + held-out causal wording
-(#42). The **abstract** should compress the contribution story (donor metric + completion
-value PARTIALLY HOLDS; recall root-cause; synthetic redundancy) within the same claims scope;
-nothing beyond C9's PARTIALLY-HOLDS reach. All chapters drafted; none advisor-reviewed.
+Prose is complete: **all of Ch 1–9 + the abstract are first-drafted.** The **abstract**
+(`docs/writing/thesis/sec_0_abstract.tex`) was drafted + humanizer-passed 2026-08-27:
+one dense ~245-word paragraph compressing the contribution story (modular
+near-annotation-free pipeline → seq-08 detection headline P 0.905/R 0.730/F1 0.808 with
+the ≥10-surviving-point recall denominator → recall root-cause #23/#34 + repair-chain
+negatives #21/#24 + synthetic redundancy #25/#30 → donor metric #26/#32/#37 + coverage
+0.000→0.304 + amodal-box gain PARTIALLY HOLDS held-out #42), English-only, all numbers
+traced, P1 hedges applied, ⊆ Section-6 map; builds clean (1 pp, zero overfull). Uncommitted;
+NOT advisor-reviewed. **Next: Phase 7 finalization (reference pass, master/template
+assembly, full read-through) → Phase 8 defense prep (`/quiz-me` per block, rehearse the 5
+cold questions, slide deck), plus advisor review of all chapters.**
 
 ### Next milestone
 "Results milestone" — Ch 4 + Ch 5 + Ch 7 drafted, every number traced — **REACHED**
@@ -433,8 +435,11 @@ nothing beyond C9's PARTIALLY-HOLDS reach. All chapters drafted; none advisor-re
 — Ch 8 + Ch 2 (+B3 table) — **REACHED 2026-08-26** (`baba54b`). "Framing milestone" —
 Ch 1 drafted (contribution statement + proposal-drift reconciliation) — **REACHED
 2026-08-27** (`aa1f551`). "Conclusion milestone" — Ch 9 drafted + reviewed, all three RQs
-answered — **REACHED 2026-08-27** (committed this session). Next: **"Full-draft milestone"** —
-abstract drafted → `/humanizer` pass → Phase 8 defense prep. Only the abstract remains.
+answered — **REACHED 2026-08-27** (committed this session). "Full-draft milestone" —
+abstract drafted + humanizer-passed, all Ch 1–9 + abstract prose first-drafted — **REACHED
+2026-08-27** (`sec_0_abstract.tex`, uncommitted). Next: **"Finalization milestone"** —
+reference pass + master/template assembly + full read-through (Phase 7), then Phase 8
+defense prep. No prose remains.
 
 ### Thesis-ready
 All Section-12 boxes green; every claim within the Section-6 scoping; PDF builds;
