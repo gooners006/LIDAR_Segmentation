@@ -18,8 +18,7 @@ Repo-verified facts are marked **[V]**; everything else is planning recommendati
 - **Remains:** thesis writing (T14 — the delegate brief's only open task **[V]**). All
   mandatory evidence *experiments* are done (B1/B2/B6 — #47/#48), and both writing/figure
   Section-3 items are now complete (B5 pipeline diagram 2026-08-23, B3 literature table
-  2026-08-26). Chapters 2–8 all first-drafted and committed; remaining prose: Ch 1 →
-  Ch 9 → abstract.
+  2026-08-26). Chapters 1–9 all first-drafted; remaining prose: abstract only.
 - **Optional:** distance-stratified recall refresh (B4) — not run; geometric-only
   ablation re-run under promoted config **done** (B6, #47).
 - **Frozen from today:** everything in Section 2.
@@ -134,7 +133,7 @@ Mapped onto the FPT template (`docs/writing/report-template/main.tex` **[V]**):
 | 4 Detection Evaluation | **4.1 protocol** (matching, IoU thresh + B1, recall denominator + B2, seq roles/leak history #18), 4.2 seq-08 results, 4.3 ablations (classifier B6, Stage A #25/#30, clustering #43, track filter), 4.4 distance (B4/#5), 4.5 runtime | The honest protocol section is the thesis's load-bearing wall | evaluate.py, #18/#25/#30/#43, timing JSON | Tabs: headline, ablation, clustering, IoU-sensitivity, timing; Figs: seq08_bev_detections, seq08_timeseries |
 | 5 The Recall Bottleneck | split analysis #23, filter ablation #22, six negative strategies #21/#24, resolution fix #34, corrected-ceiling narrative | Negative results as contribution | findings #21–24, #34 | Fig: seq08_failure_zooms; Tab: strategy outcomes |
 | 6 Completion Method | PCN, domain-gap history #15–19, KITTI-like partials + inference-bug fix #26, L-shape gate #27, canonical frame + length estimate #35/#36, closed Step 1c #45 | Method + the debugging story | `docs/pcn/`, completion findings | Fig: KITTI-like partial illustration; Fig: before/after de-blob (verify_pcn_step2) |
-| 7 Completion Evaluation | 7.1 why pseudo-GT CD is invalid #26, **7.2 donor metric** (design, validation gate, #37 guard lesson), 7.3 seq-08 results #29/#32, 7.4 pre-registered held-out replication #42, 7.5 movers #44 | The scientific core | donor_metric.md, t9b/t9c docs | Figs: donor_metric_08, completion_box_overlays_08, t11_movers; Tabs: donor headline, box metric, T9b replication |
+| 7 Completion Evaluation | 7.1 why pseudo-GT CD is invalid #26, **7.2 donor metric** (design, validation gate, #37 guard lesson), 7.3 real-data surface coverage #32, 7.4 downstream amodal box #29/#35/#36, 7.5 movers #44, 7.6 pre-registered held-out replication #42 (as-built order) | The scientific core | donor_metric.md, t9b/t9c docs | Figs: donor_metric_08, completion_box_overlays_08, t11_movers; Tabs: donor headline, box metric, T9b replication |
 | 8 Discussion & Limitations | val-as-test structure, statics-only accuracy, compact d2, empty long band, 23% fallback #41, label-quality assumption, what generalizes | Preempt the committee | audit list | — |
 | 9 Conclusion & Future Work | answers to the research questions; future-work list | — | — | — |
 
@@ -235,7 +234,7 @@ exist (#47), drafted in §4.1.
 | 4. Why IoU 0.3? | Matched-IoU 0.96; B1 shows stability | B1 table | §4.1 | — |
 | 5. Donor coverage the right metric? | Only leakage-free real signal; 4-gate validation; mirrored baseline; hallucination guard | #32 | §7.2 | absolute surface recall |
 | 6. d2 fails on compacts — why ship? | 7× hallucination reduction vs mirrored incumbent; band bar effectively unclearable (mirrored ~0.0004); ratios reported | #37, agenda P2 **[V]** | §8 | guard "passes" |
-| 7. Priors fitted on eval cars? | Leakage controls (#36) + pre-registered replication whose outcome was reportable either way | #42 | §7.4 | — |
+| 7. Priors fitted on eval cars? | Leakage controls (#36) + pre-registered replication whose outcome was reportable either way | #42 | §7.6 | — |
 | 8. Movers? | Plausibility parity only (57.9 vs 53.7%); donor metric requires statics by construction | #44 | §7.5 | mover *accuracy* |
 | 9. Recall vs ALL cars? | B2 number + both ≥10-rules explained | B2 | §4.1 | — |
 | 10. What's yours vs. reimplementation? | Donor metric, split-car root cause, negative-result chain, validation methodology | Section 7 above | §1.3 | pipeline novelty |
@@ -263,12 +262,11 @@ file's P2 section is the defense syllabus.
   **[V]**). Done when: every number traces to a finding/artifact.
 - [ ] **Phase 5 — Discussion (~1 day).** Ch 8 from the limitation list. Done when: every
   audit-identified weakness appears *by name*.
-- [~] **Phase 6 — Intro / related work (~2 days).** B3 table ✅ + Ch 2 ✅ done 2026-08-26;
-  remaining: Ch 1 with contribution statement + proposal-drift reconciliation. Done when:
-  Ch 1 claims match Section 6's map exactly.
-- [ ] **Phase 7 — Finalization (~2 days).** Ch 9, abstract, reference pass, template
-  formatting, `/humanizer` pass, full read-through. Done when: PDF builds clean;
-  checklist §12 green.
+- [x] **Phase 6 — Intro / related work (~2 days).** B3 table ✅ + Ch 2 ✅ done 2026-08-26;
+  Ch 1 ✅ drafted + reviewed 2026-08-27 (`aa1f551`). Done: Ch 1 claims match Section 6's map.
+- [~] **Phase 7 — Finalization (~2 days).** Ch 9 ✅ drafted + reviewed 2026-08-27 (this
+  session); remaining: abstract, reference pass, template formatting, `/humanizer` pass,
+  full read-through. Done when: PDF builds clean; checklist §12 green.
 - [ ] **Phase 8 — Defense prep (multiple days, after full draft).** `/quiz-me` per block
   (donor metric, length chain, replication, Step 1c); rehearse the 5 cold questions;
   slide deck. Done when: the pre-registration argument and the d2 defense can be
@@ -406,32 +404,37 @@ Confirmed against the repo, all with negative-result precedent or closed status 
     Ch 1 → Ch 9 → abstract.
 
 ### Current status
-GREEN; research complete; writing well advanced. Phases 1–2 done; Phases 3–5 drafted;
-Phase 6 essentially done (Ch 1 drafted). All mandatory evidence experiments landed
-(B1/B2/B6 — #47/#48) and both writing/figure items done (B5 2026-08-23, B3 2026-08-26).
-**Chapters 1–8 all first-drafted**, building clean under TeX Live 2026 (§4.1/§7.2
-`e1fabd3`; Ch 3/6 `3ec88be`; Ch 4 `151bde9`; Ch 5 `07cacad`; Ch 7 `6af89c9`; Ch 2 + Ch 8
-`baba54b`; **Ch 1 drafted 2026-08-27, uncommitted**). Ch 2's Tab 2.1 numbers are
-primary-source verified and its reference archive (`docs/papers/`, 25/25) is complete.
-**None advisor-reviewed yet.** Remaining prose: Ch 9 → abstract.
+GREEN; research complete; writing well advanced. Phases 1–2 done; Phases 3–6 drafted.
+All mandatory evidence experiments landed (B1/B2/B6 — #47/#48) and both writing/figure
+items done (B5 2026-08-23, B3 2026-08-26). **Chapters 1–9 all first-drafted**, building
+clean under TeX Live 2026 (§4.1/§7.2 `e1fabd3`; Ch 3/6 `3ec88be`; Ch 4 `151bde9`; Ch 5
+`07cacad`; Ch 7 `6af89c9`; Ch 2 + Ch 8 `baba54b`; Ch 1 `aa1f551`; **Ch 9 committed
+2026-08-27, this session**). Ch 2's Tab 2.1 numbers are primary-source verified and its
+reference archive (`docs/papers/`, 25/25) is complete. **None advisor-reviewed yet.**
+Remaining prose: abstract only.
 
 ### Immediate next action
-Action 10 continues: **Ch 9 (Conclusion & Future Work)** then the **abstract**. Ch 1
-(Introduction) is DRAFTED 2026-08-27 (`docs/writing/thesis/sec_1_introduction.tex`, 4 pp,
-builds clean, zero undefined refs / zero overfull; uncommitted). Ch 9 should answer Ch 1's
-three research questions one-by-one (RQ1 real-data completion metric → Ch 7; RQ2 completion
-value + held-out PARTIALLY HOLDS → Ch 7; RQ3 recall limit + synthetic necessity → Ch 5/4)
-and carry the future-work list (real-time variant #33/#34; completion real-data fine-tuning
-contingency #16/#17/#19; long-band amodal GT). Ch 9 claims ⊆ Section-6 map; nothing beyond
-C9's PARTIALLY-HOLDS scope. All prior chapters drafted; none advisor-reviewed.
+Action 10 continues: the **abstract** (last prose item), then the `/humanizer` pass and
+Phase 8 defense prep. **Ch 9 (Conclusion & Future Work) is DRAFTED + REVIEWED 2026-08-27**
+(`docs/writing/thesis/sec_9_conclusion.tex`, 3 pp, builds clean, zero undefined refs / zero
+overfull; committed this session): answers Ch 1's three RQs one-by-one (RQ1 real-data
+completion metric → Ch 7; RQ2 completion value + held-out PARTIALLY HOLDS → Ch 7; RQ3 recall
+limit + synthetic necessity → Ch 5/4), restates the three contributions ⊆ Section-6 map, and
+carries the three-item future-work list (real-time #33/#34; completion real-data fine-tuning
+#16/#17/#19; long-band amodal GT). A `/review-handoff` pass removed a "first leakage-free"
+overclaim (→ "a validated" per C7) and tightened the RQ2 band scope + held-out causal wording
+(#42). The **abstract** should compress the contribution story (donor metric + completion
+value PARTIALLY HOLDS; recall root-cause; synthetic redundancy) within the same claims scope;
+nothing beyond C9's PARTIALLY-HOLDS reach. All chapters drafted; none advisor-reviewed.
 
 ### Next milestone
 "Results milestone" — Ch 4 + Ch 5 + Ch 7 drafted, every number traced — **REACHED**
 (Ch 4 `151bde9`, Ch 5 `07cacad`, Ch 7 `6af89c9`). "Discussion + Related-work milestone"
 — Ch 8 + Ch 2 (+B3 table) — **REACHED 2026-08-26** (`baba54b`). "Framing milestone" —
 Ch 1 drafted (contribution statement + proposal-drift reconciliation) — **REACHED
-2026-08-27** (uncommitted). Next: **"Full-draft milestone"** — Ch 9 + abstract drafted →
-`/humanizer` pass → Phase 8 defense prep.
+2026-08-27** (`aa1f551`). "Conclusion milestone" — Ch 9 drafted + reviewed, all three RQs
+answered — **REACHED 2026-08-27** (committed this session). Next: **"Full-draft milestone"** —
+abstract drafted → `/humanizer` pass → Phase 8 defense prep. Only the abstract remains.
 
 ### Thesis-ready
 All Section-12 boxes green; every claim within the Section-6 scoping; PDF builds;

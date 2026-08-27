@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-26
+Last updated: 2026-08-27
 
 ## RESEARCH FREEZE — declared 2026-08-21 (write-up phase)
 
@@ -313,6 +313,39 @@ in the list; matches the §5.3 section title); chapter-intro line 52 aligned to 
 generalise". `THESIS_PLAN.md` §4 row updated "five negative strategies" → "six". Ch 1's
 neutral wording (illustrative dash-list, no hard count) is consistent with six, unchanged.
 Rebuilds clean (7 pp, zero undefined refs / overfull). Uncommitted; NOT advisor-reviewed.
+
+**Chapter 9 (Conclusion & Future Work) — DRAFTED + REVIEWED 2026-08-27.**
+`docs/writing/thesis/sec_9_conclusion.tex` written; builds clean standalone under TeX Live
+2026 (3 pp, zero undefined refs / zero overfull). Synthesis-only chapter (plan:
+`~/.claude/plans/draft-ch-9-spicy-wozniak.md`): §9.1 summary, §9.2 answers to the three
+Ch-1 RQs (RQ1 real-data completion metric → Ch 7; RQ2 completion value + held-out
+PARTIALLY HOLDS → Ch 7; RQ3 recall limit #23/#34 + synthetic redundancy #25/#30 → Ch 5/4),
+§9.3 three-item contribution restatement (⊆ Section-6 map C1–C11), §9.4 future work (three
+items: real-time variant #33/#34; completion real-data fine-tuning #16/#17/#19; long-band
+amodal GT on a second held-out sequence), §9.5 closing. P1 phrasing applied (recall vs the
+≥10-surviving-point denominator + B2 ≈0.54 #48; held-out kept PARTIALLY HOLDS; movers
+plausibility-only #44; #37 as metric-design lesson; negatives as findings).
+**Cross-ref fixed pre-review:** held-out replication is §7.6, not §7.4 — the as-built Ch 7
+order is §7.1–7.2 donor (`sec_7_2_donor_metric.tex`) / 7.3 coverage / 7.4 box / 7.5 movers /
+7.6 held-out / 7.7 summary (`sec_7_results.tex`); an earlier note had it at §7.4.
+**Ch 9 external review processed — REVISED 2026-08-27** (`/review-handoff`, 7 points,
+verified each against findings.md before acting; conceded 6, no pushback). Fixes applied
+(rebuilds clean): (1, HIGH) removed the "first leakage-free" literature-priority overclaim
+in RQ1 → "a validated, leakage-free way" (claims-map C7 says *valid* not *first*; matched
+§9.5 + Ch 1 contribution 1); (2) attached the compact+normal band scope directly to the RQ2
+box claim (C8 bundles the band into the claim; it is not a held-out replication artifact);
+(3) held-out causal fidelity — Finding~#42's PARTIALLY-HOLDS downgrade rests on the empty
+long band alone (R3 triggered; R2/compact "not triggered", and compact "did not pass on 08
+either", findings.md:1606-1609), so reworded from "two gaps prevent a full HOLDS" to one
+coverage gap + the compact guard as a standing limitation ("also fails here, as on seq 08");
+"the value replicates" softened to "the two primary metrics replicate"; (4) movers pointer
+split — plausibility scoping → §7.5, held-out verdict → §7.6; (6) "adaptive and BEV
+clustering" → "adaptive clustering, BEV clustering" (unambiguously six, matching Ch 5);
+(7) stale §7.4 example in the header MERGE/NUMBERING comment → §7.6. Point 5 (623.5 ms vs
+#34's stride-20 650.6 ms) — no Ch-9 change: the number is already cited to §4.5, with
+#33/#34 attached only to the ≤400 ms-wall claim (findings.md:1102-1104 confirms #34 =
+650.6 ms / 1.54 fps stride-20; §4.5's full-run promoted timing is 623.5 ms / 1.6 fps).
+Committed this session; NOT advisor-reviewed. **Remaining prose: abstract only.**
 
 **✅ RESOLVED 2026-08-26 — Ch 2 Tab 2.1 numbers PRIMARY-SOURCE verified; zero errors.**
 The parked verification was restarted and completed against each paper's own results
