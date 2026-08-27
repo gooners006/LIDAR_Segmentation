@@ -132,7 +132,7 @@ Mapped onto the FPT template (`docs/writing/report-template/main.tex` **[V]**):
 | 2 Background & Related Work | SemanticKITTI; clustering; PointNet; completion (PCN/PoinTr); positioning table | Context for Q2/Q10 | B3 | Tab: literature positioning |
 | 3 Detection Pipeline | preprocessing, ground removal, clustering, geometric filter, classifier (arch + Stage A/B training), tracker | Method | `src/pipeline.py`, `docs/classifier/` | Fig: pipeline diagram (B5); Tab: config |
 | 4 Detection Evaluation | **4.1 protocol** (matching, IoU thresh + B1, recall denominator + B2, seq roles/leak history #18), 4.2 seq-08 results, 4.3 ablations (classifier B6, Stage A #25/#30, clustering #43, track filter), 4.4 distance (B4/#5), 4.5 runtime | The honest protocol section is the thesis's load-bearing wall | evaluate.py, #18/#25/#30/#43, timing JSON | Tabs: headline, ablation, clustering, IoU-sensitivity, timing; Figs: seq08_bev_detections, seq08_timeseries |
-| 5 The Recall Bottleneck | split analysis #23, filter ablation #22, five negative strategies #21/#24, resolution fix #34, corrected-ceiling narrative | Negative results as contribution | findings #21–24, #34 | Fig: seq08_failure_zooms; Tab: strategy outcomes |
+| 5 The Recall Bottleneck | split analysis #23, filter ablation #22, six negative strategies #21/#24, resolution fix #34, corrected-ceiling narrative | Negative results as contribution | findings #21–24, #34 | Fig: seq08_failure_zooms; Tab: strategy outcomes |
 | 6 Completion Method | PCN, domain-gap history #15–19, KITTI-like partials + inference-bug fix #26, L-shape gate #27, canonical frame + length estimate #35/#36, closed Step 1c #45 | Method + the debugging story | `docs/pcn/`, completion findings | Fig: KITTI-like partial illustration; Fig: before/after de-blob (verify_pcn_step2) |
 | 7 Completion Evaluation | 7.1 why pseudo-GT CD is invalid #26, **7.2 donor metric** (design, validation gate, #37 guard lesson), 7.3 seq-08 results #29/#32, 7.4 pre-registered held-out replication #42, 7.5 movers #44 | The scientific core | donor_metric.md, t9b/t9c docs | Figs: donor_metric_08, completion_box_overlays_08, t11_movers; Tabs: donor headline, box metric, T9b replication |
 | 8 Discussion & Limitations | val-as-test structure, statics-only accuracy, compact d2, empty long band, 23% fallback #41, label-quality assumption, what generalizes | Preempt the committee | audit list | — |
@@ -205,7 +205,7 @@ d2; empty long band; 23% length-estimate fallback; SemanticKITTI label quality a
 | Tab 4.4 | Clustering benchmark + eps sweep | #43, `output/experiments/t10_clustering/` | 4 | ✅ |
 | Tab 4.5 | IoU-threshold sensitivity | **B1** | 4 | ✅ numbers exist (#47); drafted in §4.1 |
 | Tab 4.6 | Runtime breakdown | timing JSONs | 4 | ✅ |
-| Tab 5.1 | Recall-strategy outcomes (5 negatives + #34) | findings | 5 | ✅ (compile) |
+| Tab 5.1 | Recall-strategy outcomes (6 negatives + #34) | findings | 5 | ✅ (compile) |
 | Tab 7.1 | Donor metric headline (raw/mirrored/completed) | #32 / donor_perf_lenon JSON | 7 | ✅ |
 | Tab 7.2 | Box metric raw vs completed (+ band split) | #29/#36 JSONs | 7 | ✅ |
 | Tab 7.3 | Held-out replication | `docs/plans/t9b_results_heldout_seq00.md` | 7 | ✅ |
@@ -309,7 +309,7 @@ prep after full draft.
 
 Confirmed against the repo, all with negative-result precedent or closed status **[V]**:
 
-- **No more recall work** — five strategies negative (#21/#24), Step 1c negative
+- **No more recall work** — six strategies negative (#21/#24), Step 1c negative
   (#45), T10 says adopt nothing (#43).
 - **No length-compensation retuning** — #45 proved it irreducibly length-dependent;
   out of scope by the pre-registration.
@@ -407,28 +407,31 @@ Confirmed against the repo, all with negative-result precedent or closed status 
 
 ### Current status
 GREEN; research complete; writing well advanced. Phases 1–2 done; Phases 3–5 drafted;
-Phase 6 underway. All mandatory evidence experiments landed (B1/B2/B6 — #47/#48) and
-both writing/figure items done (B5 2026-08-23, B3 2026-08-26). **Chapters 2–8 all
-first-drafted and committed**, building clean under TeX Live 2026 (§4.1/§7.2 `e1fabd3`;
-Ch 3/6 `3ec88be`; Ch 4 `151bde9`; Ch 5 `07cacad`; Ch 7 `6af89c9`; Ch 2 + Ch 8
-`baba54b`). Ch 2's Tab 2.1 numbers are primary-source verified and its reference archive
-(`docs/papers/`, 25/25) is complete. **None advisor-reviewed yet.** Remaining prose:
-Ch 1 → Ch 9 → abstract.
+Phase 6 essentially done (Ch 1 drafted). All mandatory evidence experiments landed
+(B1/B2/B6 — #47/#48) and both writing/figure items done (B5 2026-08-23, B3 2026-08-26).
+**Chapters 1–8 all first-drafted**, building clean under TeX Live 2026 (§4.1/§7.2
+`e1fabd3`; Ch 3/6 `3ec88be`; Ch 4 `151bde9`; Ch 5 `07cacad`; Ch 7 `6af89c9`; Ch 2 + Ch 8
+`baba54b`; **Ch 1 drafted 2026-08-27, uncommitted**). Ch 2's Tab 2.1 numbers are
+primary-source verified and its reference archive (`docs/papers/`, 25/25) is complete.
+**None advisor-reviewed yet.** Remaining prose: Ch 9 → abstract.
 
 ### Immediate next action
-Action 10 in progress: **Ch 1 (Introduction)** — the last substantive writing chapter
-before Ch 9 + abstract. Needs problem/approach/contributions, car-only + offline scope,
-and the proposal-drift reconciliation (dropped bus/motorcycle support; CD+EMD → CD-only
-training) framed as deliberate narrowing, each backed by a finding per Section 6's claims
-map (C5/#25/#30; #20). Ch 1 claims must be ⊆ the Section-6 map. Chapters 2, 4, 5, 7, 8
-are all drafted and committed; none advisor-reviewed.
+Action 10 continues: **Ch 9 (Conclusion & Future Work)** then the **abstract**. Ch 1
+(Introduction) is DRAFTED 2026-08-27 (`docs/writing/thesis/sec_1_introduction.tex`, 4 pp,
+builds clean, zero undefined refs / zero overfull; uncommitted). Ch 9 should answer Ch 1's
+three research questions one-by-one (RQ1 real-data completion metric → Ch 7; RQ2 completion
+value + held-out PARTIALLY HOLDS → Ch 7; RQ3 recall limit + synthetic necessity → Ch 5/4)
+and carry the future-work list (real-time variant #33/#34; completion real-data fine-tuning
+contingency #16/#17/#19; long-band amodal GT). Ch 9 claims ⊆ Section-6 map; nothing beyond
+C9's PARTIALLY-HOLDS scope. All prior chapters drafted; none advisor-reviewed.
 
 ### Next milestone
 "Results milestone" — Ch 4 + Ch 5 + Ch 7 drafted, every number traced — **REACHED**
 (Ch 4 `151bde9`, Ch 5 `07cacad`, Ch 7 `6af89c9`). "Discussion + Related-work milestone"
-— Ch 8 + Ch 2 (+B3 table) — **REACHED 2026-08-26** (`baba54b`). Next: **"Framing
-milestone"** — Ch 1 drafted (contribution statement + proposal-drift reconciliation),
-then Ch 9 + abstract → `/humanizer` pass → Phase 8 defense prep.
+— Ch 8 + Ch 2 (+B3 table) — **REACHED 2026-08-26** (`baba54b`). "Framing milestone" —
+Ch 1 drafted (contribution statement + proposal-drift reconciliation) — **REACHED
+2026-08-27** (uncommitted). Next: **"Full-draft milestone"** — Ch 9 + abstract drafted →
+`/humanizer` pass → Phase 8 defense prep.
 
 ### Thesis-ready
 All Section-12 boxes green; every claim within the Section-6 scoping; PDF builds;

@@ -49,7 +49,7 @@ and it is recall-limited, missing roughly one car in four
 limited. We show that the shortfall is a clustering failure rather than a
 classification failure (Section~\ref{sec:recall-diagnosis}), root-cause it to
 HDBSCAN splitting large, close cars into fragments (Section~\ref{sec:split-analysis}),
-report a search of repair strategies that all fail on held-out data
+report a search of repair strategies that all fail to generalise
 (Section~\ref{sec:repairs}), and describe the one intervention that did help ---
 coarsening the clustering resolution --- which forces a correction of an earlier,
 overstated ``hard ceiling'' claim (Section~\ref{sec:resolution-fix}). The negative
@@ -199,11 +199,13 @@ mid- and far-range cars (green) are detected as single clusters.
 Given that splitting caps recall, the obvious responses fall into two families:
 change how clusters \emph{form} (a larger minimum cluster size, a different
 clusterer, distance-adaptive parameters, or pre-clustering point accumulation) or
-\emph{reassemble} fragments after HDBSCAN has split them. We tried both;
-Table~\ref{tab:strategies} collects the ones with a recorded quantitative outcome.
-All were evaluated against the same pre-promotion sequence-00 baseline (full
-pipeline, classifier and track filter on; $F_1=\num{0.844}$), and the load-bearing
-ones were re-checked on the held-out sequence~08.
+\emph{reassemble} fragments after HDBSCAN has split them. We tried six in total;
+Table~\ref{tab:strategies} collects the four with a reproducible quantitative
+outcome, and two further strategies (temporal accumulation and threshold lowering)
+are discussed in prose below. All were evaluated against the same pre-promotion
+sequence-00 baseline (full pipeline, classifier and track filter on;
+$F_1=\num{0.844}$), and the load-bearing ones were re-checked on the held-out
+sequence~08.
 
 \begin{table}[H]
   \centering
@@ -214,10 +216,12 @@ ones were re-checked on the held-out sequence~08.
     repair search --- it predates the coarse-voxel configuration of
     Section~\ref{sec:resolution-fix}, which is why the baseline here is
     $F_1=\num{0.844}$, not the promoted headline. Sources in the ``Src'' column are
-    finding numbers. A sixth strategy, temporal point accumulation, is discussed in
-    the text but omitted here: it is single-sourced to a reverted feature in the
-    session log, not reproducible under the research freeze, and belongs in prose
-    rather than the main results table.}
+    finding numbers. Two further strategies --- temporal point accumulation and
+    lowering the size thresholds --- are discussed in the text but omitted here:
+    temporal accumulation is single-sourced to a reverted feature in the session
+    log (not reproducible under the research freeze), and threshold lowering
+    produced no change in true positives; both belong in prose rather than the main
+    results table.}
   \label{tab:strategies}
   \setlength{\tabcolsep}{4pt}
   \begin{tabular}{llcccc}
@@ -375,12 +379,12 @@ track filter sit on top of a recall ceiling that geometric clustering already im
 large, close cars into fragments --- \SIrange{31}{37}{\percent} of cars, worst at
 short range --- while merging is negligible, and the cleanly-clustered fraction sits
 just below the achieved recall, so most split cars are lost
-(Section~\ref{sec:split-analysis}). A search of repair strategies --- higher minimum
-cluster size, fragment merging, adaptive and BEV clustering, temporal aggregation ---
-all fail on held-out data, for a shared reason: density-based clustering has no notion
-of objectness, so any criterion loose enough to keep a split car whole also fuses
-adjacent cars, and reassembling fragments after the split faces the same ambiguity
-(Section~\ref{sec:repairs}). The one effective lever was clustering
+(Section~\ref{sec:split-analysis}). A search of six repair strategies --- higher
+minimum cluster size, fragment merging, adaptive and BEV clustering, temporal
+accumulation, and threshold lowering --- all fail to generalise, for a shared reason:
+density-based clustering has no notion of objectness, so any criterion loose enough to
+keep a split car whole also fuses adjacent cars, and reassembling fragments after the
+split faces the same ambiguity (Section~\ref{sec:repairs}). The one effective lever was clustering
 resolution: a coarser pre-clustering voxel prevents splits from forming, lifting
 recall \num{0.699}~$\rightarrow$~\num{0.730} and correcting the earlier overstated
 ``hard ceiling'' (Section~\ref{sec:resolution-fix}). The residual limit is

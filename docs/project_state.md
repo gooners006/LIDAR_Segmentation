@@ -247,6 +247,73 @@ confirmed already cited in §2.4 and correct against their paper `.md` files.
 Uncommitted; NOT advisor-reviewed. Remaining chapters (plan order): Ch 1 → Ch 9 →
 abstract.
 
+**Chapter 1 (Introduction) — DRAFTED 2026-08-27.**
+`docs/writing/thesis/sec_1_introduction.tex` written; builds clean standalone under
+TeX Live 2026 (4 pp, zero undefined refs/citations, zero overfull). The last
+substantive writing chapter (plan: `~/.claude/plans/ch-1-introduction-iridescent-scott.md`).
+Six subsections: §1.1 problem/motivation (annotation cost of end-to-end seg → the
+interpretable near-annotation-free case; cites SemanticKITTI/KITTI/PCN, reused
+`references.bib` keys), §1.2 approach (modular hybrid, tracker=filter-only + not a
+contribution, points to Fig 3.1 — no figure of its own, per user decision), §1.3
+three numbered research questions (RQ1 completion metric → Ch 7; RQ2 completion
+value + held-out → Ch 7; RQ3 recall limit + synthetic necessity → Ch 5/4) that Ch 9
+answers, §1.4 the tight three-item claimed-contribution list matching §2.5 exactly
+(donor metric #26/#32/#37; recall root-cause #23/#34/#21/#24; synthetic-pretraining
+redundancy #25/#30) + engineering contributions named as non-scientific, §1.5 scope
++ proposal-drift reconciliation, §1.6 outline (chapter titles verbatim-matched to the
+sibling `\section{}` headers). **Proposal-drift framing (the load-bearing job):**
+multi-class→car-only cites Finding~#20 (classifier-only); CD+EMD→CD-only cites the
+domain-gap bundle #15–19 + KITTI-like fix #26 (NOT #20 — the CD/EMD axis was never
+the operative failure); two-stage-training "reduces annotation" withdrawn and reframed
+as the #25/#30 negative; offline stated as a scope boundary, not a walk-back (proposal
+is silent on runtime). P1 phrasing applied (recall vs car-only ≥10-pt denominator;
+held-out RQ2 kept conditional, no PARTIALLY-HOLDS overclaim; negatives named as
+findings; detection = single-sequence result). All claims ⊆ Section-6 map (C1–C11);
+scope numbers (623.5 ms/1.6 fps, seq 08 = 4,071 scans) match the frozen headline.
+Uncommitted; NOT advisor-reviewed. Remaining: Ch 9 → abstract.
+
+**Ch 1 external review processed — REVISED 2026-08-27** (`/review-handoff`, verified each
+point against source before acting; conceded all six, no pushback). Rebuilds clean (4 pp,
+zero undefined refs / overfull). Fixes: (HIGH) §1.4 contribution 2 "Five post-hoc
+reassembly strategies … fail on held-out data" was triply wrong — the count collides with
+Ch 5 (whose Tab 5.1 caption says "A sixth strategy", §5.3 enumerates six, §5.5 lists five),
+"reassembly" re-commits the over-general framing Ch 5's own review corrected (only
+fragment-merge is post-hoc/reassembly; MCS/BEV/adaptive/temporal *alter cluster formation*),
+and only 2 of the strategies have held-out numbers; reworded to Ch 5 §5.5's neutral
+phrasing ("A search of repair strategies — larger MCS, fragment merging, adaptive and BEV
+clustering, temporal accumulation — fails to generalise, each for a structural reason").
+(MEDIUM) RQ2 was orphaned — no contribution stated completion's *result*, only the metric;
+extended contribution 1 with the applied finding (recovers occluded surface several × the
+mirror baseline / improves boxes on static gate-passed cars / partially holds held-out,
+#29/#42), staying within C8/C9. (LOW-MED) §1.5 #20 presented the wrong-checkpoint symptom
+("almost no car detections, every track labelled motorcycle") as general behaviour;
+findings.md #20 line 441 attributes that to the wrong checkpoint (correct Stage B: car
+recall ~47%, poor not zero) — softened to "false motorcycle detections … car recall was
+poor". (LOW) "tens of thousands of points" → "over a hundred thousand" (HDL-64E ~120k);
+"across 22 sequences" → "its labelled sequences" (aligns with Ch 2 §2.1's 00–10-labelled/
+11–21-withheld framing); dropped the "(Section 4.4)" forward-ref for per-sequence variation
+(§4.4 is the range/distance breakdown #50, not per-sequence) — kept the Chapter 8 pointer.
+Reviewer's two non-action questions (contribution-3 negative-result framing, 4 pp length)
+were affirmations. Still uncommitted; NOT advisor-reviewed.
+
+**Ch 5 strategy-count reconciled — 2026-08-27 (follow-up from the Ch 1 review).** Ch 5 was
+internally inconsistent on the recall-repair count: §5.3 itemize enumerated six (higher MCS,
+fragment merge, adaptive HDBSCAN, BEV, temporal aggregation, threshold lowering), the
+`tab:strategies` caption called temporal "A sixth strategy" (an ordinal that did not add up
+against the table's four repair rows and silently ignored that threshold-lowering was also
+table-omitted), and the §5.5 summary listed only five ("all fail on held-out data" — untrue
+for the two prose-only ones). **Standardised on SIX** (§5.3 / project_state's complete
+enumeration; dropping the no-op threshold-lowering was the arbitrary choice): four with
+reproducible table outcomes, two prose-only. Edits to `sec_5_recall_bottleneck.tex`: §5.3
+intro now states "six in total; the four with a reproducible outcome [table] + two further
+(temporal, threshold lowering) in prose"; caption reworded to "Two further strategies …
+omitted here" (no broken ordinal); §5.5 lists all six and "all fail on held-out data" →
+"all fail to generalise" (accurate now that temporal/threshold — no held-out failures — are
+in the list; matches the §5.3 section title); chapter-intro line 52 aligned to "fail to
+generalise". `THESIS_PLAN.md` §4 row updated "five negative strategies" → "six". Ch 1's
+neutral wording (illustrative dash-list, no hard count) is consistent with six, unchanged.
+Rebuilds clean (7 pp, zero undefined refs / overfull). Uncommitted; NOT advisor-reviewed.
+
 **✅ RESOLVED 2026-08-26 — Ch 2 Tab 2.1 numbers PRIMARY-SOURCE verified; zero errors.**
 The parked verification was restarted and completed against each paper's own results
 table (ar5iv.labs.arxiv.org rendered them cleanly this pass; arxiv.org was back up).
@@ -365,8 +432,9 @@ Figures: `output/figures/seq08_{bev_detections,failure_zooms,timeseries}.png`.
 ## Recall Bottleneck — Characterized; partly lifted by coarse-voxel clustering (#34)
 
 The recall shortfall was root-caused to HDBSCAN **splitting cars into fragments**
-(not a classifier problem). Five *post-hoc* repair strategies all failed on
-held-out data — **but** coarsening the clustering resolution (cv=0.10, promoted
+(not a classifier problem). Six repair strategies all failed to generalise
+(four with table outcomes + temporal aggregation and threshold lowering in prose;
+see Ch 5 reconciliation note above) — **but** coarsening the clustering resolution (cv=0.10, promoted
 2026-07-23, Finding #34) closed some intra-car density gaps and lifted recall
 0.699→0.730, so the earlier "~0.74 hard limit" was **partly a resolution
 artifact**, not fundamental. A smaller structural limit remains (density-based
