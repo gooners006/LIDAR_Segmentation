@@ -367,6 +367,31 @@ double-"rather than" in the closer; substance/numbers unchanged, rebuilds clean)
 NOT advisor-reviewed. **All prose (Ch 1–9 + abstract) now first-drafted; remaining: reference
 pass + template assembly + advisor review + Phase 8 defense prep.**
 
+**NEXT ACTION — Master/template assembly + reference pass (PLANNED 2026-08-27, not started).**
+Full execution plan: `~/.claude/plans/reference-pass-master-template-snug-lampson.md` (design
+decisions locked; exploration done; no files edited yet — the 12 chapter files are still
+standalone drafts). Wire the 12 `docs/writing/thesis/sec_*.tex` files into one master
+`docs/writing/thesis/main.tex` that builds the whole thesis PDF, and convert the hand-typed
+cross-references to real `\ref`s. **Locked decisions:** (1) master is **`report` class** —
+promote each file's top `\section`→`\chapter`, demote levels below (report gives 3.1/4.1
+float numbering for free, no `\numberwithin`); (2) **convert** all typed numerals
+("Chapter~5", "Table~4.1", "Figure~3.1", "Section~7.6") → `\ref` (target labels all exist;
+map in the plan); (3) **strip each file to a body fragment, master `\input`s them** —
+full-thesis build only, standalone per-chapter builds intentionally dropped; (4) title = "A
+Donor-Frame Coverage Metric for Reference-Free Evaluation of Occluded-Vehicle Completion in
+Automotive LiDAR"; solo author Ngo Vi Viet Anh (MSE13205); advisor Dr. Doan Nhat Quang.
+**Assembly specifics (from exploration):** master lives in `docs/writing/thesis/` so existing
+relative paths resolve unchanged (`../../references` → `docs/references.bib`;
+`../../../output/{figures,experiments}/`); only `sec_1`/`sec_2` use BibTeX (strip their
+per-file `\bibliography`, hoist one to master); Ch 4 = `sec_4_1` + `sec_4_results` and Ch 7 =
+`sec_7_2_donor_metric` + `sec_7_results`, each dropping the results-half's duplicate
+`\section`/`ch:*-results` label at the fold; union preamble must add tikz (Ch 3 diagram),
+`\DeclareSIUnit{\frame}`/`{\fps}`, `nth`. Reuse the FPT title-page/`fancyhdr` style from
+`report-template/main.tex` (do NOT edit that group-proposal file). **Step 0 = checkpoint
+commit first** (abstract + Ch 2/8 edits currently uncommitted; the fragment edits are
+in-place). Verify: `latexmk -pdf main.tex` → exit 0, zero undefined refs/citations, zero
+multiply-defined labels, correct numbers at the two folds, no new >20 pt overfulls.
+
 **✅ RESOLVED 2026-08-26 — Ch 2 Tab 2.1 numbers PRIMARY-SOURCE verified; zero errors.**
 The parked verification was restarted and completed against each paper's own results
 table (ar5iv.labs.arxiv.org rendered them cleanly this pass; arxiv.org was back up).
