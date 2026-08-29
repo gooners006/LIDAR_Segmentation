@@ -2687,3 +2687,73 @@ LOSO per-sequence + pooled (full sequences, τ=0.3, shipped config):
   second sequence** (would touch the frozen completion pipeline) — declined for now;
   "partially holds" is the honest outcome.
 - Phase 8 defense prep.
+
+---
+
+# Session — 2026-08-30 (Front-matter flow pass + defense-deck planning)
+
+## What was done
+
+### Front-matter rhetorical-flow pass (committed `4638c37`)
+Reworked three front-matter chapters for rhetorical flow, driven by forwarded external-LLM
+reviews (hard-pushback mode). Prose-only; nothing frozen; `main.tex` rebuilds clean (exit 0,
+zero undefined refs/citations, zero overfull ≥20 pt; 80→79 pp).
+- **Abstract** (`sec_0_abstract.tex`): one ~245-word block → three paragraphs (approach /
+  detection findings / completion contribution). Adopted the user's narrative rewrite but
+  restored three dropped load-bearing elements: (1) the recall qualifier ("0.730 at a
+  point-IoU of 0.3, on cars with enough returns to be scorable"; Finding #48 — bare 0.730
+  reads as vs-all-annotated-cars ~0.54); (2) amodal-box scope ("on static, gate-passed cars";
+  dropped puffery "significantly"); (3) the third contribution, corrected from an invented
+  "mapping where hybrid pipelines succeed/fail" back to synthetic-pretraining redundancy
+  (#25/#30), matching §1.4/§2.5/§9.3. LOSO compressed to qualitative; 0.000→0.304 and the
+  LOSO numbers left to the body.
+- **Intro §1.5** kept in place (pushed back on the review's move-to-appendix/rename — breaks
+  §1.4/§9 cross-refs, weakens the proposal-drift defense): trimmed the multi-class + CD+EMD
+  paragraphs one sentence each, compressed the "not a departure" note to one line.
+- **Conclusion §9.2** compacted (pushed back on merging §9.1+§9.2 into a narrative — loses
+  the RQ mapping examiners check for; the review's example sentence asserted a false
+  recall→completion causal link). Kept §9.1's RQ answers, all finding citations, the locked
+  three-contribution structure.
+
+### Defense-deck planning — Phase 8 start (committed `d06c248`)
+- Extracted the peer template `docs/LVTN.pptx` structure via python-pptx (63 slides, 16:9,
+  four-act: Title/TOC → I. Introduction → II. Methodology → III. Experiment Evaluation →
+  IV. Conclusion; roman-numeral dividers, running footer, numbered subsections,
+  baselines-vs-ours walkthrough + result-analysis slides).
+- **`docs/defense/plan.md`** (tweakable-plan format): goal + success criteria + Section-A
+  decisions, all locked — **A1** = python-pptx onto a cleaned COPY of `LVTN.pptx` (inherits
+  theme/footer; fallback fresh 16:9 theme, then manual); **A2** = 25–30 min → ~40 slides +
+  backups; **A3** = completion-forward (donor metric is the headline per the thesis title +
+  §8.1); A4 own-the-limitations; A5 reuse thesis figures + export the TikZ pipeline diagram.
+- **`docs/defense/storyboard.md`**: ~40 content slides + 7 backups, slide-by-slide (message /
+  source §-or-Finding / visual). Every P1 hedge carried onto its slide (recall denominator +
+  ~0.54 beside the 0.730 headline, PARTIALLY HOLDS, movers plausibility-only, offline-as-scope);
+  numbers sourced to §/Finding; claims ⊆ C1–C11. Dedicated LOSO slide (#51); donor-metric core
+  = 4 slides (measurement problem / Chamfer-invalid #26 / donor metric #32 / guard #37).
+- **Two external-LLM deck reviews processed with pushback:** (a) kept python-pptx over a
+  fully-manual flip (the "manual saves time" argument assumes the user builds everything;
+  flagged peer-content-leakage + python-pptx slide-clone corruption risks the review missed);
+  adopted its LOSO-dedicated-slide + specify-the-three-limitations tweaks. (b) moved the ~0.54
+  caveat from the Setup slide to beside the 0.730 headline (slide 21, not deferred to 23);
+  merged the geometric-only ablation into the recall-decomposition slide; trimmed the
+  completion-debug slide and demoted the L-shape gate to backup B7 (pushed back on splitting
+  it into two slides — over-weights plumbing vs the metric).
+- Updated the `defense-deck-baseline` memory to point at `docs/defense/plan.md`.
+
+## Files changed
+- **New:** `docs/defense/plan.md`, `docs/defense/storyboard.md`.
+- **Modified:** `docs/writing/thesis/sec_0_abstract.tex`, `sec_1_introduction.tex`,
+  `sec_9_conclusion.tex`, `docs/project_state.md`.
+- Two commits this session: `4638c37` (flow pass), `d06c248` (defense docs). The
+  `defense-deck-baseline` memory was updated outside the repo tree; `docs/LVTN.pptx` remains
+  untracked.
+
+## Results / findings
+No new experiments. Manuscript builds clean at **79 pp** (was 80) after the flow pass.
+
+## Next
+- **Advisor review** of the assembled manuscript (Phase 7) — user-triggered; still no chapter
+  advisor-reviewed.
+- **Build the defense `.pptx`** (Section B of `docs/defense/plan.md`): generate onto a purged
+  copy of `LVTN.pptx` per `storyboard.md`, export the TikZ Fig 3.1 to PNG, write speaker notes,
+  verify; then Phase 8 rehearsal.

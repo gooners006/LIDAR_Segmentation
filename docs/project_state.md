@@ -106,7 +106,26 @@ undefined refs/citations, zero overfull ≥20pt; 80→79 pp).
   parallel per §1): kept §9.1's RQ answers; reframed the §9.2 opener to "pointing back to the
   answers above rather than re-arguing them"; collapsed items 2/3 to single sentences; all
   finding citations + the locked three-contribution structure preserved.
-Committed this session (`sec_0`/`sec_1`/`sec_9` + this doc). NOT advisor-reviewed.
+Committed this session (`sec_0`/`sec_1`/`sec_9` + this doc, `4638c37`). NOT advisor-reviewed.
+
+**Defense-deck planning (Phase 8 start) — 2026-08-30 (committed `d06c248`).** Planning
+artifacts for the thesis-defense slide deck, grounded in the peer template `docs/LVTN.pptx`
+(same advisor) and the frozen numbers; no manuscript/frozen artifact touched, **deck NOT yet
+generated**.
+- **`docs/defense/plan.md`** (tweakable-plan). Locked: **A1** = python-pptx onto a cleaned
+  COPY of `LVTN.pptx` (inherits theme/footer; fallback fresh 16:9 theme, then manual); **A2**
+  = 25–30 min → ~40 slides + 7 backups; **A3** = completion-forward (donor metric is the
+  headline per the thesis title + §8.1); A4 own-the-limitations; A5 reuse thesis figures +
+  export the TikZ pipeline diagram to PNG.
+- **`docs/defense/storyboard.md`** — the authoritative slide list, ~40 content + 7 backups
+  across the four-act template. Every P1 hedge on its slide (recall denominator + ~0.54 beside
+  the 0.730 headline, PARTIALLY HOLDS, movers plausibility-only, offline-as-scope); numbers
+  sourced to §/Finding; claims ⊆ C1–C11. Dedicated LOSO slide (#51); donor-metric core = 4
+  slides.
+- Two external-LLM deck reviews processed with pushback; the `defense-deck-baseline` memory
+  now points at the plan. **Resume at plan Section B** to build the `.pptx` (purge peer content
+  from the template copy; python-pptx slide-clone corruption is the known risk → fallback fresh
+  theme).
 
 **Thesis writing (T14) — STARTED 2026-08-21 (Protocol milestone).** §4.1
 (evaluation protocol) and §7.2 (donor metric) first-drafted as compilable LaTeX
