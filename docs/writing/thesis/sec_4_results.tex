@@ -8,7 +8,7 @@
 % \label{ch:detection-eval}. At final assembly the assembler drops this
 % \section line and the subsections below fold under sec_4_1's chapter, so that
 % 4.1 (protocol) ... 4.5 (runtime) are one chapter. Forward/back references to
-% sibling sections use typed numerals ("Section~4.1", "Chapter~5") exactly as
+% sibling sections use typed numerals ("Section~\ref{sec:eval-protocol}", "Chapter~\ref{ch:recall-bottleneck}") exactly as
 % sec_4_1 does, because the two files do not share a label namespace when built
 % separately.
 %
@@ -22,31 +22,11 @@
 %     read as a trend, NOT a restatement of the 0.730 headline
 %   - every number traces to a finding / output artifact (cited Finding~\#NN)
 %
-\documentclass[a4paper,12pt]{article}
-\usepackage[english]{babel}
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{lmodern}
-\usepackage{amsmath,amssymb}
-\usepackage{booktabs}
-\usepackage{float}
-\usepackage{siunitx}
-\usepackage{microtype}
-\usepackage[margin=2.5cm]{geometry}
-\usepackage{graphicx}
-\usepackage{multirow}
-\graphicspath{{../../../output/figures/}{../../../output/experiments/}}
-
-\begin{document}
-
-\section{Detection Evaluation}
-\label{ch:detection-eval-results}
-
-\subsection{Detection Results}
+\section{Detection Results}
 \label{sec:results-detection}
 
-The headline operating point is the sequence~08 row of Table~4.1
-(Section~4.1): precision \num{0.905}, recall \num{0.730}, $F_1$ \num{0.808}, and
+The headline operating point is the sequence~08 row of Table~\ref{tab:headline}
+(Section~\ref{sec:eval-protocol}): precision \num{0.905}, recall \num{0.730}, $F_1$ \num{0.808}, and
 a mean IoU of matched detections of \num{0.912}, over
 \num{25478}~/~\num{2676}~/~\num{9444} TP~/~FP~/~FN. Two properties of this
 operating point organise the rest of the chapter, and both are visible directly
@@ -68,7 +48,7 @@ nearest (\SI{66}{\percent} at \SIrange{0}{10}{\metre}, Finding~\#24).
 Section~\ref{sec:results-distance} exhibits the resulting near-range recall dip
 directly, and the time series (Figure~\ref{fig:timeseries}) shows per-frame
 recall tending to fall in the denser frames while false positives stay flat. We
-root-cause the splitting mechanism in Chapter~5; here we establish only that
+root-cause the splitting mechanism in Chapter~\ref{ch:recall-bottleneck}; here we establish only that
 recall, not precision, is the dominant error mode, and that it does not come from
 the classifier misfiring (false positives stay flat regardless).
 
@@ -79,7 +59,7 @@ the classifier misfiring (false positives stay flat regardless).
     Detected car clusters (coloured) are overlaid on the ground-removed point
     cloud; ego is at the origin. Detections concentrate on true vehicles, with
     few spurious clusters --- the precision-saturated behaviour reported in
-    Table~4.1.}
+    Table~\ref{tab:headline}.}
   \label{fig:bev-detections}
 \end{figure}
 
@@ -89,19 +69,19 @@ the classifier misfiring (false positives stay flat regardless).
   \caption{Per-frame detection behaviour over sequence~08. False positives (lower
     trace) stay low and flat --- under one per frame --- regardless of scene
     content, while per-frame recall tends to fall in frames with more
-    ground-truth cars. The structural recall limit is root-caused in Chapter~5
+    ground-truth cars. The structural recall limit is root-caused in Chapter~\ref{ch:recall-bottleneck}
     (HDBSCAN splitting, Findings~\#23/\#24).}
   \label{fig:timeseries}
 \end{figure}
 
-\subsection{Ablations}
+\section{Ablations}
 \label{sec:results-ablations}
 
 This section decomposes the headline operating point into the contribution of
 each learned or post-hoc stage. Every ablation row is produced under the frozen
-protocol of Section~4.1 unless a deviation is stated explicitly.
+protocol of Section~\ref{sec:eval-protocol} unless a deviation is stated explicitly.
 
-\subsubsection{Stage decomposition: what the classifier and track filter buy}
+\subsection{Stage decomposition: what the classifier and track filter buy}
 \label{sec:ablation-stage}
 
 Table~\ref{tab:ablation-stage} isolates the two filtering stages that sit on top
@@ -151,12 +131,12 @@ recall (\num{0.730}), roughly \num{1600} true positives forgone for the
 $\sim$\num{152000}-false-positive removal --- but that trade runs through a
 recall dip and a partial recovery, not a simple monotone loss. We report it
 rather than hiding it: the system is deliberately tuned for precision, and the
-recall it forgoes here is small next to the recall it never had (Chapter~5). The
+recall it forgoes here is small next to the recall it never had (Chapter~\ref{ch:recall-bottleneck}). The
 pre-promotion geometric-only figure ($F_1$~\num{0.305}, Finding~\#18) is
 superseded by this like-for-like \num{0.250} and kept only as a historical
 record.
 
-\subsubsection{Synthetic pretraining is redundant (Stage~A ablation)}
+\subsection{Synthetic pretraining is redundant (Stage~A ablation)}
 \label{sec:ablation-stagea}
 
 The classifier ships as a binary car/not-car network trained \emph{from scratch}
@@ -206,7 +186,7 @@ work; the synthetic prior neither helps nor, once fine-tuned, survives.
   \end{tabular}
 \end{table}
 
-\subsubsection{Clustering method: HDBSCAN earns its cost}
+\subsection{Clustering method: HDBSCAN earns its cost}
 \label{sec:ablation-clustering}
 
 The clustering stage is HDBSCAN. Because it is by far the most expensive stage
@@ -255,7 +235,7 @@ which is exactly the recall margin that matters here. We therefore
 its runtime cost knowingly; DBSCAN and Euclidean remain available as
 command-line options for reproduction.
 
-\subsection{Detection Range}
+\section{Detection Range}
 \label{sec:results-distance}
 
 Recall is not uniform in range, and the way it varies is not the naive
@@ -304,12 +284,12 @@ none of which matches the whole instance, so it is counted as a miss. The neares
 also has the \emph{lowest} mean IoU of matched detections (\num{0.902}),
 consistent with fragments eroding the overlap even on the cars that do match. We
 develop this splitting mechanism, and why post-hoc fragment-merging fails to
-recover it, in Chapter~5.
+recover it, in Chapter~\ref{ch:recall-bottleneck}.
 
 Beyond the peak the decline is ordinary sparsity: recall falls from \num{0.862}
 at \SIrange{10}{20}{\metre} to \num{0.549} at \SIrange{20}{40}{\metre} and
 \num{0.196} past \SI{40}{\metre}, as cars thin to too few surviving points to
-cluster or to clear the \num{10}-point eligibility rule (Section~4.1).
+cluster or to clear the \num{10}-point eligibility rule (Section~\ref{sec:eval-protocol}).
 Interestingly, mean IoU of matched detections \emph{rises} with range
 (\num{0.902}~$\rightarrow$~\num{0.943}): the far cars that are detected at all are
 compact, single-cluster instances, so their overlap is clean even as their number
@@ -317,7 +297,7 @@ collapses. The earlier precision-only, seq-00, pre-promotion range analysis
 (Finding~\#5) is superseded by this on-frozen-config sequence-08 table and is
 retained only as a historical note.
 
-\subsection{Runtime}
+\section{Runtime}
 \label{sec:results-runtime}
 
 Table~\ref{tab:runtime} breaks the per-frame cost down by stage, measured over
@@ -377,5 +357,3 @@ operating point was accepted, real-time operation being out of scope (user
 decision, \num{2026}-07-23). Point-completion, when it runs, adds
 $\sim$\SI{13}{\milli\second} per completed car on top of detection and is not part
 of the detection budget above.
-
-\end{document}

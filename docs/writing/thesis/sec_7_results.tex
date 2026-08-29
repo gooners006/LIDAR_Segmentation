@@ -8,7 +8,7 @@
 % is opened by sec_7_2_donor_metric.tex, which owns \label{ch:completion-eval}),
 % and §7.3-§7.7 below fold in after §7.1/§7.2. Because separate standalone builds
 % do NOT share a label namespace, cross-FILE references use typed numerals
-% ("Section~7.2", "Chapter~6") rather than \ref{}; only within-file refs use \ref.
+% ("Section~\ref{sec:donor-metric}", "Chapter~\ref{ch:completion-method}") rather than \ref{}; only within-file refs use \ref.
 %
 % Scope: the completion RESULTS. §7.3 surface coverage (donor metric, #32);
 % §7.4 downstream box utility + length geometry (#29/#35/#36, #45 cross-ref);
@@ -28,29 +28,7 @@
 %   Fig 7.3 t11_mover_completions_bev.png    (t11_mover_plausibility.py)
 % Floats set [htbp].
 %
-\documentclass[a4paper,12pt]{article}
-\usepackage[english]{babel}
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{lmodern}
-\usepackage{amsmath,amssymb}
-\usepackage{booktabs}
-\usepackage{float}
-\usepackage{siunitx}
-\usepackage{microtype}
-\usepackage[margin=2.5cm]{geometry}
-\usepackage{graphicx}
-\usepackage{multirow}
-\usepackage[super]{nth}
-% Figures live under the repo's output/ tree (data-safety: renders stay in output/).
-\graphicspath{{../../../output/figures/}{../../../output/experiments/}}
-
-\begin{document}
-
-\section{Completion Evaluation}
-\label{ch:completion-eval-results}
-
-Section~7.2 established a metric that measures, on real cars, how much
+Section~\ref{sec:donor-metric} established a metric that measures, on real cars, how much
 previously-unseen surface a completion recovers, and showed that it passes an
 explicit validation battery. This part of the chapter uses it. It reports three
 things the completion method was built to deliver and one it was not: that the
@@ -63,9 +41,9 @@ claims survive a pre-registered replication on a held-out sequence
 limitations together. Throughout, the unit of analysis is the car: because the
 frames of one parked car are autocorrelated, each car is reduced to its per-car
 median and significance is tested across cars with the Wilcoxon signed-rank test,
-the paired design of Section~7.2.
+the paired design of Section~\ref{sec:donor-metric}.
 
-\subsection{Real-data surface coverage}
+\section{Real-data surface coverage}
 \label{sec:results-coverage}
 
 The primary completion result is that PCN reconstructs surface the input frame
@@ -74,7 +52,7 @@ never observed. Table~\ref{tab:donor-coverage} reports the donor metric on \num{
 three clouds --- the raw partial, its symmetry mirror, and the completion ---
 against each car's
 donor-only novel set. This is the metric's acceptance run (Finding~\#32), taken
-on the production path \emph{before} the Chapter~6 length prior; the length
+on the production path \emph{before} the Chapter~\ref{ch:completion-method} length prior; the length
 geometry is evaluated in Section~\ref{sec:results-box}.
 
 \begin{table}[H]
@@ -135,12 +113,12 @@ saw least.
     \SI{0.1}{\meter}. The best panels close the occluded far side almost entirely;
     the worst isolate the two residual failure modes --- far-end under-completion
     and heading/centre error on diagonal or sparse views --- that
-    Section~\ref{sec:results-box} and Chapter~6 address. Rendered by
+    Section~\ref{sec:results-box} and Chapter~\ref{ch:completion-method} address. Rendered by
     \texttt{scratchpad/donor\_metric\_viz.py}.}
   \label{fig:donor-coverage}
 \end{figure}
 
-\subsection{Downstream utility: the amodal bounding box}
+\section{Downstream utility: the amodal bounding box}
 \label{sec:results-box}
 
 Surface coverage shows the completion is geometrically faithful; the box
@@ -194,7 +172,7 @@ Table~\ref{tab:box-quality} length is neutral --- the completion neither helps n
 hurts $|\Delta L|$. That was too generous a reading of an untreated defect: the
 completion of a partial truncated at the occluded far end stops short, so it
 \emph{under}-completes length. Table~\ref{tab:length-geometry} isolates this on
-the promoted configuration ($n=40$) and tracks the two Chapter~6 fixes ---
+the promoted configuration ($n=40$) and tracks the two Chapter~\ref{ch:completion-method} fixes ---
 the fixed \SI{4.14}{\meter} prior (Finding~\#35) and the per-car length estimate
 (Finding~\#36) --- against the raw partial and the completion \emph{without} any
 length correction.
@@ -237,7 +215,7 @@ reverses it (\num{0.354}) and the per-car estimate improves it further
 removes the over-extension of genuinely compact cars: their signed $\Delta L$ goes
 from \num{+0.295} (the fixed median over-extends a short car) to \num{+0.063}
 ($p=0.016$ at $n=8$), with the same fix showing up in the per-band hallucination
-guard of Section~7.2 (Finding~\#37).
+guard of Section~\ref{sec:donor-metric} (Finding~\#37).
 
 \paragraph{The trade-off, stated plainly.} The per-car estimate buys this box
 accuracy at a measured cost in donor coverage: pooled completed \texttt{cov@0.1}
@@ -256,7 +234,7 @@ shortfall is a real limitation, addressed next.
 \emph{true} length still leaves completions short on normal and long cars, which
 pointed to a second under-extension mechanism inside the completion itself (PCN
 under-fills its normalised frame, and the centre push doubles as an output
-rescale). Chapter~6 investigated this under pre-registration (Finding~\#45, the
+rescale). Chapter~\ref{ch:completion-method} investigated this under pre-registration (Finding~\#45, the
 ``closed negative''): decoupling the scale from the length push and adding a
 calibrated fill factor did fix the target (normal-car $|\Delta L|$
 \num{0.329}$\to$\num{0.232}) but over-extended compacts and failed the
@@ -279,7 +257,7 @@ is a characterised, length-dependent limit, not an oversight.
   \label{fig:box-overlays}
 \end{figure}
 
-\subsection{Moving cars}
+\section{Moving cars}
 \label{sec:results-movers}
 
 Both metrics so far are defined on \emph{static} cars by construction: a paired
@@ -338,7 +316,7 @@ of the earlier sections does not hide a mover failure mode.
   \label{fig:movers}
 \end{figure}
 
-\subsection{A pre-registered held-out replication}
+\section{A pre-registered held-out replication}
 \label{sec:results-heldout}
 
 The completion constants --- the width and length priors, the scale correction,
@@ -395,7 +373,7 @@ hallucination guard are simply untestable on it. The downgrade from ``holds'' to
 weak result}: everything that could be tested passed, and the one thing that could
 not be tested is a property of seq~00's car population, not of the method.
 
-\subsection{Summary and limitations}
+\section{Summary and limitations}
 \label{sec:results-summary}
 
 The completion method rests on three measured results. It adds genuinely unseen
@@ -424,5 +402,3 @@ moving cars are covered only by the weaker plausibility check. None of these
 overturns the headline --- completion adds unseen surface and a better box, and
 generalises --- but they mark exactly where the method is soft, and they set the
 agenda for the discussion that follows.
-
-\end{document}

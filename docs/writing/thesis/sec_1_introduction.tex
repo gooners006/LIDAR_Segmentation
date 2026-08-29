@@ -10,7 +10,7 @@
 % MERGE/NUMBERING NOTE: this file opens with \section{Introduction} for standalone
 % compilation and numbering, but at final assembly the assembler promotes it to a
 % chapter (Chapter 1). Forward references to sibling chapters use typed numerals
-% ("Chapter~3", "Section~7.4") because the chapter files do not share a label
+% ("Chapter~\ref{ch:pipeline}", "Section~7.4") because the chapter files do not share a label
 % namespace when built separately. Internal experiment records are cited as plain
 % text "Finding~\#NN" (entries in docs/findings.md), the convention used by the
 % method/results/discussion chapters; published literature uses BibTeX \cite{}.
@@ -36,27 +36,10 @@
 %   - negative results are named as findings, not buried
 %   - the detection headline is a single-sequence (seq 08) result, stated as such
 %
-\documentclass[a4paper,12pt]{article}
-\usepackage[english]{babel}
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{lmodern}
-\usepackage{amsmath,amssymb}
-\usepackage{booktabs}
-\usepackage{float}
-\usepackage{siunitx}
-\usepackage{microtype}
-\usepackage[margin=2.5cm]{geometry}
-\usepackage{graphicx}
-\usepackage{multirow}
-\usepackage{url}
-
-\begin{document}
-
-\section{Introduction}
+\chapter{Introduction}
 \label{ch:introduction}
 
-\subsection{Problem and motivation}
+\section{Problem and motivation}
 \label{sec:intro-motivation}
 
 Perception for autonomous driving rests on a LiDAR scanner that returns, several
@@ -97,7 +80,7 @@ a reference. Much of the completion half of the work is therefore about how to
 \emph{measure} completion quality on real data at all, before asking whether it
 helps.
 
-\subsection{Approach}
+\section{Approach}
 \label{sec:intro-approach}
 
 The system is a modular hybrid. A raw scan is filtered and downsampled, the ground
@@ -112,7 +95,7 @@ partial view. The design commitment is deliberate: classical geometry does the
 spatial decomposition it is reliable at, while the learned models are kept small and
 are asked only to discriminate and to reconstruct. The full architecture, the
 per-stage parameters, and the classifier's training procedure are the subject of
-Chapter~3, whose pipeline diagram (Figure~3.1) shows the stages and their measured
+Chapter~\ref{ch:pipeline}, whose pipeline diagram (Figure~\ref{fig:pipeline}) shows the stages and their measured
 per-stage cost; this chapter states only the shape of the approach.
 
 Two points about the approach are worth making early, because they shape what the
@@ -122,9 +105,9 @@ cars --- so it is not counted among the contributions. Second, the completion
 network is trained only on synthetic partial renders made to imitate LiDAR
 sampling; it never sees a labelled real car. This is what makes the pipeline
 near-annotation-free, and it is also the source of the sim-to-real questions that
-Chapters~4 and~7 take up.
+Chapters~\ref{ch:detection-eval} and~\ref{ch:completion-eval} take up.
 
-\subsection{Research questions}
+\section{Research questions}
 \label{sec:intro-rq}
 
 The work is organised around three questions.
@@ -133,18 +116,18 @@ The work is organised around three questions.
   \item[RQ1.] How can the quality of point-cloud completion be evaluated on
     \emph{real} LiDAR, where no clean reference shape exists and an accumulated
     pseudo-ground-truth is itself one-sided? This is a measurement question, and it
-    is prior to any claim that completion helps. It is answered in Chapter~7.
+    is prior to any claim that completion helps. It is answered in Chapter~\ref{ch:completion-eval}.
   \item[RQ2.] Does learned completion recover genuinely \emph{unseen} surface --- as
     opposed to redistributing the points it was already given --- and does it
     improve downstream amodal bounding boxes on real LiDAR cars? And does any such
     benefit survive on a held-out sequence under a pre-registered test? This is
-    answered in Chapter~7, with the held-out outcome reported exactly as it fell.
+    answered in Chapter~\ref{ch:completion-eval}, with the held-out outcome reported exactly as it fell.
   \item[RQ3.] What limits the recall of a training-free clustering-plus-classifier
     detector, and is synthetic pretraining actually necessary for the classifier?
-    The first half is answered in Chapter~5, the second in Chapter~4.
+    The first half is answered in Chapter~\ref{ch:recall-bottleneck}, the second in Chapter~\ref{ch:detection-eval}.
 \end{description}
 
-\subsection{Contributions}
+\section{Contributions}
 \label{sec:intro-contributions}
 
 The thesis makes three claimed contributions, all methodological or diagnostic
@@ -166,7 +149,7 @@ blocks, reimplemented and tuned here.
     baseline and improves amodal boxes on static, gate-passed cars, and that the
     benefit partially holds on a pre-registered held-out sequence
     (Findings~\#29/\#42). This is the completion half's central contribution and is
-    developed in Chapter~7.
+    developed in Chapter~\ref{ch:completion-eval}.
   \item \textbf{A root-cause account of the recall bottleneck, with a chain of
     negative repair results.} Recall is limited not by the classifier but by
     density clustering splitting single cars into fragments (Finding~\#23). A
@@ -174,13 +157,13 @@ blocks, reimplemented and tuned here.
     adaptive and BEV clustering, temporal accumulation --- fails to generalise,
     each for a structural reason (Findings~\#21/\#24); the one lever that helped
     was the clustering resolution itself (Finding~\#34). The negative results are reported as findings in their
-    own right in Chapter~5.
+    own right in Chapter~\ref{ch:recall-bottleneck}.
   \item \textbf{Evidence that synthetic pretraining is redundant for the classifier
     at scale.} A from-scratch classifier matches a synthetically pretrained one once
     real training clusters are plentiful, and a cross-domain matrix shows the
     sim-to-real gap is total and symmetric (Findings~\#25/\#30). This directly
     replaces a contribution promised in the proposal, as discussed in
-    Section~\ref{sec:intro-scope}, and is presented in Chapter~4.
+    Section~\ref{sec:intro-scope}, and is presented in Chapter~\ref{ch:detection-eval}.
 \end{enumerate}
 
 Alongside these, the thesis delivers several \emph{engineering} contributions that
@@ -192,7 +175,7 @@ architecture swaps and real-data fine-tuning for completion (Findings~\#16/\#17/
 and a sparse-fallback length model (Finding~\#40) --- are reported as negative
 findings rather than omitted.
 
-\subsection{Scope and reconciliation with the proposal}
+\section{Scope and reconciliation with the proposal}
 \label{sec:intro-scope}
 
 The thesis is deliberately narrow, and the boundaries are worth stating plainly
@@ -200,15 +183,18 @@ rather than leaving to be inferred. \textbf{The detector is car-only:} the
 classifier is binary (car / not-car), and no other class is detected. \textbf{The
 system is offline:} it runs at about \SI{623.5}{\milli\second} per frame
 (\num{1.6}~frames per second) on the reference hardware, and reducing this to
-real-time is out of scope; the runtime is characterised (Section~4.5,
-Findings~\#33/\#34), not optimised further. \textbf{The detection headline rests on
-a single sequence:} sequence~08 (\num{4071} scans) is the reporting sequence, with
-sequence~00 used for tuning and for a pre-registered held-out completion check;
-per-sequence recall variation across the labelled set is therefore not broken out,
-a breadth limitation stated openly in Chapter~8.
+real-time is out of scope; the runtime is characterised (Section~\ref{sec:results-runtime},
+Findings~\#33/\#34), not optimised further. \textbf{The detector is reported at one
+operating point but cross-validated across all eleven labelled sequences:}
+sequence~08 (\num{4071} scans) is the operating point at which the ablations,
+recall root-cause, and completion analysis are decomposed, while sequence~00 is the
+pre-registered held-out completion check; a leave-one-sequence-out cross-validation
+(Section~\ref{sec:eval-loso}) scores every sequence with a classifier that never saw
+it, which both bounds the model-selection exposure to about two precision points and
+supplies the per-sequence recall spread.
 Throughout, ``recall'' is reported against its car-only, at-least-ten-surviving-points
 denominator, and the two distinct ten-point rules this involves are disambiguated
-in Section~4.1.
+in Section~\ref{sec:eval-protocol}.
 
 This scope is narrower than the original proposal in three specific ways, each the
 result of an experiment rather than a change of ambition.
@@ -247,26 +233,21 @@ One point that is \emph{not} a departure from the proposal is worth flagging so 
 not read as one: the proposal was silent on runtime, so the offline framing above is
 a scope statement, not a walked-back promise.
 
-\subsection{Thesis outline}
+\section{Thesis outline}
 \label{sec:intro-outline}
 
-The remainder of the thesis is organised as follows. Chapter~2 (Background and
+The remainder of the thesis is organised as follows. Chapter~\ref{ch:background} (Background and
 Related Work) places the pipeline against the deep-learning segmentation and
 point-completion literature and carries the positioning table that defends the
-comparison. Chapter~3 (The Detection Pipeline) describes every stage and the
-classifier's training. Chapter~4 (Detection Evaluation) sets out the evaluation
+comparison. Chapter~\ref{ch:pipeline} (The Detection Pipeline) describes every stage and the
+classifier's training. Chapter~\ref{ch:detection-eval} (Detection Evaluation) sets out the evaluation
 protocol and reports the seq-08 results, the ablations, the distance breakdown, and
-the runtime. Chapter~5 (The Recall Bottleneck) root-causes the recall shortfall to
+the runtime. Chapter~\ref{ch:recall-bottleneck} (The Recall Bottleneck) root-causes the recall shortfall to
 clustering fragmentation and reports the chain of negative repair strategies.
-Chapter~6 (Point-Cloud Completion) covers the completion method and the debugging
-story behind it. Chapter~7 (Completion Evaluation) introduces the donor-frame
+Chapter~\ref{ch:completion-method} (Point-Cloud Completion) covers the completion method and the debugging
+story behind it. Chapter~\ref{ch:completion-eval} (Completion Evaluation) introduces the donor-frame
 metric, shows why pseudo-ground-truth Chamfer is invalid, and reports the
 real-data coverage results, the amodal-box utility, the moving-car case, and the
-pre-registered held-out replication. Chapter~8 (Discussion and Limitations) names
-every weakness the work is subject to, and Chapter~9 (Conclusion and Future Work)
+pre-registered held-out replication. Chapter~\ref{ch:discussion} (Discussion and Limitations) names
+every weakness the work is subject to, and Chapter~\ref{ch:conclusion} (Conclusion and Future Work)
 answers the three research questions and lays out what remains.
-
-\bibliographystyle{IEEEtran}
-\bibliography{../../references}
-
-\end{document}

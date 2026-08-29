@@ -117,34 +117,81 @@ class StageBDataset(data.Dataset):
     Loads centroid-centered .npy files from dataset/stage_b/{split}/{class}/.
     """
 
-    def __init__(self, root: str, split: str, config: dict):
+    # Fraction of the training pool carved off as a monitoring val set in
+    # leave-one-sequence-out mode. Selection is last-epoch, so this slice never
+    # affects a fold's evaluated result; it only produces readable loss curves.
+    LOSO_MONITOR_FRAC = 0.05
+    LOSO_MONITOR_SEED = 1234
+
+    def __init__(self, root: str, split: str, config: dict,
+                 held_out_seq: str | None = None):
         """Load real mined cluster paths from disk.
 
         Args:
             root: Root directory containing train/val splits.
             split: Either ``"train"`` or ``"val"``.
             config: Stage B config dict with ``num_points``, ``jitter_std``.
+            held_out_seq: If set (e.g. ``"08"``), enables leave-one-sequence-out
+                mode. Clusters are pooled from BOTH ``root/train`` and
+                ``root/val`` (the on-disk folders together hold all sequences)
+                and every file whose SemanticKITTI sequence prefix equals
+                ``held_out_seq`` is excluded entirely — that sequence is the
+                detection test set, evaluated separately via ``evaluate.py`` and
+                never seen in training or checkpoint selection. The remaining
+                pool is split into a ~95%% ``"train"`` / ~5%% ``"val"`` monitoring
+                slice (deterministic, disjoint, per class).
         """
         self.config = config
         self.split = split
+        self.held_out_seq = held_out_seq
         self.bbox_mean: np.ndarray | None = None
         self.bbox_std: np.ndarray | None = None
 
-        split_dir = os.path.join(root, split)
         self.items: list[tuple[str, int]] = []  # (npy_path, label)
+        if held_out_seq is None:
+            source_dirs = [os.path.join(root, split)]
+        else:
+            # Pool both on-disk folders; the held-out sequence lives in whichever
+            # of them it was originally mined into, so we must scan both.
+            source_dirs = [os.path.join(root, "train"), os.path.join(root, "val")]
+
         for cls_name in CLASS_LABELS:
-            cls_dir = os.path.join(split_dir, cls_name)
-            if not os.path.isdir(cls_dir):
-                continue
             label = CLASS_TO_IDX[cls_name]
-            for fname in sorted(os.listdir(cls_dir)):
-                if fname.endswith(".npy"):
-                    self.items.append((os.path.join(cls_dir, fname), label))
+            cls_files: list[str] = []
+            for sdir in source_dirs:
+                cls_dir = os.path.join(sdir, cls_name)
+                if not os.path.isdir(cls_dir):
+                    continue
+                for fname in sorted(os.listdir(cls_dir)):
+                    if not fname.endswith(".npy"):
+                        continue
+                    if held_out_seq is not None and \
+                            fname.split("_")[0] == held_out_seq:
+                        continue  # this file belongs to the held-out test seq
+                    cls_files.append(os.path.join(cls_dir, fname))
+            cls_files.sort()  # stable, deterministic ordering across folds
+
+            if held_out_seq is not None:
+                # Deterministic 95/5 carve for the monitoring val set. Same seed
+                # and pool length for both the "train" and "val" constructions,
+                # so the two are exact complements (disjoint, reproducible).
+                rng = np.random.default_rng(self.LOSO_MONITOR_SEED)
+                perm = rng.permutation(len(cls_files))
+                n_val = max(1, int(round(self.LOSO_MONITOR_FRAC * len(cls_files))))
+                val_idx = set(perm[:n_val].tolist())
+                if split == "val":
+                    cls_files = [f for i, f in enumerate(cls_files) if i in val_idx]
+                else:
+                    cls_files = [f for i, f in enumerate(cls_files) if i not in val_idx]
+
+            for f in cls_files:
+                self.items.append((f, label))
 
         self.class_counts = np.zeros(NUM_CLASSES, dtype=np.int64)
         for _, label in self.items:
             self.class_counts[label] += 1
-        print(f"  [{split}] {len(self.items)} samples: "
+        tag = split if held_out_seq is None else f"{split}/heldout={held_out_seq}"
+        print(f"  [{tag}] {len(self.items)} samples: "
               f"{dict(zip(CLASS_LABELS, self.class_counts.tolist()))}")
 
     def __len__(self) -> int:
@@ -660,6 +707,12 @@ def main():
                              "(avoids overwriting existing runs)")
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed for reproducibility")
+    parser.add_argument("--held-out-seq", type=str, default=None,
+                        help="Stage B only: leave-one-sequence-out mode. Excludes "
+                             "this sequence (e.g. '08') from training entirely so "
+                             "it can serve as a held-out detection test set. A ~5%% "
+                             "monitoring val slice is carved from the remaining "
+                             "sequences; checkpoint selection is last-epoch.")
     args = parser.parse_args()
 
     if args.eval_only and args.resume is None:
@@ -699,9 +752,17 @@ def main():
     print(f"Stage: {'B (real LiDAR fine-tuning)' if is_stage_b else 'A (synthetic ShapeNet)'}")
 
     # Datasets
+    if args.held_out_seq is not None and not is_stage_b:
+        parser.error("--held-out-seq requires --stage-b")
+
     if is_stage_b:
-        train_ds = StageBDataset(config["stage_b_root"], "train", config)
-        val_ds = StageBDataset(config["stage_b_root"], "val", config)
+        if args.held_out_seq is not None:
+            print(f"Stage B: leave-one-sequence-out, holding out seq "
+                  f"{args.held_out_seq} (excluded from training + selection)")
+        train_ds = StageBDataset(config["stage_b_root"], "train", config,
+                                 held_out_seq=args.held_out_seq)
+        val_ds = StageBDataset(config["stage_b_root"], "val", config,
+                               held_out_seq=args.held_out_seq)
     else:
         train_ds = ShapeNetClassificationDataset(config, split="train")
         val_ds = ShapeNetClassificationDataset(config, split="val")

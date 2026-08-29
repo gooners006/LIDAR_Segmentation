@@ -1,0 +1,130 @@
+% =====================================================================
+% Master's Thesis -- master document
+% Wires the twelve standalone chapter fragments (sec_0 .. sec_9) into one
+% FPT-template report-class PDF. Build from THIS directory:
+%     latexmk -pdf main.tex
+% (or: pdflatex main; bibtex main; pdflatex main; pdflatex main)
+%
+% Each sec_*.tex is a body FRAGMENT (no preamble, no \begin/\end{document});
+% top-level headings were promoted \section->\chapter, \subsection->\section,
+% \subsubsection->\subsection at assembly. Cross-chapter references are real
+% \ref{} into the shared label namespace this file creates.
+% =====================================================================
+\documentclass[a4paper,12pt]{report}
+
+% --- Base packages (union of every fragment + the FPT template) ---
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{siunitx}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{url}
+\usepackage[super]{nth}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{fancyhdr}
+
+% --- Chapter 3 pipeline diagram ---
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,calc,shapes.geometric}
+
+% --- Custom siunitx units used in the timing tables/figures (Ch 3-4) ---
+% (\frame is otherwise the LaTeX kernel box-frame command, not a unit.)
+\DeclareSIUnit{\frame}{frame}
+\DeclareSIUnit{\fps}{fps}
+
+% --- Figures live under the repo's output/ tree (gitignored, regenerable) ---
+% Path is relative to this master in docs/writing/thesis/.
+\graphicspath{{../../../output/figures/}{../../../output/experiments/}}
+
+% --- Header / footer (FPT template style) ---
+\setlength{\headheight}{15pt}
+\addtolength{\topmargin}{-3pt}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{FPT School of Business \& Technology}
+\cfoot{\thepage}
+\rfoot{MSE13205}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0.5pt}
+
+\begin{document}
+\sloppy
+
+% --- Title page (FPT template style) ---
+\begin{titlepage}
+  \begin{center}
+    \includegraphics[scale=0.3]{../report-template/Images/fpt.png}
+  \end{center}
+
+  \center
+  \vspace{0.5in}
+  \textbf{\large MASTER'S THESIS}
+  \vspace{0.5in}
+
+  \noindent\makebox[\linewidth]{\rule{\linewidth}{1.2pt}}
+  \textbf{\large A Donor-Frame Coverage Metric for Reference-Free Evaluation of
+    Occluded-Vehicle Completion in Automotive LiDAR}
+  \noindent\makebox[\linewidth]{\rule{\linewidth}{1.2pt}}
+
+  \vspace{0.5in}
+
+  \begin{minipage}{0.60\textwidth}
+    \begin{flushleft}
+      \textit{Student:} \\
+      \vspace{0.1in}
+      \begin{tabular}{|l|l|}
+        \hline
+        Ngo Vi Viet Anh & MSE13205 \\ \hline
+      \end{tabular}
+    \end{flushleft}
+  \end{minipage}
+  \begin{minipage}{0.35\textwidth}
+    \begin{flushright}
+      \textit{Advisor:} \\
+      Dr. Doan Nhat Quang \\
+    \end{flushright}
+  \end{minipage}
+
+  \vspace{2in}
+  \textbf{\large Master's Thesis} \\
+  \today
+\end{titlepage}
+
+% --- Front matter (roman page numbers) ---
+\pagenumbering{roman}
+
+\input{sec_0_abstract}
+
+\tableofcontents
+\listoffigures
+\listoftables
+\clearpage
+
+% --- Body (arabic page numbers) ---
+\pagenumbering{arabic}
+
+\input{sec_1_introduction}
+\input{sec_2_background}
+\input{sec_3_detection_pipeline}
+\input{sec_4_1_evaluation_protocol}   % opens Chapter 4
+\input{sec_4_results}                 % folds under Chapter 4
+\input{sec_5_recall_bottleneck}
+\input{sec_6_completion_method}
+\input{sec_7_2_donor_metric}          % opens Chapter 7
+\input{sec_7_results}                 % folds under Chapter 7
+\input{sec_8_discussion}
+\input{sec_9_conclusion}
+
+% --- Bibliography (single, master-owned) ---
+\bibliographystyle{IEEEtran}
+\bibliography{../../references}
+
+\end{document}

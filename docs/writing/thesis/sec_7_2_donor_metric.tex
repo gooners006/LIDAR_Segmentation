@@ -9,24 +9,10 @@
 % metric-design lesson, not an erratum (claim C7). Numbers traceable to
 % docs/completion/donor_metric.md and Findings #26/#32/#37.
 %
-\documentclass[a4paper,12pt]{article}
-\usepackage[english]{babel}
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{lmodern}
-\usepackage{amsmath,amssymb}
-\usepackage{booktabs}
-\usepackage{float}
-\usepackage{siunitx}
-\usepackage{microtype}
-\usepackage[margin=2.5cm]{geometry}
-
-\begin{document}
-
-\section{Completion Evaluation}
+\chapter{Completion Evaluation}
 \label{ch:completion-eval}
 
-\subsection{Why Chamfer distance is invalid on real cars}
+\section{Why Chamfer distance is invalid on real cars}
 \label{sec:chamfer-invalid}
 
 The natural way to score a completed car is Chamfer distance (CD) against a
@@ -34,7 +20,7 @@ ground-truth surface. Real LiDAR offers no such surface: a car is seen once, fro
 one side. The obvious substitute is a \emph{pseudo}-ground-truth cloud --- the
 labelled points of one static car accumulated across every ego frame that
 observed it. This subsection explains why that substitute is not a valid target,
-and hence why the completion work of Chapter~6 needed a different metric
+and hence why the completion work of Chapter~\ref{ch:completion-method} needed a different metric
 altogether.
 
 The trouble is that the accumulation is itself one-sided. A parked car is
@@ -59,11 +45,11 @@ we scored, the raw partial had the lowest pseudo-ground-truth CD of the raw /
 mirrored / completed clouds in every case (renders in
 \texttt{output/experiments/verify\_pcn\_step2/}). Its consequence is that when the geometry work
 began, completion had no valid real-data metric at all --- the in-distribution
-synthetic CD of Chapter~6 (\SI{0.16}{\meter}) measures the network on synthetic
+synthetic CD of Chapter~\ref{ch:completion-method} (\SI{0.16}{\meter}) measures the network on synthetic
 cars but says nothing about a real cluster. The next subsection turns the very
 one-sidedness that breaks Chamfer into the basis of a metric that works.
 
-\subsection{A Leakage-Free Metric for Real-Data Completion}
+\section{A Leakage-Free Metric for Real-Data Completion}
 \label{sec:donor-metric}
 
 The preceding subsection established that completion had no valid real-data
@@ -71,9 +57,9 @@ metric: Chamfer against a one-sided pseudo-ground-truth rewards under-completion
 and ranks the raw partial first. This subsection defines the metric that replaces
 it and shows that it passes an explicit validation battery. The metric is defined
 on static cars by construction; moving cars are treated separately in
-Section~7.5.
+Section~\ref{sec:results-movers}.
 
-\subsubsection{The donor-frame occluded-side principle}
+\subsection{The donor-frame occluded-side principle}
 \label{sec:donor-principle}
 
 The idea turns the one-sidedness of LiDAR from a problem into the measurement.
@@ -93,7 +79,7 @@ frame did not. Two properties make this a fair test of completion:
     the same way the box evaluation does.
 \end{itemize}
 
-\subsubsection{Definition}
+\subsection{Definition}
 \label{sec:donor-definition}
 
 For each (frame, instance) true-positive pair on the well-observed static cars,
@@ -143,7 +129,7 @@ $\tau$. Because the frames of one parked car are autocorrelated, we reduce each
 car to its per-car median and test across cars with the Wilcoxon signed-rank
 test --- the same paired, per-car design used for the box evaluation.
 
-\subsubsection{Validation}
+\subsection{Validation}
 \label{sec:donor-validation}
 
 A metric that will carry the completion claims must itself be shown to behave.
@@ -155,7 +141,7 @@ Before using it we required it to pass four pre-stated checks
   \caption{The four validation checks for the donor metric, and the observed
     outcome (seq~08, per-car medians, $n=39$; the metric's original acceptance
     run, Finding~\#32, on the production path as it stood \emph{before} the
-    Chapter~6 length prior). Coverage figures are the car-median
+    Chapter~\ref{ch:completion-method} length prior). Coverage figures are the car-median
     \texttt{cov@0.1}; the guard figures are car-median out-of-box fractions.}
   \label{tab:donor-gate}
   \begin{tabular}{p{0.44\linewidth} p{0.48\linewidth}}
@@ -185,12 +171,12 @@ mirrored baseline in checks~(a) and~(d) is deliberately adversarial --- it is a
 real way to add surface with zero learned parameters, so completion earns its
 place only by beating it.
 
-\subsubsection{Reading the hallucination guard per band}
+\subsection{Reading the hallucination guard per band}
 \label{sec:donor-guard-lesson}
 
 The guard as first designed --- check~(d) above --- was a single median pooled
 over all cars, and that pooling hid a real failure mode. When we later evaluated
-a geometry change (the fixed length prior of Chapter~6) with this guard ---
+a geometry change (the fixed length prior of Chapter~\ref{ch:completion-method}) with this guard ---
 now re-run on the promoted configuration, whose well-observed static set is
 $n=40$ ($8+27+5$ across the compact/normal/long bands; Finding~\#37) --- the
 pooled out-of-box fraction stayed comfortably low (\num{0.0020}) and the change
@@ -235,5 +221,3 @@ direction of the geometry change it was auditing still holds; what changed is
 that the guard now reads at the resolution where the failure lives. Any future
 change to the completion geometry is evaluated per band under this refined
 guard.
-
-\end{document}

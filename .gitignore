@@ -14,12 +14,17 @@ scratchpad/*
 *.bbl
 *.blg
 *.log
+*.lof
+*.lot
 *.out
 *.toc
 *.synctex.gz
 *.fdb_latexmk
 *.fls
 *.pdf
+
+# Peer reference deck (not our work; kept locally only)
+docs/LVTN.pptx
 
 # Downloaded templates
 docs/writing/ICTA_Word+Template/

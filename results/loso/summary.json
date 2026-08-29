@@ -1,0 +1,176 @@
+{
+  "n_folds": 11,
+  "folds": [
+    {
+      "seq": "00",
+      "frames": 4541,
+      "tp": 42763,
+      "fp": 4079,
+      "fn": 13427,
+      "precision": 0.9129200290337731,
+      "recall": 0.7610428901939847,
+      "f1": 0.8300916220203433,
+      "mean_iou": 0.932267952670402,
+      "classifier_ckpt": "checkpoints\\stage_b_fold00_last.pth"
+    },
+    {
+      "seq": "01",
+      "frames": 1101,
+      "tp": 539,
+      "fp": 28,
+      "fn": 1067,
+      "precision": 0.9506172839506173,
+      "recall": 0.3356164383561644,
+      "f1": 0.4960883571099862,
+      "mean_iou": 0.9527578572877289,
+      "classifier_ckpt": "checkpoints\\stage_b_fold01_last.pth"
+    },
+    {
+      "seq": "02",
+      "frames": 4661,
+      "tp": 10919,
+      "fp": 2857,
+      "fn": 4685,
+      "precision": 0.7926103368176539,
+      "recall": 0.6997564726993079,
+      "f1": 0.7432947583390062,
+      "mean_iou": 0.9034405278239596,
+      "classifier_ckpt": "checkpoints\\stage_b_fold02_last.pth"
+    },
+    {
+      "seq": "03",
+      "frames": 801,
+      "tp": 1527,
+      "fp": 556,
+      "fn": 926,
+      "precision": 0.7330772923667787,
+      "recall": 0.622503057480636,
+      "f1": 0.6732804232804233,
+      "mean_iou": 0.9038911365894765,
+      "classifier_ckpt": "checkpoints\\stage_b_fold03_last.pth"
+    },
+    {
+      "seq": "04",
+      "frames": 271,
+      "tp": 529,
+      "fp": 135,
+      "fn": 527,
+      "precision": 0.7966867469879518,
+      "recall": 0.5009469696969697,
+      "f1": 0.6151162790697675,
+      "mean_iou": 0.8353689020003056,
+      "classifier_ckpt": "checkpoints\\stage_b_fold04_last.pth"
+    },
+    {
+      "seq": "05",
+      "frames": 2761,
+      "tp": 10671,
+      "fp": 1723,
+      "fn": 3927,
+      "precision": 0.8609811198967242,
+      "recall": 0.730990546650226,
+      "f1": 0.7906787196206284,
+      "mean_iou": 0.9098146975487285,
+      "classifier_ckpt": "checkpoints\\stage_b_fold05_last.pth"
+    },
+    {
+      "seq": "06",
+      "frames": 1101,
+      "tp": 6374,
+      "fp": 1031,
+      "fn": 3637,
+      "precision": 0.8607697501688049,
+      "recall": 0.6366996304065528,
+      "f1": 0.7319706017455213,
+      "mean_iou": 0.9061627442168786,
+      "classifier_ckpt": "checkpoints\\stage_b_fold06_last.pth"
+    },
+    {
+      "seq": "07",
+      "frames": 1101,
+      "tp": 11131,
+      "fp": 1162,
+      "fn": 4137,
+      "precision": 0.9054746603758237,
+      "recall": 0.729041131778884,
+      "f1": 0.8077355683756032,
+      "mean_iou": 0.9293814142838394,
+      "classifier_ckpt": "checkpoints\\stage_b_fold07_last.pth"
+    },
+    {
+      "seq": "08",
+      "frames": 4071,
+      "tp": 25733,
+      "fp": 3477,
+      "fn": 9189,
+      "precision": 0.8809654228004108,
+      "recall": 0.7368707405074165,
+      "f1": 0.8025010914987837,
+      "mean_iou": 0.9123003442713571,
+      "classifier_ckpt": "checkpoints/stage_b_fold08_last.pth"
+    },
+    {
+      "seq": "09",
+      "frames": 1591,
+      "tp": 5141,
+      "fp": 1097,
+      "fn": 2813,
+      "precision": 0.8241423533183713,
+      "recall": 0.6463414634146342,
+      "f1": 0.7244926719278467,
+      "mean_iou": 0.910826382850783,
+      "classifier_ckpt": "checkpoints\\stage_b_fold09_last.pth"
+    },
+    {
+      "seq": "10",
+      "frames": 1201,
+      "tp": 1832,
+      "fp": 694,
+      "fn": 1444,
+      "precision": 0.7252573238321457,
+      "recall": 0.5592185592185592,
+      "f1": 0.6315063771113409,
+      "mean_iou": 0.8710851874233032,
+      "classifier_ckpt": "checkpoints\\stage_b_fold10_last.pth"
+    }
+  ],
+  "pooled_micro": {
+    "tp": 117159,
+    "fp": 16839,
+    "fn": 45779,
+    "precision": 0.8743339452827654,
+    "recall": 0.7190403711841313,
+    "f1": 0.7891195409111728,
+    "mean_iou": 0.9188453275588387,
+    "n_matched_ious": 117159
+  },
+  "pooled_micro_excl_seq00": {
+    "tp": 74396,
+    "fp": 12760,
+    "fn": 32352,
+    "precision": 0.8535958511175363,
+    "recall": 0.6969310900438416,
+    "f1": 0.7673487911543858,
+    "mean_iou": 0.9111299703132244,
+    "n_matched_ious": 74396,
+    "frames": 18660
+  },
+  "macro": {
+    "precision": {
+      "mean": 0.8403183926862777,
+      "std": 0.06964893533336981
+    },
+    "recall": {
+      "mean": 0.6326389000366668,
+      "std": 0.1213880723796868
+    },
+    "f1": {
+      "mean": 0.7133414972817501,
+      "std": 0.09676066937270367
+    },
+    "mean_iou": {
+      "mean": 0.9061179224515239,
+      "std": 0.029724800150466874
+    }
+  }
+}

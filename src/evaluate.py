@@ -10,6 +10,7 @@ minimum length and class-consistency requirements are accepted.
 
 import argparse
 import glob
+import json
 import os
 
 import numpy as np
@@ -391,6 +392,19 @@ if __name__ == "__main__":
         "--adaptive-hdbscan", action="store_true",
         help="Enable distance-adaptive HDBSCAN min_cluster_size",
     )
+    parser.add_argument(
+        "--json-out", type=str, default=None,
+        help="Write final aggregate metrics as JSON to this path (for LOSO "
+             "cross-validation aggregation). Does not change stdout output.",
+    )
+    parser.add_argument(
+        "--frame-fraction", type=float, default=None,
+        help="Evaluate only a centered CONTIGUOUS window covering this fraction "
+             "of the sequence (e.g. 0.2 = middle 20%%). Frames stay consecutive "
+             "so the two-pass track filter still works -- unlike a strided "
+             "subsample, which would break centroid tracking and collapse "
+             "recall. Used to speed up LOSO cross-validation eval.",
+    )
     args = parser.parse_args()
 
     thing_classes = TARGET_MODES[args.target]
@@ -403,8 +417,14 @@ if __name__ == "__main__":
         if cls_model is not None:
             print(f"Loaded classifier from {args.classifier_ckpt}")
         else:
-            print(f"Classifier not found: {args.classifier_ckpt}. "
-                  "Running without classifier.")
+            # Hard error rather than silently scoring geometric-only: a typo'd
+            # checkpoint path (e.g. a wrong LOSO fold) would otherwise produce a
+            # bogus number attributed to the classifier pipeline. If geometric-
+            # only is genuinely intended, pass --no-learned-classifier.
+            parser.error(
+                f"Classifier checkpoint not found: {args.classifier_ckpt}. "
+                "Refusing to run (would silently fall back to geometric-only). "
+                "Pass --no-learned-classifier to evaluate without a classifier.")
     else:
         print("Classifier disabled (geometric filters only).")
 
@@ -422,6 +442,24 @@ if __name__ == "__main__":
             f"{len(label_paths)} labels")
 
     num_frames = len(bin_paths)
+
+    # Optional centered contiguous window (LOSO fast eval). Frames must stay
+    # consecutive so the centroid tracker in the two-pass filter keeps linking
+    # across frames; a strided/sparse subsample would break tracking entirely.
+    window_start = 0
+    if args.frame_fraction is not None:
+        if not (0.0 < args.frame_fraction <= 1.0):
+            parser.error("--frame-fraction must be in (0, 1]")
+        if args.frame_fraction < 1.0:
+            W = max(1, int(round(args.frame_fraction * num_frames)))
+            window_start = (num_frames - W) // 2
+            bin_paths = bin_paths[window_start:window_start + W]
+            label_paths = label_paths[window_start:window_start + W]
+            num_frames = len(bin_paths)
+            print(f"Frame-fraction {args.frame_fraction}: centered contiguous "
+                  f"window [{window_start}, {window_start + W}) -> "
+                  f"{num_frames} frames")
+
     cfg = PIPELINE_CONFIG
     if args.min_track_length is not None:
         cfg["min_track_length"] = args.min_track_length
@@ -659,3 +697,27 @@ if __name__ == "__main__":
     print(f"  Recall:    {rec:.3f}")
     print(f"  F1:        {f1:.3f}")
     print(f"  Mean IoU:  {mean_iou:.3f}")
+
+    if args.json_out is not None:
+        result = {
+            "seq": args.seq,
+            "frames": int(num_frames),
+            "tp": int(total_tp),
+            "fp": int(total_fp),
+            "fn": int(total_fn),
+            "precision": float(prec),
+            "recall": float(rec),
+            "f1": float(f1),
+            "mean_iou": float(mean_iou),
+            "ious": [float(x) for x in all_ious],
+            "classifier_ckpt": (None if args.no_learned_classifier
+                                else args.classifier_ckpt),
+            "iou_threshold": float(args.iou_threshold),
+            "target": args.target,
+            "frame_fraction": args.frame_fraction,
+            "window_start": int(window_start),
+        }
+        os.makedirs(os.path.dirname(os.path.abspath(args.json_out)), exist_ok=True)
+        with open(args.json_out, "w") as f:
+            json.dump(result, f, indent=2)
+        print(f"Wrote metrics JSON: {args.json_out}")

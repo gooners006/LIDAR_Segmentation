@@ -5,28 +5,16 @@
 % Honesty-phrasing rules applied (personal_agenda P1):
 %   - "mean IoU" always qualified as "of matched detections"
 %   - recall denominator stated explicitly (>=10 points surviving preprocessing)
-%   - seq 08 = classifier model-selection set, NOT a held-out test set
+%   - evaluation is leave-one-sequence-out (LOSO): each sequence is scored by a
+%     classifier that never saw it in training or selection; seq 08 is the reported
+%     operating point (leakage-free fold-08 confirms the shipped seq-08 numbers)
 %   - measured vs inferred evidence tiers marked in prose
 %   - every number traceable to a finding / output artifact
 %
-\documentclass[a4paper,12pt]{article}
-\usepackage[english]{babel}
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{lmodern}
-\usepackage{amsmath,amssymb}
-\usepackage{booktabs}
-\usepackage{float}
-\usepackage{siunitx}
-\usepackage{microtype}
-\usepackage[margin=2.5cm]{geometry}
-
-\begin{document}
-
-\section{Detection Evaluation}
+\chapter{Detection Evaluation}
 \label{ch:detection-eval}
 
-\subsection{Evaluation Protocol}
+\section{Evaluation Protocol}
 \label{sec:eval-protocol}
 
 Every quantitative claim about detection in this thesis is produced by a single
@@ -37,40 +25,56 @@ per table. The protocol was frozen before the write-up began; no configuration,
 checkpoint, or metric definition described below was altered to produce a
 reported number.
 
-\subsubsection{Sequences and their roles}
+\subsection{Sequences, roles, and leave-one-sequence-out cross-validation}
 \label{sec:eval-sequences}
 
-We evaluate on the labelled SemanticKITTI odometry sequences, whose per-point
-semantic and instance labels serve as ground truth. Two sequences carry the
-load, with deliberately different roles:
+We evaluate on the eleven labelled SemanticKITTI odometry sequences
+(\numrange{00}{10}), whose per-point semantic and instance labels serve as
+ground truth. The official test sequences \numrange{11}{21} carry \emph{no}
+public labels, so no ground-truth detection metric can be computed on them; this
+is a property of the dataset, not a choice, and it is why no labelled sequence
+can be reserved as a conventional held-out test set.
 
+\paragraph{Classifier evaluation is leakage-free by construction.}
+Rather than report detection on the sequence the classifier was tuned against, we
+evaluate the binary classifier under \emph{leave-one-sequence-out} (LOSO)
+cross-validation over all eleven sequences. For each held-out sequence~$K$ a
+classifier is trained on the other ten sequences and then run on the full
+sequence~$K$; the held-out sequence contributes \emph{zero} clusters to that
+fold's training data and is never used to select the checkpoint. Checkpoint
+selection is removed entirely: every fold trains for a fixed \num{15}-epoch
+budget and the last-epoch checkpoint is used (historically the best epoch was
+\num{13}/\num{15}, so last~$\approx$~best), so the held-out sequence is untouched
+during both training and model selection. Every per-sequence number in the
+per-fold table below is therefore leakage-free with respect to the classifier:
+the classifier scoring sequence~$K$ has never seen sequence~$K$. Because the
+Stage~B clusters are stored with a sequence prefix in their filenames, the folds
+are a re-partition of the existing mined data and require no re-mining.
+
+\paragraph{Two sequences carry additional, distinct roles.}
 \begin{itemize}
-  \item \textbf{Sequence 08 (headline; \num{4071} frames).} All headline
-    detection numbers are reported on the full sequence~08. We stress that
-    sequence~08 is the \emph{validation split of the binary classifier}
-    (Stage~B trained on sequences 00--07, 09--10; validated on 08). It is
-    therefore a \emph{model-selection} set, \textbf{not a held-out test set}:
-    the classifier's stopping point was chosen against it. We report on it as
-    the headline because it is the largest labelled sequence and was never used
-    for parameter tuning of the classical stages, but we do not claim it as an
-    independent test set, and we return to this structural limitation in the
-    discussion.
-  \item \textbf{Sequence 00 (tuning and reference; 100 frames).} Sequence~00 is
-    used during development as a fast, deterministic sanity baseline, and it is
-    also the held-out sequence for the \emph{completion} replication (Chapter~7),
-    where its being unseen by the completion model is what matters. For
-    detection it is a \emph{training-split} sequence (it is in the classifier's
-    Stage~B training data), so its detection recall reads optimistically and we
-    label it as a reference point, not as evidence of generalisation.
+  \item \textbf{Sequence 08 (reported operating point; \num{4071} frames).} The
+    largest labelled sequence is the operating point at which the pipeline is
+    reported in detail: the stage ablations (Section~\ref{sec:results-ablations}),
+    the recall root-cause analysis (Chapter~\ref{ch:recall-bottleneck}), the
+    IoU-threshold sensitivity below, and the completion evaluation
+    (Chapter~\ref{ch:completion-eval}) are all computed on the sequence-08 output
+    of the \emph{shipped} classifier. Sequence~08 was never used to tune the
+    classical stages. The shipped classifier was historically selected on
+    sequence~08, so its sequence-08 numbers could in principle be optimistic; the
+    LOSO fold-08 classifier (trained on \numrange{00}{07},\,\numrange{09}{10},
+    last-epoch, never selected on 08) settles this empirically below.
+  \item \textbf{Sequence 00 (completion held-out; 100 frames).} Sequence~00 is
+    the held-out sequence for the \emph{completion} replication
+    (Chapter~\ref{ch:completion-eval}), where its being unseen by the completion
+    model is what matters. Its classical pipeline parameters
+    (\texttt{PIPELINE\_CONFIG}) were historically hand-tuned on it, so the
+    seq-00 detection fold retains classical-stage familiarity even though its
+    classifier is still properly held out; we isolate that residual in the
+    aggregate below (dropping fold-00 moves pooled recall by \num{0.022}).
 \end{itemize}
 
-No labelled sequence is simultaneously held out from the classifier and usable
-as a completion test set. The official test sequences 11--21 carry \emph{no}
-public labels, so no ground-truth detection metric can be computed on them; this
-is a property of the dataset, not a choice, and it is the reason the detection
-evaluation is a validation-set evaluation rather than a test-set one.
-
-\subsubsection{Ground-truth targets and the eligibility rule}
+\subsection{Ground-truth targets and the eligibility rule}
 \label{sec:eval-targets}
 
 The pipeline is a car detector, so the evaluation counts only the two
@@ -97,15 +101,15 @@ scan (\num{2033} pooled), \textbf{14.6\% are excluded} by preprocessing.\footnot
 These are two distinct $\geq 10$-point rules: one thresholds \emph{raw} label
 points (a distinct-car count), the other thresholds points \emph{surviving
 preprocessing} (the eval denominator). They are not interchangeable.}
-Because an excluded instance can never be matched, the headline recall of
-\num{0.730} against the eligible denominator corresponds, by inference, to a
+Because an excluded instance can never be matched, the sequence-08 operating-point
+recall of \num{0.730} against the eligible denominator corresponds, by inference, to a
 recall of \emph{approximately} \num{0.54} against \emph{all} annotated cars
 (the eligible-to-annotated survival ratio on this sample is
 $\num{1737}/\num{2332}=\num{0.745}$; the ratio is a stride-20 estimate, so this
 figure is inferred, not separately measured). We report the eligible-denominator
 recall as the headline and disclose the all-annotated figure alongside it.
 
-\subsubsection{Matching and metrics}
+\subsection{Matching and metrics}
 \label{sec:eval-matching}
 
 Detections and ground-truth instances are compared at the \emph{point level}.
@@ -136,20 +140,26 @@ centroid tracker links detections across frames, and only tracks meeting a
 minimum length and class-consistency requirement are accepted. This is a
 post-hoc, offline step (it uses the whole sequence), consistent with the
 offline scope of the system; its effect is isolated as an ablation row in the
-ablation section (Section~4.3).
+ablation section (Section~\ref{sec:results-ablations}).
 
-\subsubsection{Operating point}
+\subsection{Operating point}
 \label{sec:eval-operating-point}
 
-Table~\ref{tab:headline} gives the headline operating point on the full
-sequence~08 under this protocol.
+Table~\ref{tab:headline} gives the reported operating point on the full
+sequence~08 under this protocol, produced by the shipped classifier (the one the
+completion pipeline actually runs with). This is the operating point the rest of
+this chapter and the analysis chapters decompose; the leakage-free
+cross-validation that confirms it follows in Section~\ref{sec:eval-loso}.
 
 \begin{table}[H]
   \centering
-  \caption{Headline detection results under the frozen protocol. Sequence~08 is
-    the classifier model-selection split (Section~\ref{sec:eval-sequences});
-    sequence~00 is a training-split reference. Mean IoU is the mean over matched
-    detections only.}
+  \caption{Reported detection operating point under the frozen protocol, using
+    the shipped classifier. Sequence~08 is the largest labelled sequence and was
+    never used to tune the classical stages; sequence~00 is a completion held-out
+    reference whose classifier saw seq-00 clusters in training (so its detection
+    recall reads optimistically). Mean IoU is the mean over matched detections
+    only. Section~\ref{sec:eval-loso} re-scores every sequence with a classifier
+    that never saw it.}
   \label{tab:headline}
   \setlength{\tabcolsep}{5pt}
   \begin{tabular}{lccccc}
@@ -165,10 +175,98 @@ sequence~08 under this protocol.
 The pipeline is precision-saturated and recall-limited: false positives are flat
 at roughly one per frame, while recall is set by how many eligible cars the
 clustering stage recovers as single objects. The remaining sections of this
-chapter report the ablations that decompose this operating point, and Chapter~5
+chapter report the ablations that decompose this operating point, and Chapter~\ref{ch:recall-bottleneck}
 root-causes the recall shortfall.
 
-\subsubsection{Choice of IoU threshold and its sensitivity}
+\subsection{Leave-one-sequence-out cross-validation}
+\label{sec:eval-loso}
+
+The operating point above is reported on sequence~08, which is also the sequence
+the shipped classifier was historically selected on. To show that this selection
+does not inflate the result, and to characterise the per-sequence recall spread
+that a single reporting sequence cannot, we ran the LOSO protocol of
+Section~\ref{sec:eval-sequences}: eleven folds, each training a classifier on ten
+sequences and evaluating the full held-out eleventh, so every fold's classifier
+is blind to the sequence it scores. Table~\ref{tab:loso} reports all eleven folds,
+the pooled micro-average (counts summed across folds, comparable to the single
+operating-point number), and the macro mean~$\pm$~standard deviation across folds.
+
+\begin{table}[H]
+  \centering
+  \caption{Leave-one-sequence-out cross-validation over all eleven labelled
+    sequences (full sequences, $\tau=0.3$, shipped configuration). Each fold's
+    classifier trained on the other ten sequences and was never selected on the
+    held-out one, so every row is leakage-free with respect to the classifier.
+    ``Pooled'' sums TP/FP/FN across folds; the excl.-seq00 pool isolates the
+    residual seq-00 classical-tuning familiarity (Section~\ref{sec:eval-sequences}).}
+  \label{tab:loso}
+  \setlength{\tabcolsep}{3pt}
+  \footnotesize
+  \begin{tabular}{lccccc}
+    \toprule
+    Held-out seq & Precision & Recall & $F_1$ & Mean IoU & TP / FP / FN \\
+    \midrule
+    00 (\num{4541} fr.) & 0.913 & 0.761 & 0.830 & 0.932 & \num{42763} / \num{4079} / \num{13427} \\
+    01 (\num{1101} fr.) & 0.951 & 0.336 & 0.496 & 0.953 & \num{539} / \num{28} / \num{1067} \\
+    02 (\num{4661} fr.) & 0.793 & 0.700 & 0.743 & 0.903 & \num{10919} / \num{2857} / \num{4685} \\
+    03 (\num{801} fr.)  & 0.733 & 0.623 & 0.673 & 0.904 & \num{1527} / \num{556} / \num{926} \\
+    04 (\num{271} fr.)  & 0.797 & 0.501 & 0.615 & 0.835 & \num{529} / \num{135} / \num{527} \\
+    05 (\num{2761} fr.) & 0.861 & 0.731 & 0.791 & 0.910 & \num{10671} / \num{1723} / \num{3927} \\
+    06 (\num{1101} fr.) & 0.861 & 0.637 & 0.732 & 0.906 & \num{6374} / \num{1031} / \num{3637} \\
+    07 (\num{1101} fr.) & 0.905 & 0.729 & 0.808 & 0.929 & \num{11131} / \num{1162} / \num{4137} \\
+    08 (\num{4071} fr.) & 0.881 & 0.737 & 0.803 & 0.912 & \num{25733} / \num{3477} / \num{9189} \\
+    09 (\num{1591} fr.) & 0.824 & 0.646 & 0.724 & 0.911 & \num{5141} / \num{1097} / \num{2813} \\
+    10 (\num{1201} fr.) & 0.725 & 0.559 & 0.632 & 0.871 & \num{1832} / \num{694} / \num{1444} \\
+    \midrule
+    \textbf{Pooled (all 11)} & \textbf{0.874} & \textbf{0.719} & \textbf{0.789} & \textbf{0.919} & \num{117159} / \num{16839} / \num{45779} \\
+    Pooled (excl.\ seq~00)   & 0.854 & 0.697 & 0.767 & 0.911 & \num{74396} / \num{12760} / \num{32352} \\
+    Macro mean $\pm$ std     & $0.840{\pm}0.070$ & $0.633{\pm}0.121$ & $0.713{\pm}0.097$ & $0.906{\pm}0.030$ & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Three things follow. First, \textbf{model selection did not inflate the reported
+recall}. The leakage-free fold-08 classifier reaches recall \num{0.737} against
+the sequence-08 operating point's \num{0.730} --- if anything marginally higher,
+not lower --- so the recall headline is not a product of having selected the
+classifier on the reporting sequence. The model-selection optimism that does
+exist is confined to precision and is small: fold-08 precision is \num{0.881}
+versus the shipped \num{0.905} (an extra \num{801} false positives across
+\num{4071} frames), exactly the two-point, precision-only exposure the stage
+decomposition predicts (Section~\ref{sec:disc-eval-validity}). The two
+sequence-08 rows are not two separate experiments but \emph{one classifier under
+two checkpoint-selection rules}: the shipped model and the fold-08 model share the
+same architecture, the same ten training sequences (\numrange{00}{07},
+\numrange{09}{10}), and the same from-scratch \num{15}-epoch regime, and differ
+only in which epoch is frozen --- the shipped model takes the epoch that scored
+best on the sequence-08 validation set, the fold-08 model takes the last epoch and
+never inspects sequence~08 at all. The \num{0.730}~$\rightarrow$~\num{0.737}
+(recall) and \num{0.905}~$\rightarrow$~\num{0.881} (precision) deltas therefore
+isolate the effect of that selection: selecting on sequence~08 bought about two
+precision points and no recall. The isolation is not perfect --- because
+sequence~08 cannot serve as the fold's loss-monitoring split, the fold-08 model
+trains on \SI{95}{\percent} of the shipped model's clusters (a \num{5}-percent
+monitoring slice is set aside) --- but that confound removes training data from
+the leakage-free model, which would depress its recall, not inflate it, so it only
+strengthens the ``recall was not inflated'' reading. Second, the
+\textbf{pooled cross-validated operating point} over all eleven sequences ---
+precision \num{0.874}, recall \num{0.719}, $F_1$~\num{0.789}, mean IoU
+\num{0.919} --- sits within roughly one point of the sequence-08 operating point
+on every metric, so the reported numbers are representative of the labelled set
+and not specific to sequence~08. Third, the \textbf{per-sequence spread} is now
+explicit: recall ranges from \num{0.336} on sequence~01 (a sparse highway drive)
+to \num{0.761} on sequence~00 (dense urban), with a macro mean of
+\num{0.633}~$\pm$~\num{0.121}; precision is far steadier
+(\num{0.840}~$\pm$~\num{0.070}). The gap between the pooled recall (\num{0.719})
+and the macro mean (\num{0.633}) is driven by the smallest, sparsest sequences
+(seq~01 and seq~04, the latter only \num{271} frames), which the count-weighted
+pool down-weights and the unweighted mean does not; both figures are reported so
+neither hides the spread. Finally, the residual seq-00 classical-tuning exposure
+is bounded: dropping the seq-00 fold lowers pooled recall only from \num{0.719}
+to \num{0.697} (a \num{0.022} delta), so the historical seq-00 pipeline tuning
+does not drive the aggregate.
+
+\subsection{Choice of IoU threshold and its sensitivity}
 \label{sec:eval-iou-threshold}
 
 All headline numbers use $\tau = 0.3$. A point-level threshold of 0.3 is
@@ -208,5 +306,3 @@ quality is stable under the choice of threshold and does not depend on the lenie
 value. We had
 pre-registered that a threshold-sensitive result would be \emph{reported as a
 finding rather than tuned away}; it was not sensitive.
-
-\end{document}

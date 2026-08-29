@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-27
+Last updated: 2026-08-29
 
 ## RESEARCH FREEZE — declared 2026-08-21 (write-up phase)
 
@@ -33,6 +33,53 @@ cars (14.6% of ≥10-raw-point cars) excluded by the ≥10-surviving-points
 eligibility rule → implied recall against all annotated cars ≈0.54. **All
 mandatory experimental items (B1/B2/B6) now closed;** B3 (literature table)/B4
 (distance recall, optional)/B5 (pipeline diagram) are writing/figure work.
+
+**LOSO cross-validation — DONE 2026-08-29 (Finding #51, `results/loso/`).**
+Answers a reviewer "validation-as-test" critique (seq 08 = classifier
+model-selection split *and* headline). Leave-one-sequence-out over all 11 labelled
+sequences: each fold trains on the other 10 (last-epoch, no per-fold selection) and
+evaluates the full held-out sequence with a classifier blind to it. Result:
+**leakage was precision-only and ~2 pts** — leakage-free fold-08 R=0.737 vs shipped
+0.730 (recall not inflated), P=0.881 vs 0.905. Pooled over 11: **P 0.874 / R 0.719 /
+F1 0.789** (within ~1 pt of the seq-08 operating point); per-sequence recall spread
+0.336 (seq 01) → 0.761 (seq 00), macro 0.633±0.121. Residual seq-00 classical-tuning
+bounded (drop-fold-00 pooled R 0.719→0.697). Freeze respected: shipped
+`stage_b_scratch_best.pth` + `PIPELINE_CONFIG` untouched; per-fold classifiers are
+separate artifacts (`checkpoints/stage_b_fold*`). New tooling only:
+`--held-out-seq` (train_classifier), `--json-out`/missing-ckpt guard (evaluate),
+`scripts/run_loso.ps1` + `scripts/aggregate_loso.py`. **Thesis edits landed**: sec_4_1
+(new §"Leave-one-sequence-out cross-validation" + Tab 4.x, reframed §4.1.1 + operating-
+point caption), sec_8 ("validation-as-test" → "cross-validated, precision-only
+exposure" + breadth caveat resolved), sec_0/sec_1 one-line mentions; build clean
+(main.tex, TeX Live 2026, no undefined refs). Seq-08 stays the reported operating
+point the ablation/root-cause/completion chapters decompose (LOSO did not re-run those
+per fold); it is added as the validity + breadth layer, not a headline swap. Downstream
+numbers in Ch 2/4-results/5/9 unchanged (zero ripple). Reconciliation added on request:
+the two seq-08 rows are ONE model under two checkpoint-selection rules (same 10 training
+seqs, same 15-epoch from-scratch regime; shipped = best-on-seq08-val epoch 14, fold-08 =
+last epoch; `399316 = 420333 × 0.95`), so the deltas isolate the selection effect.
+
+**Three external-LLM review rounds processed 2026-08-29 (NOT advisor; user asked to
+push back).** All prose-only, nothing frozen touched; `main.tex` rebuilds clean each
+round (exit 0, zero undefined refs; 76→79→80 pp).
+- **R1 (2 edits):** #1 23% length-fallback defense — the 0.725→0.771 BEV-IoU gain is
+  measured on shipped output *including* the 119/518 fallback tracks, so the cost is
+  already inside the headline (§8); #3 objectness-ceiling deliberate-trade justification
+  (annotation-free/interpretable premise; ceiling = measured price) (§8). Pushed back #4
+  (amodal GT already 3-way defended) + #5 (empty long-band = correct "partially holds").
+- **R2 (3 edits):** #1 mover axis-aligned bias → 57.9% a stronger lower bound (§8,
+  hedged); #2 **seq-01 highway ODD limit** new paragraph (dense-scene ODD; mostly-intrinsic
+  sparsity + partly urban-tuned params; conservative-miss P 0.951) (§8); #3 Python-HDBSCAN
+  ~185 ms = implementation floor, named C++/GPU HDBSCAN port but **pushed back on cuML
+  DBSCAN** (contradicts Finding #43) (§9.3).
+- **R3 (no edits, all pushed back):** #1 volume-gate/fragmentation premise architecturally
+  wrong (completion is downstream amodal fill, not fragment reassembly) + already bounded
+  by geometric-only ablation (#47: all gates off → R 0.775, P 0.149); #2 HDL-64E is
+  in-scope (KITTI *is* HDL-64E) + already disclosed (§8/§8.6/§9.3); #3 0.25 m ground-cut
+  shift residual already absorbed in shipped BEV IoU 0.771.
+
+Committed + pushed 2026-08-29 (this batch also lands the prior uncommitted 2026-08-28
+assembly). `main.lof`/`main.lot` added to `.gitignore`; `docs/LVTN.pptx` left untracked.
 
 **Thesis writing (T14) — STARTED 2026-08-21 (Protocol milestone).** §4.1
 (evaluation protocol) and §7.2 (donor metric) first-drafted as compilable LaTeX
@@ -367,7 +414,28 @@ double-"rather than" in the closer; substance/numbers unchanged, rebuilds clean)
 NOT advisor-reviewed. **All prose (Ch 1–9 + abstract) now first-drafted; remaining: reference
 pass + template assembly + advisor review + Phase 8 defense prep.**
 
-**NEXT ACTION — Master/template assembly + reference pass (PLANNED 2026-08-27, not started).**
+**Master/template assembly + reference pass — DONE 2026-08-28.** The 12
+`docs/writing/thesis/sec_*.tex` fragments were transformed in place (preamble +
+`\begin/\end{document}` stripped; top `\section`→`\chapter`, `\subsection`→`\section`,
+`\subsubsection`→`\subsection`; per-file `\graphicspath` dropped; sec_1/sec_2 per-file
+`\bibliography` stripped; sec_4_results + sec_7_results dropped their duplicate
+`\section`/`ch:*-results` at the fold) and wired into a new master
+`docs/writing/thesis/main.tex` (`report` class, union preamble incl. tikz +
+`\DeclareSIUnit{\frame}`/`{\fps}` + `nth`, FPT title-page/`fancyhdr` style, roman
+front matter → arabic body, single IEEEtran bibliography). All hand-typed cross-refs
+("Chapter~5", "Table~4.1", "Figure~3.1", "Section~7.6", plural "Chapters~6 and~7")
+converted to `\ref`. **Build verified** (`latexmk -pdf main.tex`, TeX Live 2026):
+exit 0, `main.pdf` 76 pp; **zero undefined refs, zero undefined citations, zero
+multiply-defined labels, no rerun**; folds correct (Ch 4 = §4.1 protocol…§4.5 runtime;
+Ch 7 = §7.2 donor…§7.6 held-out); converted refs print right numbers (tab:headline=4.1,
+fig:pipeline=3.1, sec:results-heldout=7.6); 2 overfull hboxes total, both ≤20pt (no new
+>20pt); all figures embedded. The 12 fragments no longer compile standalone (accepted;
+Step-0 checkpoint `8c0c637` is the safety net). Stale MERGE/NUMBERING comment headers
+left in the fragments (harmless — comments; a few show `\ref` inside comments from the
+global ref-conversion pass). Uncommitted. **Remaining Phase 7: advisor review; then
+Phase 8 defense prep.**
+
+**Superseded plan — Master/template assembly + reference pass (PLANNED 2026-08-27).**
 Full execution plan: `~/.claude/plans/reference-pass-master-template-snug-lampson.md` (design
 decisions locked; exploration done; no files edited yet — the 12 chapter files are still
 standalone drafts). Wire the 12 `docs/writing/thesis/sec_*.tex` files into one master
@@ -387,10 +455,12 @@ per-file `\bibliography`, hoist one to master); Ch 4 = `sec_4_1` + `sec_4_result
 `sec_7_2_donor_metric` + `sec_7_results`, each dropping the results-half's duplicate
 `\section`/`ch:*-results` label at the fold; union preamble must add tikz (Ch 3 diagram),
 `\DeclareSIUnit{\frame}`/`{\fps}`, `nth`. Reuse the FPT title-page/`fancyhdr` style from
-`report-template/main.tex` (do NOT edit that group-proposal file). **Step 0 = checkpoint
-commit first** (abstract + Ch 2/8 edits currently uncommitted; the fragment edits are
-in-place). Verify: `latexmk -pdf main.tex` → exit 0, zero undefined refs/citations, zero
-multiply-defined labels, correct numbers at the two folds, no new >20 pt overfulls.
+`report-template/main.tex` (do NOT edit that group-proposal file). **Step 0 (checkpoint
+commit) DONE 2026-08-28** — working tree committed (`8c0c637`, pushed to origin/main;
+abstract + Ch 2/8 edits already committed in prior sessions); the 12 fragments are still
+untransformed standalone drafts. **Resume at Step 1** (create master `main.tex`). Verify:
+`latexmk -pdf main.tex` → exit 0, zero undefined refs/citations, zero multiply-defined
+labels, correct numbers at the two folds, no new >20 pt overfulls.
 
 **✅ RESOLVED 2026-08-26 — Ch 2 Tab 2.1 numbers PRIMARY-SOURCE verified; zero errors.**
 The parked verification was restarted and completed against each paper's own results

@@ -6,7 +6,7 @@
 % MERGE/NUMBERING NOTE: this file opens with \section{The Recall Bottleneck} for
 % standalone compilation and numbering, but at final assembly the assembler
 % promotes it to a chapter (Chapter 5). Forward/back references to sibling chapters
-% and their tables use typed numerals ("Chapter~4", "Section~4.3", "Table~4.1")
+% and their tables use typed numerals ("Chapter~\ref{ch:detection-eval}", "Section~\ref{sec:results-ablations}", "Table~4.1")
 % because the chapter files do not share a label namespace when built separately;
 % Chapter-4 sub-tables are referenced by section + Finding number rather than by
 % hard-coded table number, to stay robust to final renumbering.
@@ -22,27 +22,10 @@
 %   - every number traces to a finding / session log artifact (cited Finding~\#NN /
 %     session_history.md)
 %
-\documentclass[a4paper,12pt]{article}
-\usepackage[english]{babel}
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{lmodern}
-\usepackage{amsmath,amssymb}
-\usepackage{booktabs}
-\usepackage{float}
-\usepackage{siunitx}
-\usepackage{microtype}
-\usepackage[margin=2.5cm]{geometry}
-\usepackage{graphicx}
-\usepackage{multirow}
-\graphicspath{{../../../output/figures/}{../../../output/experiments/}}
-
-\begin{document}
-
-\section{The Recall Bottleneck}
+\chapter{The Recall Bottleneck}
 \label{ch:recall-bottleneck}
 
-Chapter~4 established two facts about the headline operating point: the pipeline is
+Chapter~\ref{ch:detection-eval} established two facts about the headline operating point: the pipeline is
 precision-saturated (false positives are low and flat, about \num{0.7} per frame),
 and it is recall-limited, missing roughly one car in four
 ($R=\num{0.730}$ on sequence~08). This chapter explains \emph{why} the recall is
@@ -55,15 +38,15 @@ coarsening the clustering resolution --- which forces a correction of an earlier
 overstated ``hard ceiling'' claim (Section~\ref{sec:resolution-fix}). The negative
 results are reported as findings, not apologised for: mapping which repairs fail,
 and why, is itself a contribution, and it is what justifies the residual limitation
-carried to Chapter~8. Unless stated otherwise, the recall denominator throughout is
-the one defined in Section~4.1 --- ground-truth car instances with at least
+carried to Chapter~\ref{ch:discussion}. Unless stated otherwise, the recall denominator throughout is
+the one defined in Section~\ref{sec:eval-protocol} --- ground-truth car instances with at least
 \num{10} points surviving preprocessing.
 
-\subsection{The shortfall is a clustering failure, not a classifier failure}
+\section{The shortfall is a clustering failure, not a classifier failure}
 \label{sec:recall-diagnosis}
 
 The recall ceiling is upstream of the learned classifier. The stage decomposition
-of Section~4.3 (Findings~\#47/\#49) makes this direct: geometric clustering with the
+of Section~\ref{sec:results-ablations} (Findings~\#47/\#49) makes this direct: geometric clustering with the
 size/shape filters but \emph{no} learned classifier and \emph{no} track filter
 already reaches recall \num{0.775}, which is \emph{higher} than the full pipeline's
 \num{0.730}. Every learned stage that follows can only hold or reduce that recall:
@@ -99,7 +82,7 @@ surviving cluster, so it establishes that the rejections are dominated by small
 fragments, not that every one belongs to an otherwise-detected car. Either way the
 diagnosis points one stage further upstream, at the clustering itself.
 
-\subsection{Root cause: HDBSCAN splits large, close cars}
+\section{Root cause: HDBSCAN splits large, close cars}
 \label{sec:split-analysis}
 
 To quantify how clustering caps recall we measured, for every eligible ground-truth
@@ -152,7 +135,7 @@ cars are largest and nearest}: the split rate falls monotonically with range ---
 HDBSCAN finds internal density variations within that dense return --- the roof line
 against the body, the near side against the far side --- and cuts the car along
 them. This is the mechanism behind the counter-intuitive near-range recall dip
-reported in Section~4.4 (Finding~\#50): the nearest bin has \emph{lower} recall than
+reported in Section~\ref{sec:results-distance} (Finding~\#50): the nearest bin has \emph{lower} recall than
 the \SIrange{10}{20}{\metre} bin despite carrying far more points, because a close
 car dissolves into fragments that no longer match the whole instance. Third,
 \textbf{the cleanly-clustered fraction tracks recall, and splitting usually loses
@@ -193,7 +176,7 @@ mid- and far-range cars (green) are detected as single clusters.
   \label{fig:failure-zooms}
 \end{figure}
 
-\subsection{Repair strategies fail to generalise}
+\section{Repair strategies fail to generalise}
 \label{sec:repairs}
 
 Given that splitting caps recall, the obvious responses fall into two families:
@@ -301,14 +284,14 @@ project conclusion --- that recall was fixed at a hard ceiling of about \num{0.7
 in Table~\ref{tab:strategies}, and also, as the next section shows, wrong: it read a
 limit on \emph{these} repairs as a limit on the approach.
 
-\subsection{What worked: clustering resolution, and the corrected ceiling}
+\section{What worked: clustering resolution, and the corrected ceiling}
 \label{sec:resolution-fix}
 
 The intervention that helped was not a repair at all but a change to the clustering
 \emph{resolution}: re-voxelising the object cloud to a \SI{0.10}{\metre} grid
 \emph{before} running HDBSCAN, rather than clustering the full-resolution
 \SI{0.05}{\metre} cloud (Finding~\#34, adopted in the runtime optimisation of
-Section~4.5). A coarser grid closes the small intra-car density gaps that HDBSCAN was
+Section~\ref{sec:results-runtime}). A coarser grid closes the small intra-car density gaps that HDBSCAN was
 cutting along, so fewer splits form in the first place. It is a formation change like
 the failed ones in Section~\ref{sec:repairs}, but it lands on the favourable side of
 the trade described there --- coarse enough to close intra-car gaps, still fine
@@ -345,7 +328,7 @@ At the pipeline level, on the full sequence~08, this lifts recall from \num{0.69
 (\num{0.903}~$\rightarrow$~\num{0.905}) and $F_1$ from \num{0.788} to \num{0.808}
 (Finding~\#34). The same coarsening also reduces clustering runtime, which is why it
 was adopted; its detection benefit is the subject here and its runtime co-benefit is
-reported in Section~4.5.
+reported in Section~\ref{sec:results-runtime}.
 
 This result forces a correction to the earlier ceiling claim, which we state plainly
 rather than bury (Finding~\#24, Correction of 2026-07-24). The ``$\sim$\num{0.74}
@@ -358,19 +341,19 @@ the loss. The standing recommendation is therefore
 
 A smaller structural limit does remain, and it is architectural. Coarsening the voxel
 further would eventually start merging adjacent cars, trading the split problem for a
-merge problem; and the clustering-method benchmark of Section~4.3 (Finding~\#43)
+merge problem; and the clustering-method benchmark of Section~\ref{sec:results-ablations} (Finding~\#43)
 shows that no fixed-radius density clusterer, at any tested radius, reaches even
 HDBSCAN's recall. The ceiling that remains is the one imposed by density-based
 clustering having no model of what a car is: it groups points by proximity and
 density alone, so it cannot be pushed to the recall of a learned object detector by
 tuning. Reaching that level would require replacing the clustering stage with a
-learned detector, which is outside the scope of this thesis (Chapter~8). The
+learned detector, which is outside the scope of this thesis (Chapter~\ref{ch:discussion}). The
 contribution of this chapter is to have located the ceiling precisely --- it is in
 the clustering stage, it is splitting rather than classification or merging, and it
 is lower than first claimed --- and to have mapped which repairs cannot move it and
 which one can.
 
-\subsection{Summary}
+\section{Summary}
 \label{sec:recall-summary}
 
 The recall shortfall is clustering-bound, not classifier-bound: the classifier and
@@ -389,6 +372,4 @@ resolution: a coarser pre-clustering voxel prevents splits from forming, lifting
 recall \num{0.699}~$\rightarrow$~\num{0.730} and correcting the earlier overstated
 ``hard ceiling'' (Section~\ref{sec:resolution-fix}). The residual limit is
 architectural --- density clustering has no notion of objectness --- and is carried
-to the limitations and future-work discussion of Chapter~8.
-
-\end{document}
+to the limitations and future-work discussion of Chapter~\ref{ch:discussion}.

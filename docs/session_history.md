@@ -2505,3 +2505,185 @@ Verified each point against source (`docs/findings.md`, `src/tracker.py`,
   the proposal-drift reconciliation (dropped bus/motorcycle support; CD+EMD→CD-only).
 - Then Ch 9 (conclusion) → abstract.
 - None of the drafted chapters (2–8) are advisor-reviewed yet.
+
+---
+# Session — 2026-08-28 (Master/template assembly + reference pass)
+
+## What was done
+Implemented `~/.claude/plans/reference-pass-master-template-snug-lampson.md` (Steps 1–3
++ verification). Wired the 12 standalone chapter fragments in `docs/writing/thesis/`
+into one `report`-class master that builds the whole thesis PDF, and converted every
+hand-typed cross-reference to a real `\ref`.
+
+- **Step 1 — master `docs/writing/thesis/main.tex` (new).**
+  `\documentclass[a4paper,12pt]{report}`; union preamble of every fragment + the FPT
+  template (babel/inputenc/fontenc/lmodern, amsmath/amssymb/amsfonts, bm, booktabs,
+  float, siunitx, microtype, graphicx, multirow, array, url, `nth[super]`, geometry
+  margin=2.5cm, fancyhdr; tikz + `\usetikzlibrary{...}` for the Ch 3 diagram;
+  `\DeclareSIUnit{\frame}`/`{\fps}`; one master
+  `\graphicspath{{../../../output/figures/}{../../../output/experiments/}}`). FPT
+  title-page/`fancyhdr` style reused (logo referenced explicitly at
+  `../report-template/Images/fpt.png`, no file duplication). Locked title, solo author
+  Ngo Vi Viet Anh (MSE13205), advisor Dr. Doan Nhat Quang. Roman front matter
+  (abstract → `\tableofcontents`/`\listoffigures`/`\listoftables`) → arabic body; single
+  `\bibliographystyle{IEEEtran}` + `\bibliography{../../references}` at the end.
+- **Step 2 — 12 fragments transformed in place.** Stripped each
+  `\documentclass…\begin{document}` and trailing `\end{document}`; promoted
+  `\section`→`\chapter`, `\subsection`→`\section`, `\subsubsection`→`\subsection`
+  (subsubsections only in sec_4_1, sec_4_results, sec_7_2); dropped each per-file
+  `\graphicspath`; stripped per-file `\bibliography` from sec_1/sec_2; dropped the
+  duplicate `\section{…}\label{ch:*-results}` at the two folds (sec_4_results,
+  sec_7_results). Comment headers left in place (harmless).
+- **Step 3 — reference pass.** Converted all typed numerals to `\ref` against the
+  now-shared label namespace: `Chapter~N` → `\ref{ch:*}`, `Section~N.N` → `\ref{sec:*}`,
+  `Table~4.1` → `\ref{tab:headline}`, `Figure~3.1` → `\ref{fig:pipeline}`, and the two
+  plural forms (`Chapters~6 and~7`, `Chapters~4 and~7`).
+
+## Files changed
+- New: `docs/writing/thesis/main.tex` (the master; the deliverable to track). Build
+  artifacts also produced: `main.pdf`, `main.aux/.log/.toc/.lof/.lot/.bbl/.blg/.out`
+  (generated; `main.lof`/`main.lot` currently show as untracked).
+- Modified (in-place transform): all 12 `docs/writing/thesis/sec_*.tex` (sec_0, sec_1,
+  sec_2, sec_3, sec_4_1, sec_4_results, sec_5, sec_6, sec_7_2, sec_7_results, sec_8,
+  sec_9).
+- Modified: `docs/project_state.md` (assembly DONE block; header date bumped to
+  2026-08-28).
+- Untracked, unrelated: `docs/LVTN.pptx` (peer deck, intentionally not tracked).
+
+## Results / findings
+- Build verified (`latexmk -pdf main.tex`, TeX Live 2026): exit 0; `main.pdf` 76 pp;
+  all figures embedded (no file-not-found). **Zero undefined references, zero undefined
+  citations, zero multiply-defined labels**, no rerun requested; BibTeX `.blg` clean.
+- Folds render as one chapter each: Ch 4 = §4.1 (protocol) … §4.5 (runtime); Ch 7 =
+  §7.2 (donor) … §7.6 (held-out). Converted refs print right numbers (from `main.aux`:
+  tab:headline=4.1, fig:pipeline=3.1, sec:results-heldout=7.6, sec:donor-metric=7.2,
+  sec:eval-protocol=4.1, sec:results-runtime=4.5).
+- Overfull scan: 2 hboxes total, both ≤20pt (incl. the pre-existing 1.09pt EfficientLPS
+  one) — no new >20pt overfulls from the report-class/geometry change.
+- No experiments (research frozen). The 12 fragments no longer compile standalone
+  (accepted trade-off; Step-0 checkpoint `8c0c637` is the git safety net).
+
+## Next
+- **Advisor review** of the assembled thesis (no chapter is advisor-reviewed yet).
+- Optional cleanup: trim the now-stale MERGE/NUMBERING comment headers in the fragments
+  (a few show `\ref` inside comments from the global ref pass — harmless).
+- Commit the assembly (decide whether to gitignore `main.*` build artifacts vs. track
+  only `main.tex`).
+- Then Phase 8 defense prep.
+
+---
+
+# Session — 2026-08-29
+
+## What was done
+
+### LOSO cross-validation (answers reviewer "validation-as-test" critique)
+Implemented **leave-one-sequence-out (LOSO)** detection cross-validation over all 11
+labelled sequences (00–10) to remove classifier model-selection leakage (seq 08 was
+both the classifier's val split and the headline sequence) and to supply the
+per-sequence recall breadth the draft lacked.
+- **Infra (freeze-safe; shipped `stage_b_scratch_best.pth` + `PIPELINE_CONFIG`
+  untouched):** `train_classifier.py --held-out-seq` (re-partitions the mined Stage B
+  clusters by sequence-prefix filename, no re-mining; deterministic 5% monitoring slice,
+  `LOSO_MONITOR_FRAC=0.05`, seed 1234); `evaluate.py --json-out` + `--frame-fraction`,
+  and a missing-checkpoint guard (now `parser.error`s instead of silently scoring
+  geometric-only); `scripts/run_loso.ps1` (resumable 11-fold driver);
+  `scripts/aggregate_loso.py` (per-fold table + pooled micro + pooled-excl-seq00 +
+  macro mean±std → `results/loso/summary.json`).
+- **Run:** all 11 folds, full-sequence eval, last-epoch checkpoint (no per-fold
+  selection). Background sweep total ~10.5 hr. Per-fold classifiers written to
+  `checkpoints/stage_b_fold*` (separate artifacts; gitignored).
+- **Result:** pooled **P 0.874 / R 0.719 / F1 0.789 / mIoU 0.919**; per-sequence recall
+  spread **0.336 (seq 01, sparse highway) → 0.761 (seq 00, dense urban)**, macro
+  0.633±0.121 (precision steadier, 0.840±0.070). Leakage-free fold-08 R 0.737 vs shipped
+  0.730 (recall NOT inflated); precision-only exposure ~2 pts (0.881 vs 0.905). Residual
+  seq-00 classical-tuning bounded (drop-fold-00 pooled R 0.719→0.697). Logged as
+  **Finding #51**.
+- **Reconciliation** (added on user request): the two seq-08 rows are ONE model under
+  two checkpoint-selection rules — same architecture, same 10 training sequences, same
+  from-scratch 15-epoch regime; differ only in which epoch is frozen (shipped =
+  best-on-seq08-val epoch 14; fold-08 = last epoch). `399316 = 420333 × 0.95` (the 5%
+  monitoring slice seq 08 can't provide) verified. The deltas isolate the selection
+  effect; the 5% confound removes training data from the leakage-free model, so it only
+  strengthens "recall not inflated."
+
+### Thesis edits (Option B — LOSO as validity + breadth layer, NOT a headline swap)
+Seq-08 (0.730/0.905) stays the reported operating point the ablation / recall-root-cause /
+completion chapters decompose (LOSO did not re-run those per fold); downstream numbers in
+Ch 2/4-results/5/9 unchanged, zero ripple. Edits:
+- `sec_4_1`: new §"Leave-one-sequence-out cross-validation" (per-fold + pooled + macro
+  table), reframed §4.1.1 protocol, operating-point caption, eligibility reference
+  scoped, + the one-model-two-rules reconciliation.
+- `sec_8`: "validation-as-test" paragraph → "cross-validated, precision-only exposure";
+  breadth caveat resolved; "what generalises" updated.
+- `sec_0` / `sec_1`: one-line LOSO mentions.
+
+### Three external-LLM review rounds processed (NOT advisor; user asked to push back)
+- **Round 1 (addressed 2):** #1 23% length-fallback — added the defense that the
+  0.725→0.771 BEV-IoU gain is measured on shipped output *including* the 119/518 fallback
+  tracks, so the cost is already inside the headline (§8); #3 objectness ceiling — added
+  the deliberate-trade justification (annotation-free/interpretable is the thesis premise;
+  the ceiling is the measured price) (§8). Pushed back #4 (amodal GT already defended
+  three ways) + #5 (empty long-band = correct "partially holds", no edit).
+- **Round 2 (addressed 3):** #1 mover axis-aligned bias falls harder on movers → 57.9%
+  is a stronger lower bound (§8, hedged as expected-direction not measured); #2 seq-01
+  highway ODD limit — new paragraph (dense-scene ODD; cause mostly-intrinsic sparsity +
+  partly urban-tuned params; conservative-miss, P 0.951) (§8); #3 Python-HDBSCAN ~185 ms
+  = implementation floor not algorithmic — named C++/GPU HDBSCAN port, but **pushed back
+  on cuML DBSCAN** (Finding #43: no fixed-radius clusterer reaches HDBSCAN recall) (§9.3).
+- **Round 3 (pushed back all 3, NO edits):** #1 volume-gate/fragmentation — premise
+  architecturally wrong (completion is downstream amodal surface-fill, not fragment
+  reassembly; recall scored before completion) + already bounded by the geometric-only
+  ablation (Finding #47, all gates removed → R 0.775, P collapses to 0.149); #2 hardcoded
+  HDL-64E — KITTI *is* HDL-64E (in-scope non-issue) + already disclosed (§8 synthetic
+  gap / §8.6 "re-check for a new sensor" / §9.3); #3 0.25 m ground-cut shift — minor
+  empirical constant, residual already absorbed in shipped BEV IoU 0.771, corner-case
+  out of scope.
+- Reviewer responses drafted for the user to send onward each round; PDFs delivered
+  (rounds 1–2 changed the build; round 3 no change).
+
+### Build
+`main.tex` rebuilt after each edit under TeX Live 2026: exit 0, **zero undefined
+references** each time; grew 76→79→80 pp. Only residual warning is a pre-existing
+~5.5 pt float overflow (invariant across LOSO-table font/caption edits → confirmed not
+ours).
+
+## Files changed
+- **This session — modified:** `src/evaluate.py`, `src/train_classifier.py`,
+  `docs/findings.md` (+#51), `docs/project_state.md`,
+  `docs/writing/thesis/sec_0_abstract.tex`, `sec_1_introduction.tex`,
+  `sec_4_1_evaluation_protocol.tex`, `sec_8_discussion.tex`, `sec_9_conclusion.tex`.
+- **This session — new:** `scripts/run_loso.ps1`, `scripts/aggregate_loso.py`,
+  `results/loso/` (11 `fold_NN.json` + logs, `summary.json`, `sweep.log`, plus reverted
+  windowed-eval provenance `fold_NN_window.*`).
+- **Also committed now (prior 2026-08-28 assembly session, was uncommitted):**
+  `docs/writing/thesis/main.tex` (new master) + the in-place transforms of `sec_2`,
+  `sec_3`, `sec_4_results`, `sec_5`, `sec_6`, `sec_7_2`, `sec_7_results`.
+- **Deliberately NOT committed:** `docs/writing/thesis/main.lof` / `main.lot` (generated
+  build artifacts, added to `.gitignore`); `docs/LVTN.pptx` (peer deck).
+
+## Results / findings
+LOSO per-sequence + pooled (full sequences, τ=0.3, shipped config):
+
+| Held-out | P | R | F1 | mIoU |
+|---|---|---|---|---|
+| 00 | 0.913 | 0.761 | 0.830 | 0.932 |
+| 01 | 0.951 | 0.336 | 0.496 | 0.953 |
+| 02 | 0.793 | 0.700 | 0.743 | 0.903 |
+| 03 | 0.733 | 0.623 | 0.673 | 0.904 |
+| 04 | 0.797 | 0.501 | 0.615 | 0.835 |
+| 05 | 0.861 | 0.731 | 0.791 | 0.910 |
+| 06 | 0.861 | 0.637 | 0.732 | 0.906 |
+| 07 | 0.905 | 0.729 | 0.808 | 0.929 |
+| 08 | 0.881 | 0.737 | 0.803 | 0.912 |
+| 09 | 0.824 | 0.646 | 0.724 | 0.911 |
+| 10 | 0.725 | 0.559 | 0.632 | 0.871 |
+| **Pooled (11)** | **0.874** | **0.719** | **0.789** | **0.919** |
+| Macro | 0.840±0.070 | 0.633±0.121 | 0.713±0.097 | 0.906±0.030 |
+
+## Next
+- **Advisor review** of the assembled thesis (still no chapter advisor-reviewed).
+- Optional, only if committee insists: a held-out **long-band completion eval on a
+  second sequence** (would touch the frozen completion pipeline) — declined for now;
+  "partially holds" is the honest outcome.
+- Phase 8 defense prep.
