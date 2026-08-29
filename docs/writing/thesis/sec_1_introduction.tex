@@ -200,13 +200,11 @@ This scope is narrower than the original proposal in three specific ways, each t
 result of an experiment rather than a change of ambition.
 
 \emph{From multi-class to car-only.} The proposal described a pipeline supporting
-car, bus, and motorcycle. When the four-class classifier was run on real data it
-produced false motorcycle detections --- sequence~08 contains no motorcycles at
-all --- and its car recall was poor, and it was replaced by the binary car /
-not-car classifier used throughout (Finding~\#20).
-The rare classes had too few real examples to learn from and were actively harming
-recall; narrowing to cars removed that noise and matches the class distribution of
-the data.
+car, bus, and motorcycle. Run on real data, the four-class classifier produced false
+motorcycle detections --- sequence~08 contains no motorcycles at all --- and its car
+recall was poor, so it was replaced by the binary car / not-car classifier used
+throughout (Finding~\#20). The rare classes had too few real examples to learn from;
+narrowing to cars matches the class distribution of the data.
 
 \emph{From a CD+EMD completion loss to CD only.} The proposal planned to combine
 Chamfer distance with an Earth Mover's distance term to counter the point-clustering
@@ -217,8 +215,7 @@ pinhole renders differ from real scan-line LiDAR --- not because of point
 non-uniformity (Findings~\#15--\#19). Once that gap was closed with a KITTI-like
 partial generator and an inference-normalisation fix (Finding~\#26), Chamfer-only
 training was sufficient, and the EMD term (documented but never implemented) was not
-needed. The decision here rests on the domain-gap diagnosis, not on the classifier
-change above.
+needed.
 
 \emph{The two-stage-training contribution is withdrawn and reframed.} The proposal
 listed a two-stage synthetic-pretraining-then-fine-tuning strategy as a contribution
@@ -229,9 +226,8 @@ once real clusters are plentiful rather than annotation-saving (Findings~\#25/\#
 This is reported as the negative finding it is (contribution~3 above), and the
 two-stage training survives only as an ablation.
 
-One point that is \emph{not} a departure from the proposal is worth flagging so it is
-not read as one: the proposal was silent on runtime, so the offline framing above is
-a scope statement, not a walked-back promise.
+Finally, the offline framing above is a scope statement, not a walked-back promise:
+the proposal was silent on runtime.
 
 \section{Thesis outline}
 \label{sec:intro-outline}

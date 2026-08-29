@@ -96,27 +96,24 @@ promised in the proposal with a negative result.
 \section{Contributions}
 \label{sec:conclusion-contributions}
 
-Restated compactly, the thesis makes three claimed contributions, all methodological or
-diagnostic rather than architectural; it does not claim novelty for the pipeline itself.
+Restated compactly, and pointing back to the answers above rather than re-arguing them, the
+thesis makes three claimed contributions --- all methodological or diagnostic rather than
+architectural, and none a claim of novelty for the pipeline itself.
 
 \begin{enumerate}
-  \item \textbf{A leakage-free metric for completion quality on real LiDAR.} The
-  demonstration that accumulated-pseudo-ground-truth Chamfer is invalid on real cars
-  (Finding~\#26), together with the donor-frame occluded-side coverage metric, its
-  hallucination guard, and its four-item validation gate (Findings~\#32/\#37); and, applied
-  through that metric, the evidence that completion recovers occluded surface several times
-  above the mirror baseline and improves amodal boxes on static gate-passed cars, partially
-  holding on a pre-registered held-out sequence (Findings~\#29/\#42). This is the
-  completion half's central contribution (Chapter~\ref{ch:completion-eval}).
-  \item \textbf{A root-cause account of the recall bottleneck, with a chain of negative
-  repair results.} Recall is clustering-bound, not classifier-bound (Finding~\#23); a search
-  of repair strategies fails to generalise, each for a structural reason, with the
-  clustering resolution the only lever that helped (Findings~\#21/\#24/\#34). The negatives
-  are reported as findings in their own right (Chapter~\ref{ch:recall-bottleneck}).
+  \item \textbf{A leakage-free metric for completion quality on real LiDAR:} the
+  demonstration that accumulated-pseudo-ground-truth Chamfer is invalid on real cars, and the
+  donor-frame occluded-side coverage metric that replaces it, with its hallucination guard and
+  validation gate --- through which completion is shown to recover genuinely occluded surface
+  and improve amodal boxes on static, gate-passed cars, a benefit that partially holds on a
+  pre-registered held-out sequence (Findings~\#26/\#29/\#32/\#37/\#42; Chapter~\ref{ch:completion-eval}).
+  This is the completion half's central contribution.
+  \item \textbf{A root-cause account of the recall bottleneck:} recall is clustering-bound,
+  not classifier-bound, and the accompanying chain of negative repair results is reported as
+  findings in their own right (Findings~\#21/\#23/\#24/\#34; Chapter~\ref{ch:recall-bottleneck}).
   \item \textbf{Evidence that synthetic pretraining is redundant for the classifier at
-  scale.} A from-scratch classifier matches a synthetically pretrained one once real
-  clusters are plentiful, and the sim-to-real gap is total and symmetric
-  (Findings~\#25/\#30). This directly replaces a proposal contribution (Chapter~\ref{ch:detection-eval}).
+  scale,} which directly replaces a contribution promised in the proposal
+  (Findings~\#25/\#30; Chapter~\ref{ch:detection-eval}).
 \end{enumerate}
 
 Alongside these, the thesis carries engineering contributions that it does not claim as

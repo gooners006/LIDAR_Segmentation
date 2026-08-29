@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-29
+Last updated: 2026-08-30
 
 ## RESEARCH FREEZE — declared 2026-08-21 (write-up phase)
 
@@ -80,6 +80,33 @@ round (exit 0, zero undefined refs; 76→79→80 pp).
 
 Committed + pushed 2026-08-29 (this batch also lands the prior uncommitted 2026-08-28
 assembly). `main.lof`/`main.lot` added to `.gitignore`; `docs/LVTN.pptx` left untracked.
+
+**Front-matter rhetorical-flow pass — 2026-08-30 (external-LLM review; user asked for hard
+pushback).** Prose-only, nothing frozen touched; `main.tex` rebuilds clean (exit 0, zero
+undefined refs/citations, zero overfull ≥20pt; 80→79 pp).
+- **Abstract (`sec_0_abstract.tex`) restructured** from one ~245-word block into three
+  paragraphs (approach → detection findings → completion contribution). Adopted the user's
+  narrative rewrite but restored three load-bearing elements it had dropped: (1) the recall
+  qualifier ("\num{0.730} at a point-IoU of \num{0.3}, on cars with enough returns to be
+  scorable" — P1/Finding #48; bare 0.730 would read as vs-all-annotated-cars ≈0.54);
+  (2) amodal-box scope ("on static, gate-passed cars"; also dropped puffery "significantly");
+  (3) the third closing contribution, corrected from an invented "mapping where hybrid
+  pipelines succeed/fail" back to synthetic-pretraining redundancy (#25/#30), so the abstract's
+  contribution list matches §1.4/§2.5/§9.3. LOSO compressed to qualitative ("validated across
+  all eleven labelled sequences to rule out model-selection bias"); 0.000→0.304 and the
+  0.737/0.719 LOSO numbers left to the body (accepted abstract-level compression).
+- **Intro §1.5 tightened, KEPT in place** (pushed back on the review's move-to-appendix +
+  rename — breaks the §1.4/§9 "replaces a proposal contribution" cross-refs and weakens the
+  head-on proposal-drift defense; §1.5 already opens confident-bounds-first): trimmed the
+  multi-class + CD+EMD paragraphs one sentence each; compressed the standalone "not a
+  departure" note to one line.
+- **Conclusion §9.2 compacted** (pushed back on merging §9.1+§9.2 into a narrative — loses the
+  explicit RQ mapping examiners check for, and the review's own example sentence injected a
+  false "completion was a consequence of the recall ceiling" causal claim; the two threads are
+  parallel per §1): kept §9.1's RQ answers; reframed the §9.2 opener to "pointing back to the
+  answers above rather than re-arguing them"; collapsed items 2/3 to single sentences; all
+  finding citations + the locked three-contribution structure preserved.
+Committed this session (`sec_0`/`sec_1`/`sec_9` + this doc). NOT advisor-reviewed.
 
 **Thesis writing (T14) — STARTED 2026-08-21 (Protocol milestone).** §4.1
 (evaluation protocol) and §7.2 (donor metric) first-drafted as compilable LaTeX

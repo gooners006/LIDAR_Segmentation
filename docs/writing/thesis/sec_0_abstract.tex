@@ -1,12 +1,12 @@
 % Abstract
 % Standalone, compilable draft (FPT-template article class + booktabs), sibling to
-% sec_1_introduction.tex / sec_9_conclusion.tex. One dense paragraph (~200-250 words)
-% compressing the whole contribution story: the modular near-annotation-free
-% detection+completion pipeline, the detection headline and its root-caused recall
-% limit, the synthetic-pretraining-redundancy negative, and the completion half's
-% scientific core (Chamfer-invalidity + the leakage-free donor metric + the
-% PARTIALLY-HOLDS held-out result). It is the first thing a committee reads, so every
-% number and hedge must be defensible.
+% sec_1_introduction.tex / sec_9_conclusion.tex. Three short paragraphs (approach ->
+% detection findings -> completion contribution) compressing the whole contribution
+% story: the modular near-annotation-free detection+completion pipeline, the detection
+% headline and its root-caused recall limit, the synthetic-pretraining-redundancy
+% negative, and the completion half's scientific core (Chamfer-invalidity + the
+% leakage-free donor metric + the PARTIALLY-HOLDS held-out result). It is the first
+% thing a committee reads, so every number and hedge must be defensible.
 %
 % MERGE/NUMBERING NOTE: this file opens with \section*{Abstract} (unnumbered) for
 % standalone compilation; at final assembly the assembler places it in the front
@@ -14,42 +14,48 @@
 % self-contained prose -- so there are no cross-references or \cite{} here.
 %
 % Honesty-phrasing rules applied (personal_agenda P1):
-%   - recall is the car-only, >=10-surviving-point figure (Sec 4.1); the abstract does
-%     NOT imply recall against all annotated cars (~0.54, Finding #48)
-%   - the held-out completion result is PARTIALLY HOLDS, never "confirmed"/"holds"
-%   - the detection headline is a single-sequence (seq 08) result, stated as such
+%   - recall (0.730) carries its qualifier inline ("at a point-IoU of 0.3, on cars
+%     with enough returns to be scorable") so it is NOT read as recall against all
+%     annotated cars (~0.54, Finding #48); the exact >=10-surviving-point denominator
+%     mechanics live in Sec 4.1
+%   - LOSO is stated qualitatively ("validated across all eleven labelled sequences to
+%     rule out model-selection bias"); the leakage-free numbers (0.737/0.719) live in
+%     Sec 4.1 -- abstract-level compression, not a softening
+%   - the amodal-box benefit is scoped to "static, gate-passed cars" (movers are
+%     plausibility-only #44; long band untested off seq 08)
+%   - the held-out completion result is "partially replicates", never "confirmed"/"holds"
+%   - the detection headline is a single-sequence (seq 08) result, cross-validated
 %   - negatives (recall repairs, synthetic redundancy) are named as findings
 %   - the donor metric is "a validated, leakage-free" metric, NOT "the first"
 %     (no literature-priority overclaim; matches C7 and the Ch 9 review)
-%   - claims kept within the Section-6 claims map (C1-C11); no mover accuracy claim
+%   - the three closing contributions match Ch 1 Sec 1.4 / Ch 9 Sec 9.3 / Ch 2 Sec 2.5
+%     EXACTLY (donor metric / recall root-cause / synthetic-pretraining redundancy);
+%     claims kept within the Section-6 claims map (C1-C11); no mover accuracy claim
 %
 \chapter*{Abstract}
 \label{ch:abstract}
 
-This thesis studies how far an interpretable, near-annotation-free pipeline can go
-at detecting and completing cars in LiDAR point clouds, using classical geometry
-where geometry is reliable and small learned models only where discrimination
-needs it: ground removal and HDBSCAN density clustering propose objects,
-a lightweight binary classifier labels cars, a tracker filters flicker, and a PCN
-network completes each detected car's occluded surface. On sequence~08 (the reported
-operating point, \num{4071} scans) the detector reaches precision \num{0.905},
-recall \num{0.730}, and $F_1$ \num{0.808} at a point-IoU of \num{0.3}, with recall
-measured against the car-only, at-least-ten-surviving-points denominator;
-leave-one-sequence-out cross-validation over all eleven labelled sequences confirms
-this is not a model-selection artefact (leakage-free seq-08 recall \num{0.737},
-pooled recall \num{0.719} across the eleven) and reports the per-sequence spread.
-The recall
-shortfall is root-caused, not tuned away: density clustering splits single cars into
-fragments (\SIrange{31}{37}{\percent} of ground-truth cars), and a search of repair
-strategies fails to generalise, reported as a chain of negative findings; synthetic
-classifier pretraining is likewise shown redundant once real training clusters are
-plentiful, the sim-to-real gap being total and symmetric. On the completion side,
-reference-based Chamfer distance against an accumulated pseudo-ground-truth is shown
-invalid on real cars---the raw partial input scores best---so the thesis defines and
-validates a leakage-free donor-frame occluded-side coverage metric. Through it,
-completion recovers genuinely unseen surface several times above a symmetry-mirror
-baseline (occluded-side coverage \num{0.000}~$\rightarrow$~\num{0.304}) and improves
-amodal boxes on static, gate-passed cars, a benefit that partially holds under a
-pre-registered held-out test. The contributions are methodological and diagnostic,
-not architectural, and each is defended by explanation and pre-registration rather
-than a further point of metric improvement.
+This thesis explores the limits of an interpretable, near-annotation-free pipeline
+for detecting and completing cars in LiDAR point clouds. The approach uses classical
+geometry where it is reliable (ground removal and HDBSCAN density clustering) and
+lightweight learned models only where discrimination is necessary (a binary
+classifier and a PCN completion network).
+
+On the detection side, the pipeline achieves high precision (\num{0.905}) but is
+structurally recall-limited (\num{0.730} at a point-IoU of \num{0.3}, on cars with
+enough returns to be scorable), a result validated across all eleven labelled
+sequences to rule out model-selection bias. The thesis root-causes this recall
+shortfall directly to density clustering fragmenting single vehicles, a limitation
+that multiple repair strategies failed to overcome. Synthetic classifier pretraining
+is further shown to be redundant once real training clusters are plentiful.
+
+On the completion side, the thesis demonstrates that standard reference-based Chamfer
+distance is invalid on real accumulated LiDAR because the raw partial input
+artificially scores best. In its place, this work defines and validates a
+leakage-free, donor-frame occluded-side coverage metric. Evaluated on this metric,
+the completion network recovers genuinely unseen surface well above a symmetry-mirror
+baseline and improves amodal bounding boxes on static, gate-passed cars---a benefit
+that partially replicates under a pre-registered held-out test. Ultimately, the thesis
+contributions are methodological and diagnostic: a validated real-data completion
+metric, a root-cause account of why the classical clustering detector is
+recall-limited, and evidence that synthetic pretraining is redundant at scale.
