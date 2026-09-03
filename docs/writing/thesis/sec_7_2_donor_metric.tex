@@ -12,7 +12,7 @@
 \chapter{Completion Evaluation}
 \label{ch:completion-eval}
 
-\section{Why Chamfer distance is invalid on real cars}
+\section{The invalidity of Chamfer distance on real cars}
 \label{sec:chamfer-invalid}
 
 The natural way to score a completed car is Chamfer distance (CD) against a
@@ -49,7 +49,7 @@ synthetic CD of Chapter~\ref{ch:completion-method} (\SI{0.16}{\meter}) measures 
 cars but says nothing about a real cluster. The next subsection turns the very
 one-sidedness that breaks Chamfer into the basis of a metric that works.
 
-\section{A Leakage-Free Metric for Real-Data Completion}
+\section{A leakage-free metric for real-data completion}
 \label{sec:donor-metric}
 
 The preceding subsection established that completion had no valid real-data
@@ -171,7 +171,7 @@ mirrored baseline in checks~(a) and~(d) is deliberately adversarial --- it is a
 real way to add surface with zero learned parameters, so completion earns its
 place only by beating it.
 
-\subsection{Reading the hallucination guard per band}
+\subsection{The per-band hallucination guard}
 \label{sec:donor-guard-lesson}
 
 The guard as first designed --- check~(d) above --- was a single median pooled

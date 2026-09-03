@@ -40,9 +40,12 @@
 \DeclareSIUnit{\frame}{frame}
 \DeclareSIUnit{\fps}{fps}
 
-% --- Figures live under the repo's output/ tree (gitignored, regenerable) ---
-% Path is relative to this master in docs/writing/thesis/.
-\graphicspath{{../../../output/figures/}{../../../output/experiments/}}
+% --- Figures ---
+% Committed copies live in figures/ (tracked, so the thesis builds from a plain
+% clone on any machine). The gitignored output/ tree is kept as a fallback so a
+% freshly regenerated figure is still picked up on the authoring machine.
+% Paths are relative to this master in docs/writing/thesis/.
+\graphicspath{{figures/}{../../../output/figures/}{../../../output/experiments/}}
 
 % --- Header / footer (FPT template style) ---
 \setlength{\headheight}{15pt}

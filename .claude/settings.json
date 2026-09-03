@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git push *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git ls-files *)",
+      "Bash(git check-ignore *)",
+      "PowerShell(git add *)",
+      "PowerShell(git push *)",
+      "PowerShell(git status *)",
+      "PowerShell(git diff *)",
+      "PowerShell(git log *)",
+      "PowerShell(git ls-files *)",
+      "PowerShell(git check-ignore *)",
+      "Bash(python *)",
+      "Bash(.venv/bin/python *)",
+      "Bash(.venv/Scripts/python.exe *)",
+      "Bash(latexmk *)",
+      "PowerShell(latexmk *)",
+      "Bash(which *)",
+      "Bash(where.exe *)",
+      "Bash(rtk *)",
+      "PowerShell(rtk *)"
+    ]
+  }
+}

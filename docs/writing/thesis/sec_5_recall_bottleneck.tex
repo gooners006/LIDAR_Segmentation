@@ -22,7 +22,7 @@
 %   - every number traces to a finding / session log artifact (cited Finding~\#NN /
 %     session_history.md)
 %
-\chapter{The Recall Bottleneck}
+\chapter{Recall Analysis}
 \label{ch:recall-bottleneck}
 
 Chapter~\ref{ch:detection-eval} established two facts about the headline operating point: the pipeline is
@@ -42,7 +42,7 @@ carried to Chapter~\ref{ch:discussion}. Unless stated otherwise, the recall deno
 the one defined in Section~\ref{sec:eval-protocol} --- ground-truth car instances with at least
 \num{10} points surviving preprocessing.
 
-\section{The shortfall is a clustering failure, not a classifier failure}
+\section{The shortfall as a clustering failure}
 \label{sec:recall-diagnosis}
 
 The recall ceiling is upstream of the learned classifier. The stage decomposition
@@ -82,7 +82,7 @@ surviving cluster, so it establishes that the rejections are dominated by small
 fragments, not that every one belongs to an otherwise-detected car. Either way the
 diagnosis points one stage further upstream, at the clustering itself.
 
-\section{Root cause: HDBSCAN splits large, close cars}
+\section{Root cause: HDBSCAN fragmentation of large, close cars}
 \label{sec:split-analysis}
 
 To quantify how clustering caps recall we measured, for every eligible ground-truth
@@ -176,7 +176,7 @@ mid- and far-range cars (green) are detected as single clusters.
   \label{fig:failure-zooms}
 \end{figure}
 
-\section{Repair strategies fail to generalise}
+\section{Limits of the repair strategies}
 \label{sec:repairs}
 
 Given that splitting caps recall, the obvious responses fall into two families:
@@ -284,7 +284,7 @@ project conclusion --- that recall was fixed at a hard ceiling of about \num{0.7
 in Table~\ref{tab:strategies}, and also, as the next section shows, wrong: it read a
 limit on \emph{these} repairs as a limit on the approach.
 
-\section{What worked: clustering resolution, and the corrected ceiling}
+\section{Clustering resolution and the corrected ceiling}
 \label{sec:resolution-fix}
 
 The intervention that helped was not a repair at all but a change to the clustering

@@ -38,7 +38,7 @@ smoothed over. The evaluation of the finished method --- whether it adds
 genuinely unseen surface, and whether that generalises --- is the subject of
 Chapter~\ref{ch:completion-eval}; here we state each fix's headline effect and defer the rest.
 
-\section{What is completed, and why}
+\section{Completion targets}
 \label{sec:completion-what}
 
 Completion runs on the tracked car detections of Chapter~\ref{ch:pipeline}. The input is a
@@ -76,7 +76,7 @@ that follows is about the \emph{data} PCN is trained on and the \emph{geometry}
 of how a real partial is presented to it --- which is where all the difficulty
 turned out to live.
 
-\section{The domain-gap failures (a negative result)}
+\section{Domain-gap failures (a negative result)}
 \label{sec:completion-domaingap}
 
 The first several attempts to run PCN on real cars all produced ``blobs'' ---
@@ -90,7 +90,7 @@ recover real-car geometry. The reason it could not is the subject of the next tw
 sections --- the problem was in two places at once, and neither was the network
 weights.
 
-\section{Fix 1 --- KITTI-like partials: training on the right input distribution}
+\section{Fix 1 --- KITTI-like partials}
 \label{sec:completion-kittilike}
 
 The first real cause was that the synthetic \emph{partials} PCN trained on were
@@ -130,7 +130,7 @@ for the same ShapeNet car.
   \label{fig:kitti-like-partial}
 \end{figure}
 
-\section{Fix 2 --- the inference-normalisation bug: presenting the partial in the frame PCN was trained in}
+\section{Fix 2 --- the inference-normalisation bug}
 \label{sec:completion-inferencebug}
 
 Retraining alone did not de-blob \emph{real} clusters, and this is the more
@@ -205,7 +205,7 @@ in the rest of this chapter.
   \label{fig:deblob}
 \end{figure}
 
-\section{Fix 3 --- rejecting bad inputs: the L-shape gate}
+\section{Fix 3 --- the L-shape input gate}
 \label{sec:completion-lshape}
 
 Even with correct normalisation, some clusters cannot complete into a plausible
@@ -226,7 +226,7 @@ An honest secondary finding from the same study: the L-shape heading itself is
 neutral against plain PCA on real data --- the fit earns its place by
 \emph{detecting bad inputs}, not by giving a better heading.
 
-\section{Fix 4 --- length geometry: from a fixed prior to a per-car estimate}
+\section{Fix 4 --- per-car length estimation}
 \label{sec:completion-length}
 
 The canonical-frame centre estimate re-centres the occluded lateral side and the

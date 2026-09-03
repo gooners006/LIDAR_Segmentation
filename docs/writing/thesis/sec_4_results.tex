@@ -22,7 +22,7 @@
 %     read as a trend, NOT a restatement of the 0.730 headline
 %   - every number traces to a finding / output artifact (cited Finding~\#NN)
 %
-\section{Detection Results}
+\section{Detection results}
 \label{sec:results-detection}
 
 The headline operating point is the sequence~08 row of Table~\ref{tab:headline}
@@ -81,7 +81,7 @@ This section decomposes the headline operating point into the contribution of
 each learned or post-hoc stage. Every ablation row is produced under the frozen
 protocol of Section~\ref{sec:eval-protocol} unless a deviation is stated explicitly.
 
-\subsection{Stage decomposition: what the classifier and track filter buy}
+\subsection{Stage decomposition: classifier and track-filter contributions}
 \label{sec:ablation-stage}
 
 Table~\ref{tab:ablation-stage} isolates the two filtering stages that sit on top
@@ -136,7 +136,7 @@ pre-promotion geometric-only figure ($F_1$~\num{0.305}, Finding~\#18) is
 superseded by this like-for-like \num{0.250} and kept only as a historical
 record.
 
-\subsection{Synthetic pretraining is redundant (Stage~A ablation)}
+\subsection{Redundancy of synthetic pretraining (Stage~A ablation)}
 \label{sec:ablation-stagea}
 
 The classifier ships as a binary car/not-car network trained \emph{from scratch}
@@ -186,7 +186,7 @@ work; the synthetic prior neither helps nor, once fine-tuned, survives.
   \end{tabular}
 \end{table}
 
-\subsection{Clustering method: HDBSCAN earns its cost}
+\subsection{Clustering method: cost and benefit of HDBSCAN}
 \label{sec:ablation-clustering}
 
 The clustering stage is HDBSCAN. Because it is by far the most expensive stage
@@ -235,7 +235,7 @@ which is exactly the recall margin that matters here. We therefore
 its runtime cost knowingly; DBSCAN and Euclidean remain available as
 command-line options for reproduction.
 
-\section{Detection Range}
+\section{Detection range}
 \label{sec:results-distance}
 
 Recall is not uniform in range, and the way it varies is not the naive
