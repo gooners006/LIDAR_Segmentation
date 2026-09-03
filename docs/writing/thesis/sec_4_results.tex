@@ -301,7 +301,7 @@ retained only as a historical note.
 \label{sec:results-runtime}
 
 Table~\ref{tab:runtime} breaks the per-frame cost down by stage, measured over
-the full sequence~08 under the shipped (promoted) configuration
+the full sequence~08 under the final (promoted) configuration
 (\num{4068} timed frames, RTX~3070~Ti / Ryzen~7~7800X3D; Finding~\#34;
 per-stage figures from \texttt{timing\_seq08\_full\_n4068\_combined.json}). The breakdown shows where
 the time goes: the two classical geometric stages --- ground-plane RANSAC and,
@@ -315,7 +315,7 @@ classifier is \SI{33.7}{\milli\second} for the $\sim$\num{45} clusters in a fram
 
 \begin{table}[H]
   \centering
-  \caption{Per-frame runtime by stage on the full sequence~08 under the shipped
+  \caption{Per-frame runtime by stage on the full sequence~08 under the final
     (promoted) configuration (\num{4068} timed frames; mean ms; Finding~\#34).
     Clustering alone is nearly \SI{60}{\percent} of the frame. The total is
     $\approx\SI{623.5}{\milli\second}$ ($\approx$\num{1.6}~fps) on this full run;

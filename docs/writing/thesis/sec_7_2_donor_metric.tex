@@ -23,7 +23,7 @@ observed it. This subsection explains why that substitute is not a valid target,
 and hence why the completion work of Chapter~\ref{ch:completion-method} needed a different metric
 altogether.
 
-The trouble is that the accumulation is itself one-sided. A parked car is
+The fundamental limitation is that the accumulation is itself one-sided. A parked car is
 observed from a road running past one of its flanks, so every frame sees broadly
 the same near faces --- the road-facing side, the near end, the roofline edge ---
 and none sees the occluded far side or the underbody. Pooling those frames
@@ -190,7 +190,7 @@ kept the pooled median quiet.
   \centering
   \caption{The pooled guard is blind to a band-localised violation. Out-of-box
     fraction as completed / that band's mirrored baseline, split by amodal-GT
-    length. The shipped length prior passes the pooled check yet hallucinates on
+    length. The final length prior passes the pooled check yet hallucinates on
     compacts at \num{100}$\times$ the band baseline.}
   \label{tab:d2}
   \begin{tabular}{lcccc}

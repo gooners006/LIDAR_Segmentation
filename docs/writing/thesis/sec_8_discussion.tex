@@ -62,7 +62,7 @@ result about metrics, not an opinion. The second is empirical and rests on that 
 completion adds genuinely unseen surface (median coverage of never-observed surface
 within \SI{0.1}{\metre} of \num{0.304} on sequence~08, seven times the symmetry-mirror
 baseline of \num{0.043} and against a raw-partial baseline of \num{0.000};
-Finding~\#32) and improves the amodal bounding box --- the shipped completed box reaches a median
+Finding~\#32) and improves the amodal bounding box --- the final completed box reaches a median
 bird's-eye-view IoU of \num{0.771} against the amodal ground-truth box, up from
 \num{0.725} for the raw partial, with the gains concentrated on width, height, and
 centre where the sensor saw least (Finding~\#36) --- and both headline claims survive a
@@ -91,7 +91,7 @@ The rest of this chapter is about how far each of these reaches.
 \paragraph{Detection is cross-validated, and the selection exposure is bounded to precision.}
 SemanticKITTI provides labels only for sequences \numrange{00}{10}; the official test
 sequences \numrange{11}{21} are unlabelled, so no labelled sequence can be reserved as a
-conventional held-out detection test set. The shipped classifier was historically
+conventional held-out detection test set. The final classifier was historically
 selected on sequence~08, which is also the sequence at which the pipeline is reported in
 detail --- a model-selection exposure we address directly rather than only disclose. We
 ran leave-one-sequence-out (LOSO) cross-validation over all eleven labelled sequences
@@ -103,7 +103,7 @@ The leakage-free fold-08 classifier reaches recall \num{0.737} against the seque
 operating point's \num{0.730} --- marginally higher, not lower --- so \emph{recall was not
 inflated} by having selected the classifier on the reporting sequence. The optimism that
 does exist is confined to precision and is about two points: fold-08 precision is
-\num{0.881} versus the shipped \num{0.905}. This is exactly what the stage decomposition
+\num{0.881} versus the final \num{0.905}. This is exactly what the stage decomposition
 predicts (Section~\ref{sec:results-ablations}): geometric clustering alone reaches recall
 \num{0.775}, the classifier lowers it to \num{0.677}, and the track filter recovers it to
 \num{0.730} (Findings~\#47/\#49), so the classifier's realised recall contribution is a
@@ -161,7 +161,7 @@ both require a static car by construction. Donor coverage scores completion of o
 frame's cluster against other frames of the \emph{same} static car, which only exists
 if the car does not move; the amodal box is built from accumulated static-car points.
 Moving cars therefore cannot be scored by either metric. We report them separately and
-only as a plausibility check: on the shipped sequence-08 output, moving car tracks
+only as a plausibility check: on the final sequence-08 output, moving car tracks
 complete into plausible car boxes at essentially the same rate as static ones
 (\SI{57.9}{\percent}, \num{11}/\num{19}, versus \SI{53.7}{\percent}, \num{225}/\num{419};
 Finding~\#44). This supports the statement that motion does not \emph{degrade}
@@ -182,12 +182,12 @@ degrade plausibility) is if anything understated. We flag this as the expected d
 the bias rather than a measured orientation distribution, which we did not compute.
 
 \paragraph{The per-car length estimate falls back too often.}
-The shipped length geometry uses a per-car length estimate (the \num{90}th percentile of
+The final length geometry uses a per-car length estimate (the \num{90}th percentile of
 gate-passed longitudinal extents over a track, plus \SI{0.12}{\metre}), which fixed the
 compact-overshoot problem of the earlier fixed prior (compact signed length error
 \num{+0.295}~$\rightarrow$~\num{+0.063}~m; Finding~\#36). But it falls back to the fixed
 population prior of \SI{4.14}{\metre} on tracks with fewer than five gate-passed frames,
-and that fallback fires on \SI{23.0}{\percent} of shipped completed tracks
+and that fallback fires on \SI{23.0}{\percent} of final completed tracks
 (\num{119}/\num{518} on the regenerated sequence-08 output; Finding~\#41). This is well
 above a comfortable threshold and is not solved: on those tracks the length geometry is
 the population prior, not a per-car estimate, and it reintroduces the compact-overshoot
@@ -195,7 +195,7 @@ risk the per-car estimate was built to remove. We measured the fallback frequenc
 than assuming it small, and we carry it as a live limitation. What the rate is \emph{not}
 is an unquantified risk sitting outside the reported result. The headline box-quality gain
 (median BEV IoU \num{0.725}~$\rightarrow$~\num{0.771}; Finding~\#36) is measured on the
-shipped sequence-08 output --- the same \num{518} tracks of which the \num{119} fallback
+final sequence-08 output --- the same \num{518} tracks of which the \num{119} fallback
 tracks are a subset --- so the fallback cost is already \emph{inside} that number, not
 additional to it. The \num{0.771} is therefore what the pipeline delivers \emph{with} the
 fallback firing on one track in four; it is a measured ceiling on the aggregate, not a
@@ -235,14 +235,14 @@ validity and a ceiling on real-data crispness.
 
 \paragraph{Compacts are where completion strays, and the guard was band-blind to it.}
 This limitation has two faces --- a completion defect and a metric-design lesson --- and
-they must be kept distinct. The completion defect: the shipped completion sprays points
+they must be kept distinct. The completion defect: the final completion sprays points
 outside the true box on \emph{compact} cars. The metric lesson: the original out-of-box
 hallucination guard was a pooled median across all cars, and that pooled statistic was
 blind to exactly this band-localised failure. The fixed \SI{4.14}{\metre} length prior
 that Finding~\#35 sized --- using that same pooled guard --- hallucinates on compact cars
 at roughly \num{100} times the compact band's mirrored baseline (\num{0.0433} versus
 \num{0.0004}), a failure the pooled number could not see because the other \num{32} of
-\num{40} cars sit near it (Finding~\#37). The shipped per-car length estimate, which
+\num{40} cars sit near it (Finding~\#37). The final per-car length estimate, which
 replaced that fixed prior, reduces the compact hallucination to about \num{16} times the
 baseline (\num{0.0065}) --- roughly a sevenfold reduction, not elimination --- but on the
 \SI{23}{\percent} of tracks that fall back to the fixed \SI{4.14}{\metre} prior (the
@@ -251,10 +251,10 @@ hallucination returns. So the defect is real, is worst on the fallback tracks, a
 eliminated on any track.
 
 We report ratios rather than a pass/fail bit because the guard bar is strict and no
-shipped configuration clears it on compacts. The bar is that the out-of-box fraction must
+final configuration clears it on compacts. The bar is that the out-of-box fraction must
 not exceed the band's mirrored baseline, so any ratio above \num{1} is a failure and
 higher is worse. By that bar sequence~08 fails worst (about \num{16} times with the
-shipped estimate, \num{100} times on the fallback tracks), and the held-out sequence~00
+final estimate, \num{100} times on the fallback tracks), and the held-out sequence~00
 confirms the defect does not clear off the tuning sequence either --- a milder but still
 failing \num{1.8} times (completed \num{0.009} versus mirrored \num{0.005}). The compact
 mirrored baseline is itself near \num{0.0004} --- mirroring a compact car barely leaves its

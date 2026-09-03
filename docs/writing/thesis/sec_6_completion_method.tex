@@ -10,7 +10,7 @@
 % Honesty-phrasing rules applied (personal_agenda P1):
 %   - domain-gap failures (#15-19) and Step 1c (#45) presented as FINDINGS, not
 %     apologies; #26 inference bug presented as a debugging lesson.
-%   - shipped path = per-car length estimate ON, Step 1c flags OFF.
+%   - final path = per-car length estimate ON, Step 1c flags OFF.
 %   - 23% fallback (#41) stated as a live limitation.
 %   - measured vs inferred tiers marked; numbers traceable to findings/artifacts.
 %
@@ -20,7 +20,7 @@
 %   Fig 6.2 fig62_box_overlay.py        -> fig62_deblob/box_overlay_deblob_08.png
 %           (BEV old vs corrected completion box vs amodal GT; reconstructs the
 %            retired PCA+partial-radius normalization, touches nothing frozen)
-%   Fig 6.3 viz_completion.py           -> completion_shape_08.png (shipped output, output/08)
+%   Fig 6.3 viz_completion.py           -> completion_shape_08.png (final output, output/08)
 % Floats set [htbp]. Draft-grade renders; may get a cosmetic restyle in the figure pass.
 %
 \chapter{Point-Cloud Completion}
@@ -90,7 +90,7 @@ recover real-car geometry. The reason it could not is the subject of the next tw
 sections --- the problem was in two places at once, and neither was the network
 weights.
 
-\section{Fix 1 --- KITTI-like partials}
+\section{Synthesising KITTI-Like Partials}
 \label{sec:completion-kittilike}
 
 The first real cause was that the synthetic \emph{partials} PCN trained on were
@@ -130,7 +130,7 @@ for the same ShapeNet car.
   \label{fig:kitti-like-partial}
 \end{figure}
 
-\section{Fix 2 --- the inference-normalisation bug}
+\section{Correcting the Inference-Normalisation Error}
 \label{sec:completion-inferencebug}
 
 Retraining alone did not de-blob \emph{real} clusters, and this is the more
@@ -205,13 +205,13 @@ in the rest of this chapter.
   \label{fig:deblob}
 \end{figure}
 
-\section{Fix 3 --- the L-shape input gate}
+\section{L-Shape Input Gating}
 \label{sec:completion-lshape}
 
 Even with correct normalisation, some clusters cannot complete into a plausible
 car because the \emph{input} is not one car: HDBSCAN fragments (part of a car) and
-merges (two cars, or a \SI{90}{\degree} heading error) both feed the completer
-junk. To detect them we fit the cluster's ground-plane footprint with a
+merges (two cars, or a \SI{90}{\degree} heading error) both feed the completion
+network implausible input. To detect them we fit the cluster's ground-plane footprint with a
 search-based L-shape fit (Zhang et al., 2017), which scores edge adherence over
 candidate yaw angles and stays well-defined on near-square footprints where PCA
 degenerates. The fitted footprint gives an input-quality gate (Finding~\#27): a
@@ -226,7 +226,7 @@ An honest secondary finding from the same study: the L-shape heading itself is
 neutral against plain PCA on real data --- the fit earns its place by
 \emph{detecting bad inputs}, not by giving a better heading.
 
-\section{Fix 4 --- per-car length estimation}
+\section{Per-Car Length Estimation}
 \label{sec:completion-length}
 
 The canonical-frame centre estimate re-centres the occluded lateral side and the
@@ -266,7 +266,7 @@ regenerated seq-08 output, \num{119} of \num{518} completed tracks
 gate-passed frames. This is above a comfortable threshold and is stated as a live
 limitation, not a solved problem; it is revisited in the discussion.
 
-\section{A closed negative: the second under-extension mechanism}
+\section{The Second Under-Extension Mechanism}
 \label{sec:completion-step1c}
 
 Targeting each car's \emph{true} length still leaves completions short on normal
@@ -284,7 +284,7 @@ defaulted off, and the production completion is unchanged. This negative result 
 reported because it bounds the method: the residual far-end shortfall on long cars
 is a known, characterised limit, not an oversight.
 
-\section{The shipped completion path}
+\section{The Final Completion Path}
 \label{sec:completion-summary}
 
 To summarise, a single-frame car cluster is completed by: fitting its footprint
@@ -312,7 +312,7 @@ pre-registered held-out replication --- being what Chapter~\ref{ch:completion-ev
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{completion_shape_08.png}
-  \caption{What the shipped completion path produces on real seq-08 cars, four
+  \caption{What the final completion path produces on real seq-08 cars, four
     tracks spanning the input-density range (\num{4679} down to \num{64} input
     points), each in the canonical car frame: bird's-eye view (left of each pair)
     and side elevation (right). Blue is the single-frame partial input, green the
@@ -320,6 +320,6 @@ pre-registered held-out replication --- being what Chapter~\ref{ch:completion-ev
     roofline silhouette from a one-sided partial; crispness and dimensional
     accuracy degrade on the sparsest inputs (the \num{64}-point car shows the
     width inflation discussed in Chapter~\ref{ch:completion-eval}). Rendered by
-    \texttt{scratchpad/viz\_completion.py} from the shipped-config \texttt{output/08}.}
+    \texttt{scratchpad/viz\_completion.py} from the final-config \texttt{output/08}.}
   \label{fig:completion-shape}
 \end{figure}

@@ -2757,3 +2757,73 @@ No new experiments. Manuscript builds clean at **79 pp** (was 80) after the flow
 - **Build the defense `.pptx`** (Section B of `docs/defense/plan.md`): generate onto a purged
   copy of `LVTN.pptx` per `storyboard.md`, export the TikZ Fig 3.1 to PNG, write speaker notes,
   verify; then Phase 8 rehearsal.
+
+# Session — 2026-09-03 (External-LLM tone review: verify, push back, apply the defensible subset)
+
+## What was done
+
+A forwarded external-LLM review (prose/tone only — it reviewed no code) was checked in
+hard-pushback mode (per the `external-review-pushback` memory). Every quote was verified
+against source before acting. Prose-only; nothing frozen touched.
+
+### Review verdict (mostly rejected / severity-inflated)
+- **Fabricated quote found.** The review flagged a grammar error in *"it is never sees a
+  labelled real car"* — that string does not exist. Actual text (`sec_1_introduction.tex:106`)
+  is *"it never sees a labelled real car"*, grammatically correct. The reviewer invented the
+  defect, lowering confidence in its unverified claims generally.
+- **Rejected as harmful:** (1) delete/rename §1.5 to "Scope and Limitations" — collides with
+  Ch 8 "Discussion and Limitations" and guts the deliberate proposal-drift defense (documented
+  load-bearing job in the file header + §1.4/§9 cross-refs); (2) "frozen configuration" →
+  "static/fixed" — "frozen" is the freeze-table term of art and "static" collides with "static
+  cars" throughout Ch 7; (3) "deployed classifier" — nothing is deployed (offline research);
+  (4) "blobs" → "amorphous geometries" — a defined scare-quoted phenomenon, the swap is
+  pompous not rigorous.
+- **Kept over the review's objection:** §7.1 *"This is a measured failure rather than a
+  conjecture"* — it is exactly the measured/inferred distinction good empirical writing should
+  make; the review's "empirically demonstrated rather than merely theoretical" was wordier for
+  nothing.
+- The **CRITICAL** rating on Chapter-6 heading wording was rejected as severity inflation (no
+  heading is a critical thesis defect), but the underlying stylistic point was accepted.
+
+### Edits applied (the defensible subset)
+- **§7.1** (`sec_7_2_donor_metric.tex`): "The trouble is that the accumulation…" → "The
+  fundamental limitation is that the accumulation…".
+- **§6.6** (`sec_6_completion_method.tex`): "both feed the completer junk." → "both feed the
+  completion network implausible input." (the one genuine dev-slang phrase).
+- **Chapter 6 headings de-ticketed** (6.4–6.9), on request after flagging it as an authorial
+  judgment call (the chapter is deliberately framed as a debugging narrative): Fix 1 → **Synthesising
+  KITTI-Like Partials**; Fix 2 → **Correcting the Inference-Normalisation Error**; Fix 3 →
+  **L-Shape Input Gating**; Fix 4 → **Per-Car Length Estimation**; "A closed negative…" → **The
+  Second Under-Extension Mechanism**; "The shipped completion path" → **The Final Completion
+  Path**. Departed from the review's proposed titles: British spelling (matches the thesis's
+  `normalisation`/`voxelisation`), singular "Error" (one bug), dropped the review's "Limitations:"
+  prefix (Ch 8 collision) and "Pipeline" (Ch 3 collision).
+- **Full `shipped` → `final` sweep**, on request, for consistency: 35 occurrences across seven
+  files (`sec_3`, `sec_4_1`, `sec_4_results`, `sec_6`, `sec_7_2`, `sec_7_results`, `sec_8`),
+  including `\emph{shipped}` → `\emph{final}` and LaTeX author-note comments. The two
+  `do not ship` / `do-not-ship` verdicts (Finding #45) were preserved (release-decision
+  phrasing, no "shipped" substring). Uniform "final" preserves the term-of-art distinction
+  (production/promoted artifact vs. rejected alternatives).
+
+### Build + verification
+`latexmk -pdf main.tex` (TeX Live 2026): exit 0, **79 pp**, zero undefined refs/citations, no
+rerun pending. PDF-text extraction confirmed the edits landed in the output: `shipped` = 0
+occurrences, `do not ship` = 2 (preserved), all six new Chapter-6 headings present in both the
+table of contents and the chapter body.
+
+## Files changed
+- **Modified (prose only):** `docs/writing/thesis/sec_3_detection_pipeline.tex`,
+  `sec_4_1_evaluation_protocol.tex`, `sec_4_results.tex`, `sec_6_completion_method.tex`,
+  `sec_7_2_donor_metric.tex`, `sec_7_results.tex`, `sec_8_discussion.tex`, plus
+  `docs/project_state.md` and this file.
+- No `src/` / frozen artifact / checkpoint touched. NOT advisor-reviewed.
+
+## Results / findings
+No new experiments. Manuscript still builds clean at **79 pp**.
+
+## Next
+- **Advisor review** of the assembled manuscript (Phase 7) — user-triggered; still no chapter
+  advisor-reviewed.
+- **Build the defense `.pptx`** (Section B of `docs/defense/plan.md`).
+- Optional loose end: formalize the two `do not ship` / `do-not-ship` verdicts (the last
+  release-jargon phrases) to "not to adopt" / "rejected" — offered, not yet actioned.

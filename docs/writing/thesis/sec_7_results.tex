@@ -183,13 +183,13 @@ length correction.
     per-car medians, $n=40$, promoted configuration; Findings~\#35/\#36).
     ``no prior'' is the completion with the canonical-frame centre but no
     longitudinal push; ``fixed \SI{4.14}{}'' is the population-median prior;
-    ``per-car'' is the shipped \nth{90}-percentile track estimate. The compact
+    ``per-car'' is the final \nth{90}-percentile track estimate. The compact
     row is signed $\Delta L$ on cars ${<}\SI{3.6}{\meter}$ ($n=8$), where a fixed
     prior over-extends.}
   \label{tab:length-geometry}
   \begin{tabular}{lcccc}
     \toprule
-    Metric & Raw & no prior & fixed \SI{4.14}{} & \textbf{per-car (shipped)} \\
+    Metric & Raw & no prior & fixed \SI{4.14}{} & \textbf{per-car (final)} \\
     \midrule
     $|\Delta L|$ (m) $\downarrow$   & 0.428 & 0.476 & 0.354 & \textbf{0.304} \\
     BEV IoU $\uparrow$              & 0.725 & 0.743 & 0.747 & \textbf{0.771} \\
@@ -265,7 +265,7 @@ amodal reference needs a stationary target. Production nonetheless completes
 moving cars, and those completions were never validated. Because completion runs
 on a single reference frame's cluster --- not on accumulated points --- there is
 no motion smear in its input, so there is a mechanistic reason to expect motion
-not to matter; this section checks it (Finding~\#44). On the shipped seq-08 output
+not to matter; this section checks it (Finding~\#44). On the final seq-08 output
 (\num{518} completed car tracks) each track is labelled static, moving, or
 ambiguous by the net horizontal displacement of its centroid (a label-free proxy,
 since the output tracks are unlabelled), and each completion is scored by a
@@ -274,7 +274,7 @@ Table~\ref{tab:movers} gives the result.
 
 \begin{table}[H]
   \centering
-  \caption{Completion plausibility by track motion (shipped seq-08 output,
+  \caption{Completion plausibility by track motion (final seq-08 output,
     \num{518} completed car tracks; Finding~\#44). Motion is the net displacement
     of the track centroid (median of first vs.\ last five frames). Plausible =
     bird's-eye dimensions in the car range ($L\in[3.3,4.9]$, $W\in[1.5,2.1]$,
@@ -393,7 +393,7 @@ The limitations are stated as findings, each already quantified. The
 residual under-extension is a characterised, length-dependent limit that a
 pre-registered fix could not remove without regressing compacts (Finding~\#45).
 The per-car length estimate falls back to the fixed population prior on
-\SI{23}{\percent} of shipped tracks --- those with fewer than five gate-passed
+\SI{23}{\percent} of final tracks --- those with fewer than five gate-passed
 frames (Finding~\#41) --- which is above a comfortable threshold and is not
 solved. The sparsest inputs complete more coarsely, and the axis-aligned plausibility
 measure inflates the \emph{reported} width of diagonally-oriented cars

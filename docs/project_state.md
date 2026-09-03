@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-30
+Last updated: 2026-09-03
 
 ## RESEARCH FREEZE — declared 2026-08-21 (write-up phase)
 
@@ -126,6 +126,25 @@ generated**.
   now points at the plan. **Resume at plan Section B** to build the `.pptx` (purge peer content
   from the template copy; python-pptx slide-clone corruption is the known risk → fallback fresh
   theme).
+
+**External-LLM tone review processed — 2026-09-03 (NOT advisor; hard-pushback mode).**
+Prose/tone-only review (reviewed no code); every quote verified against source first. Prose-only,
+nothing frozen touched; `main.tex` rebuilds clean (exit 0, **79 pp**, zero undefined refs/citations,
+no rerun). Mostly rejected/severity-inflated — the review **fabricated a grammar error** (flagged
+"it is never sees a labelled real car"; actual `sec_1:106` = "it never sees a labelled real car",
+correct), and its harmful recs were rejected: delete/rename §1.5 (collides with Ch 8 "Discussion and
+Limitations" + breaks the §1.4/§9 proposal-drift cross-refs), "frozen"→"static" (freeze-table term of
+art; collides with "static cars"), "deployed" (offline research), "blobs"→"amorphous geometries".
+Kept §7.1 "measured failure rather than a conjecture" (correct measured/inferred distinction).
+**Applied (defensible subset):** (1) §7.1 "The trouble is"→"The fundamental limitation is"
+(`sec_7_2`); (2) §6.6 "feed the completer junk"→"feed the completion network implausible input"
+(`sec_6`); (3) **Ch 6 headings de-ticketed** 6.4–6.9 (Fix 1–4 / "A closed negative" / "The shipped
+completion path" → noun phrases; British spelling, singular "Error", avoided "Limitations:"/"Pipeline"
+collisions); (4) **full `shipped`→`final` sweep**, 35 occurrences across 7 files (`sec_3`, `sec_4_1`,
+`sec_4_results`, `sec_6`, `sec_7_2`, `sec_7_results`, `sec_8`), incl. `\emph{}` + comments; the two
+`do not ship`/`do-not-ship` verdicts (#45) preserved. PDF-text verified: shipped=0, do-not-ship=2,
+all six new headings in TOC + body. NOT advisor-reviewed. Open loose end: formalize the `do not ship`
+verdicts (offered, not actioned).
 
 **Thesis writing (T14) — STARTED 2026-08-21 (Protocol milestone).** §4.1
 (evaluation protocol) and §7.2 (donor metric) first-drafted as compilable LaTeX
