@@ -278,7 +278,7 @@ two decoupled knobs: separating the radius from the length push, and a
 length-axis fill factor calibrated on synthetic true GT. The change fixed the
 target --- normal-car box $|\Delta L|$ \num{0.329}$\to$\num{0.232} --- but
 over-extended compacts and failed the pre-registered compact non-regression guard
-on both test sequences. The verdict was \textbf{do not ship}: the compensation is
+on both test sequences. The verdict was \textbf{not to adopt it}: the compensation is
 irreducibly length-dependent, which is out of scope. The knobs remain in the code
 defaulted off, and the production completion is unchanged. This negative result is
 reported because it bounds the method: the residual far-end shortfall on long cars

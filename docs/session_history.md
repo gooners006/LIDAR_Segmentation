@@ -2825,5 +2825,7 @@ No new experiments. Manuscript still builds clean at **79 pp**.
 - **Advisor review** of the assembled manuscript (Phase 7) — user-triggered; still no chapter
   advisor-reviewed.
 - **Build the defense `.pptx`** (Section B of `docs/defense/plan.md`).
-- Optional loose end: formalize the two `do not ship` / `do-not-ship` verdicts (the last
-  release-jargon phrases) to "not to adopt" / "rejected" — offered, not yet actioned.
+- ~~Formalize the two `do not ship` / `do-not-ship` verdicts~~ **DONE (follow-up commit):**
+  §6.8 (`sec_6`) "do not ship" → "not to adopt it"; §7.4 (`sec_7_results`) "do-not-ship" →
+  "to reject it". Rebuilt clean (79 pp, exit 0); PDF now has zero release-jargon
+  (`shipped` = 0, `do not ship` = 0).

@@ -143,8 +143,9 @@ completion path" → noun phrases; British spelling, singular "Error", avoided "
 collisions); (4) **full `shipped`→`final` sweep**, 35 occurrences across 7 files (`sec_3`, `sec_4_1`,
 `sec_4_results`, `sec_6`, `sec_7_2`, `sec_7_results`, `sec_8`), incl. `\emph{}` + comments; the two
 `do not ship`/`do-not-ship` verdicts (#45) preserved. PDF-text verified: shipped=0, do-not-ship=2,
-all six new headings in TOC + body. NOT advisor-reviewed. Open loose end: formalize the `do not ship`
-verdicts (offered, not actioned).
+all six new headings in TOC + body. NOT advisor-reviewed. **Follow-up commit:** the two `do not ship`/`do-not-ship`
+verdicts (#45) formalized — §6.8 (`sec_6`) → "not to adopt it", §7.4 (`sec_7_results`) → "to
+reject it"; rebuilt clean (79 pp), PDF release-jargon count now 0.
 
 **Thesis writing (T14) — STARTED 2026-08-21 (Protocol milestone).** §4.1
 (evaluation protocol) and §7.2 (donor metric) first-drafted as compilable LaTeX
