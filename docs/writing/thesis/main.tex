@@ -1,11 +1,11 @@
 % =====================================================================
 % Master's Thesis -- master document
-% Wires the twelve standalone chapter fragments (sec_0 .. sec_9) into one
+% Wires the abstract plus five chapter files (ch0_abstract, ch1 .. ch5) into one
 % FPT-template report-class PDF. Build from THIS directory:
 %     latexmk -pdf main.tex
 % (or: pdflatex main; bibtex main; pdflatex main; pdflatex main)
 %
-% Each sec_*.tex is a body FRAGMENT (no preamble, no \begin/\end{document});
+% Each ch*.tex is a body FRAGMENT (no preamble, no \begin/\end{document});
 % top-level headings were promoted \section->\chapter, \subsection->\section,
 % \subsubsection->\subsection at assembly. Cross-chapter references are real
 % \ref{} into the shared label namespace this file creates.
@@ -104,7 +104,7 @@
 % --- Front matter (roman page numbers) ---
 \pagenumbering{roman}
 
-\input{sec_0_abstract}
+\input{ch0_abstract}
 
 \tableofcontents
 \listoffigures
@@ -114,17 +114,11 @@
 % --- Body (arabic page numbers) ---
 \pagenumbering{arabic}
 
-\input{sec_1_introduction}
-\input{sec_2_background}
-\input{sec_3_detection_pipeline}      % opens Chapter 3 (Methodology): detection...
-\input{sec_6_completion_method}       % ...+ object completion (folds under Methodology)
-\input{sec_4_1_evaluation_protocol}   % opens Chapter 4 (Evaluation): protocol...
-\input{sec_4_results}                 % ...detection results + ablations + range + runtime
-\input{sec_5_recall_bottleneck}       % ...recall analysis = bridge to completion (was a chapter)
-\input{sec_7_2_donor_metric}          % ...donor-metric validation battery (was a chapter)
-\input{sec_7_results}                 % ...completion results: coverage, box, movers, held-out
-\input{sec_8_discussion}              % opens Chapter 5 (Discussion and Conclusion): discussion + limitations...
-\input{sec_9_conclusion}              % ...+ RQ answers, contributions, future work (folds under Ch5)
+\input{ch1_introduction}
+\input{ch2_background}
+\input{ch3_methodology}               % Chapter 3: detection pipeline + object completion
+\input{ch4_evaluation}                % Chapter 4: protocol + detection results + recall analysis + donor metric + completion results
+\input{ch5_discussion_conclusion}     % Chapter 5: discussion + limitations + RQ answers + contributions + future work
 
 % --- Bibliography (single, master-owned) ---
 \bibliographystyle{IEEEtran}

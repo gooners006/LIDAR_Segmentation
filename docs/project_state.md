@@ -5,8 +5,9 @@ Last updated: 2026-09-04
 ## RESEARCH FREEZE — declared 2026-08-21 (write-up phase)
 
 Research is complete; the repository is now **evidence, not a lab**. Thesis
-write-up (T14) is the only open task. Execution plan: `THESIS_PLAN.md` (Section 2
-is the authoritative freeze table). Frozen items, all repo-verified 2026-08-21:
+write-up (T14) is the only open task. Plan of record: this document
+(`docs/project_state.md`; the freeze table below is authoritative). `THESIS_PLAN.md`
+was deleted 2026-09-04. Frozen items, all repo-verified 2026-08-21:
 
 | Item | Frozen value | Source |
 |---|---|---|
@@ -20,8 +21,8 @@ is the authoritative freeze table). Frozen items, all repo-verified 2026-08-21:
 **Freeze rule:** no edits to `src/pipeline.py`, `src/completion.py`,
 `src/classifier.py`, checkpoints, or `output/08` until after submission. New work
 goes to `scratchpad/` + new `output/experiments/` subfolders only (house
-data-safety rule). The remaining evidence tasks (B1–B6 in `THESIS_PLAN.md` §3)
-are read-only analyses against this frozen config — they do not change it.
+data-safety rule). The remaining evidence tasks (B1–B6; see **Evidence-task
+progress** below) are read-only analyses against this frozen config — they do not change it.
 
 > **REFRAME COMPLETE (2026-09-04) — metric-centric, 5-chapter structure.** The thesis is
 > now built around a **single contribution: the donor-frame coverage metric** ("orbit the
@@ -49,8 +50,12 @@ are read-only analyses against this frozen config — they do not change it.
 > multiply-defined, 0 overfull >20 pt); fold diff-audit passed (0 Finding-citations lost).
 > Commits: 12c5884 (Ch2) → 0e2f87c/659afaa/5d8b3d7 (Ch3) → b0423fe (Ch4) → 1f6bfb8 (Ch5)
 > → 922d0c4 (Lane B). **Remaining (optional):** front-matter acknowledgments/declaration.
-> `docs/writing/reframe_plan.md` + `THESIS_PLAN.md` remain reference; this reframe is now
-> the executed state.
+> `docs/writing/reframe_plan.md` remains reference; this reframe is now the executed
+> state. **File layout (consolidated 2026-09-04):** thesis source is six files under
+> `docs/writing/thesis/` — `ch0_abstract`, `ch1_introduction`, `ch2_background`,
+> `ch3_methodology`, `ch4_evaluation`, `ch5_discussion_conclusion` — wired by `main.tex`
+> (down from 13 `sec_*` fragments). `THESIS_PLAN.md` was deleted the same day; its claims
+> map (C1–C11), freeze table, and defense Q&A live on here and in git history.
 
 **Evidence-task progress:** B1 (IoU sensitivity) + B6 (geometric-only ablation)
 DONE 2026-08-21 (Finding #47, `output/experiments/iou_sensitivity/`): headline

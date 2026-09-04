@@ -32,8 +32,10 @@ advisor **alongside** the finished manuscript (`docs/writing/thesis/main.pdf`,
 
 - `docs/project_state.md` — frozen headline numbers, per-chapter status, the review
   history. **Numbers come from here / findings.md, never re-derived.**
-- `THESIS_PLAN.md` — claims map C1–C11 (every slide claim must be ⊆ this).
-- `docs/writing/thesis/main.tex` + the `sec_*.tex` chapter files — the prose the
+- Claims map C1–C11 — every slide claim must be ⊆ this. `THESIS_PLAN.md` (its former
+  home) was deleted 2026-09-04; the map now survives in git history and as embedded
+  `C1`–`C11` labels in the chapter comment headers.
+- `docs/writing/thesis/main.tex` + the `ch0`–`ch5` chapter files — the prose the
   slides compress. Figures referenced there are the deck's figure pool.
 - `docs/LVTN.pptx` — the structure/visual template (peer deck; untracked, local).
 - This file.

@@ -1,24 +1,17 @@
-% Chapter 1 -- Introduction
-% Standalone, compilable draft (FPT-template article class + booktabs), sibling to
-% sec_2_background.tex / sec_8_discussion.tex. Frames the problem, the modular
-% approach, the three research questions, the claimed contributions, the scope, and
-% the thesis outline. Its load-bearing job is to OWN the proposal drift: three
-% promises in docs/report/thesis_proposal.tex were narrowed or dropped during the
-% research, and this chapter states each as a deliberate, evidence-backed decision
-% rather than letting a committee surface it first.
-%
-% MERGE/NUMBERING NOTE: this file opens with \section{Introduction} for standalone
-% compilation and numbering, but at final assembly the assembler promotes it to a
-% chapter (Chapter 1). Forward references to sibling chapters use typed numerals
-% ("Chapter~\ref{ch:pipeline}", "Section~7.4") because the chapter files do not share a label
-% namespace when built separately. Internal experiment records are cited as plain
-% text "Finding~\#NN" (entries in docs/findings.md), the convention used by the
-% method/results/discussion chapters; published literature uses BibTeX \cite{}.
+% Chapter 1 -- Introduction (\input by main.tex)
+% Frames the problem, the modular approach, the three research questions, the claimed
+% contributions, the scope, and the thesis outline. Its load-bearing job is to OWN the
+% proposal drift: three promises in docs/report/thesis_proposal.tex were narrowed or
+% dropped during the research, and this chapter states each as a deliberate,
+% evidence-backed decision rather than letting a committee surface it first.
+% Internal experiment records are cited as plain text "Finding~\#NN" (entries in
+% docs/findings.md), the convention used by the method/results/discussion chapters;
+% published literature uses BibTeX \cite{}.
 %
 % CONSISTENCY CONSTRAINTS (checked at draft time):
-%   - Every claim here is a subset of the THESIS_PLAN Section-6 claims map (C1--C11).
+%   - Every claim here is a subset of the claims map (C1--C11).
 %     Nothing is stated beyond the PARTIALLY-HOLDS scope of the held-out completion
-%     result (C9). The three claimed contributions match sec_2_background.tex Sec 2.5
+%     result (C9). The three claimed contributions match Chapter 2's Sec 2.5
 %     exactly (donor metric / recall root-cause / synthetic-pretraining redundancy);
 %     the pipeline, runtime characterisation, and amodal-GT builder are named as
 %     ENGINEERING contributions, not scientific claims, and tracking is explicitly
@@ -79,8 +72,8 @@ obvious substitute --- accumulating the same static car across many frames to bu
 a pseudo-ground-truth --- is itself one-sided and, as this thesis shows, invalid as
 a reference, because the raw partial input scores \emph{best} against it. Before
 completion can be claimed to help, it must be possible to measure at all. The
-central contribution of this thesis is a metric that does so: a validated,
-leakage-free donor-frame coverage metric that scores how much genuinely occluded
+central contribution of this thesis is a metric that does so: a validated
+donor-frame coverage metric that scores how much genuinely occluded
 surface a completion recovers, and which, applied to real cars, shows that learned
 completion recovers such surface well above a parameter-free baseline. The detection
 pipeline above is, in this light, the front-end that supplies the metric its inputs;
@@ -143,7 +136,7 @@ clustering, classification, tracking, and completion stages are established buil
 blocks, reimplemented and tuned here.
 
 \begin{enumerate}
-  \item \textbf{A leakage-free metric for completion quality on real LiDAR.} The
+  \item \textbf{A validated metric for completion quality on real LiDAR.} The
     thesis first shows that reference-based Chamfer distance against an accumulated
     pseudo-ground-truth is invalid on real cars --- the raw partial input scores
     \emph{best} on that metric, because the reference is itself occluded on the same

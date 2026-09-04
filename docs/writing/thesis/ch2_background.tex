@@ -1,16 +1,9 @@
-% Chapter 2 -- Background and Related Work
-% Standalone, compilable draft (FPT-template article class + booktabs), sibling to
-% sec_3_detection_pipeline.tex / sec_8_discussion.tex. Positions this thesis's
-% classical-clustering + binary-classifier + PCN-completion pipeline against the
-% deep-learning LiDAR-segmentation and point-completion literature, and carries the
-% B3 mandatory literature-positioning table (Table 2.1) that defends examiner Q2
-% ("why F1 0.808 / R 0.73 vs SOTA?") and Q10 ("what is yours vs. reimplementation?").
-%
-% MERGE/NUMBERING NOTE: this file opens with \section{Background and Related Work} for
-% standalone compilation and numbering, but at final assembly the assembler promotes it
-% to a chapter (Chapter 2). Forward references to sibling chapters use typed numerals
-% ("Chapter~\ref{ch:pipeline}", "Section~\ref{sec:recall-analysis}", "Section~\ref{sec:donor-validation}") because the chapter files do not share a label
-% namespace when built separately.
+% Chapter 2 -- Background and Related Work (\input by main.tex)
+% Positions this thesis's classical-clustering + binary-classifier + PCN-completion
+% pipeline against the deep-learning LiDAR-segmentation and point-completion
+% literature, and carries the B3 mandatory literature-positioning table (Table 2.1)
+% that defends examiner Q2 ("why F1 0.808 / R 0.73 vs SOTA?") and Q10 ("what is yours
+% vs. reimplementation?").
 %
 % CITATIONS: unlike the results/methods siblings (which cite the internal Finding record),
 % this is a literature chapter and uses classic BibTeX. \bibliography{../../references}
@@ -49,7 +42,7 @@ what exists in LiDAR segmentation and object completion, and where this work sit
 --- and Section~\ref{sec:bg-theory} is a theoretical-background section that fixes the
 notation and standard definitions for the operators the pipeline is built from. The
 pipeline-specific architectures, configurations, and design choices of each component are
-deferred to the method chapters (Chapter~\ref{ch:pipeline} for detection,
+deferred to the method chapter (Section~\ref{ch:pipeline} for detection,
 Section~\ref{ch:completion-method} for completion).
 
 \section{Literature Review}
@@ -190,7 +183,7 @@ fills a whole voxelised scene from a single scan; the present work completes ind
 segmented objects, a different and narrower task.
 
 Because real automotive LiDAR offers no complete target, a small toolkit of
-\emph{reference-free} completion metrics has grown up around the KITTI cars.
+completion metrics has grown up around the KITTI cars.
 PCN~\cite{yuan2019pcnpointcompletionnetwork} itself scores its KITTI completions by
 \emph{Fidelity} (how well the input is preserved in the output), \emph{Minimal Matching
 Distance} (Chamfer distance to the nearest complete car in a synthetic reference set), and
@@ -296,7 +289,7 @@ a lightweight multi-object tracking stage used only to filter transient detectio
 across frames (in the tradition of 3D multi-object trackers such as
 AB3DMOT~\cite{weng2020ab3dmot}, and not a contribution of this work), and PCN-style
 completion are established building blocks, reimplemented and tuned here. The
-contributions this work does claim are methodological and diagnostic: a leakage-free
+contributions this work does claim are methodological and diagnostic: a validated
 metric for completion quality on real LiDAR where reference-based Chamfer distance is
 invalid (Section~\ref{sec:donor-validation}), the root-cause analysis of the recall bottleneck together with the
 chain of negative repair results (Section~\ref{sec:recall-analysis}), and the finding that synthetic

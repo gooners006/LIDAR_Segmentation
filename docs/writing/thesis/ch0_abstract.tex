@@ -1,17 +1,12 @@
-% Abstract
-% Standalone, compilable draft (FPT-template article class + booktabs), sibling to
-% sec_1_introduction.tex / sec_9_conclusion.tex. Metric-first funnel (four short
-% paragraphs): the measurement gap (Chamfer invalid on real LiDAR, #26) -> the
-% contribution (the leakage-free donor metric + its four-part validation + the
-% completion payoff, PARTIALLY-HOLDS held-out) -> the pipeline it lives in and the two
-% diagnostic findings (recall root-cause; synthetic-pretraining redundancy) with the
-% segmentation bottleneck as one late sentence -> the three-contribution close. It is
-% the first thing a committee reads, so every number and hedge must be defensible.
-%
-% MERGE/NUMBERING NOTE: this file opens with \section*{Abstract} (unnumbered) for
-% standalone compilation; at final assembly the assembler places it in the front
-% matter, before Chapter 1. It cites no chapters and no literature -- an abstract is
-% self-contained prose -- so there are no cross-references or \cite{} here.
+% Abstract -- front matter (\input by main.tex before Chapter 1)
+% Metric-first funnel (four short paragraphs): the measurement gap (Chamfer invalid
+% on real LiDAR, #26) -> the contribution (the donor metric + its four-part
+% validation + the completion payoff, PARTIALLY-HOLDS held-out) -> the pipeline it
+% lives in and the two diagnostic findings (recall root-cause; synthetic-pretraining
+% redundancy) with the segmentation bottleneck as one late sentence -> the
+% three-contribution close. It is the first thing a committee reads, so every number
+% and hedge must be defensible. It cites no chapters and no literature -- an abstract
+% is self-contained prose -- so there are no cross-references or \cite{} here.
 %
 % Honesty-phrasing rules applied (personal_agenda P1):
 %   - recall (0.730) carries its qualifier inline ("at a point-IoU of 0.3, on cars
@@ -19,14 +14,14 @@
 %     annotated cars (~0.54, Finding #48); the exact >=10-surviving-point denominator
 %     mechanics live in Sec 4.1
 %   - LOSO is stated qualitatively ("validated across all eleven labelled sequences to
-%     rule out model-selection bias"); the leakage-free numbers (0.737/0.719) live in
+%     rule out model-selection bias"); the cross-validated numbers (0.737/0.719) live in
 %     Sec 4.1 -- abstract-level compression, not a softening
 %   - the amodal-box benefit is scoped to "static, gate-passed cars" (movers are
 %     plausibility-only #44; long band untested off seq 08)
 %   - the held-out completion result is "partially replicates", never "confirmed"/"holds"
 %   - the detection headline is a single-sequence (seq 08) result, cross-validated
 %   - negatives (recall repairs, synthetic redundancy) are named as findings
-%   - the donor metric is "a validated, leakage-free" metric, NOT "the first"
+%   - the donor metric is "a validated" metric, NOT "the first"
 %     (no literature-priority overclaim; matches C7 and the Ch 9 review)
 %   - the three closing contributions match Ch 1 Sec 1.4 / Ch 9 Sec 9.3 / Ch 2 Sec 2.5
 %     EXACTLY (donor metric / recall root-cause / synthetic-pretraining redundancy);
@@ -44,7 +39,7 @@ side, the raw partial input scores \emph{best}, ranking a network that does noth
 one that genuinely completes. Completion quality on real LiDAR thus had no valid metric.
 
 The central contribution of this thesis is such a metric. It defines and validates a
-leakage-free, donor-frame occluded-side coverage metric that scores how much of the
+donor-frame occluded-side coverage metric that scores how much of the
 surface seen only in \emph{other} frames of the same static car a completion recovers,
 guarded against surface hallucinated outside the car's box and benchmarked against a
 symmetry-mirror baseline that adds surface with no learned parameters. The metric passes
@@ -64,9 +59,9 @@ bias), a shortfall root-caused to density clustering fragmenting single vehicles
 multiple repair strategies failed to overcome; and synthetic classifier pretraining is
 redundant once real training clusters are plentiful. The same clustering step also governs
 completion: an eleven-sequence ablation shows that input quality, not the choice of
-completion model, decides whether completion is usable at all.
+completion model (of the two tested), decides whether completion is usable at all.
 
-The thesis's contributions are thus methodological and diagnostic: a validated,
-leakage-free metric for completion quality on real LiDAR; a root-cause account of why the
+The thesis's contributions are thus methodological and diagnostic: a validated
+metric for completion quality on real LiDAR; a root-cause account of why the
 classical clustering detector is recall-limited; and evidence that synthetic pretraining
 is redundant at scale.
