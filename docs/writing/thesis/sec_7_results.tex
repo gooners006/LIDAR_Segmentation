@@ -8,7 +8,7 @@
 % is opened by sec_7_2_donor_metric.tex, which owns \label{ch:completion-eval}),
 % and §7.3-§7.7 below fold in after §7.1/§7.2. Because separate standalone builds
 % do NOT share a label namespace, cross-FILE references use typed numerals
-% ("Section~\ref{sec:donor-metric}", "Chapter~\ref{ch:completion-method}") rather than \ref{}; only within-file refs use \ref.
+% ("Section~\ref{sec:donor-metric}", "Section~\ref{ch:completion-method}") rather than \ref{}; only within-file refs use \ref.
 %
 % Scope: the completion RESULTS. §7.3 surface coverage (donor metric, #32);
 % §7.4 downstream box utility + length geometry (#29/#35/#36, #45 cross-ref);
@@ -52,7 +52,7 @@ never observed. Table~\ref{tab:donor-coverage} reports the donor metric on \num{
 three clouds --- the raw partial, its symmetry mirror, and the completion ---
 against each car's
 donor-only novel set. This is the metric's acceptance run (Finding~\#32), taken
-on the production path \emph{before} the Chapter~\ref{ch:completion-method} length prior; the length
+on the production path \emph{before} the Section~\ref{ch:completion-method} length prior; the length
 geometry is evaluated in Section~\ref{sec:results-box}.
 
 \begin{table}[H]
@@ -116,7 +116,7 @@ saw least.
     completion itself (green). The upper panels close the occluded far side almost
     entirely; the last isolates the residual failure modes --- far-end
     under-completion and heading/centre error on diagonal or sparse views --- that
-    Section~\ref{sec:results-box} and Chapter~\ref{ch:completion-method} address.
+    Section~\ref{sec:results-box} and Section~\ref{ch:completion-method} address.
     Rendered by \texttt{scratchpad/donor\_metric\_viz.py}.}
   \label{fig:donor-coverage}
 \end{figure}
@@ -175,7 +175,7 @@ Table~\ref{tab:box-quality} length is neutral --- the completion neither helps n
 hurts $|\Delta L|$. That was too generous a reading of an untreated defect: the
 completion of a partial truncated at the occluded far end stops short, so it
 \emph{under}-completes length. Table~\ref{tab:length-geometry} isolates this on
-the promoted configuration ($n=40$) and tracks the two Chapter~\ref{ch:completion-method} fixes ---
+the promoted configuration ($n=40$) and tracks the two Section~\ref{ch:completion-method} fixes ---
 the fixed \SI{4.14}{\meter} prior (Finding~\#35) and the per-car length estimate
 (Finding~\#36) --- against the raw partial and the completion \emph{without} any
 length correction.
@@ -237,7 +237,7 @@ shortfall is a real limitation, addressed next.
 \emph{true} length still leaves completions short on normal and long cars, which
 pointed to a second under-extension mechanism inside the completion itself (PCN
 under-fills its normalised frame, and the centre push doubles as an output
-rescale). Chapter~\ref{ch:completion-method} investigated this under pre-registration (Finding~\#45, the
+rescale). Section~\ref{ch:completion-method} investigated this under pre-registration (Finding~\#45, the
 ``closed negative''): decoupling the scale from the length push and adding a
 calibrated fill factor did fix the target (normal-car $|\Delta L|$
 \num{0.329}$\to$\num{0.232}) but over-extended compacts and failed the

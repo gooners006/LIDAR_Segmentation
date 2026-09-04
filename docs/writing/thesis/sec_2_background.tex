@@ -19,7 +19,7 @@
 %
 % Scope decision (settled with advisor/author): RELATED-WORK-FOCUSED. Method mechanics
 % (PointNet architecture, HDBSCAN internals, PCN encoder/decoder, Chamfer distance) are
-% explained in Chapter~\ref{ch:pipeline} (pipeline) and Chapter~\ref{ch:completion-method} (completion) and are NOT re-derived
+% explained in Chapter~\ref{ch:pipeline} (pipeline) and Section~\ref{ch:completion-method} (completion) and are NOT re-derived
 % here; this chapter carries only the light conceptual grounding needed to read the
 % related work and the positioning table.
 %
@@ -50,7 +50,7 @@ what exists in LiDAR segmentation and object completion, and where this work sit
 notation and standard definitions for the operators the pipeline is built from. The
 pipeline-specific architectures, configurations, and design choices of each component are
 deferred to the method chapters (Chapter~\ref{ch:pipeline} for detection,
-Chapter~\ref{ch:completion-method} for completion).
+Section~\ref{ch:completion-method} for completion).
 
 \section{Literature Review}
 \label{sec:bg-litreview}
@@ -179,7 +179,7 @@ inputs produced by virtual rendering.
 Two points from this literature bear directly on later chapters. First, models trained
 on clean synthetic partials face a synthetic-to-real domain gap when applied to noisy,
 sparse LiDAR clusters; this thesis adopts PCN and confronts that gap head-on
-(Chapter~\ref{ch:completion-method}), and its comparison of PCN against a transformer alternative found no
+(Section~\ref{ch:completion-method}), and its comparison of PCN against a transformer alternative found no
 decisive real-data advantage for the heavier model (Chapter~\ref{ch:completion-eval}). Second, and more
 consequentially, the standard completion metric --- Chamfer distance to a reference
 shape --- presupposes a complete ground-truth surface, which real accumulated LiDAR does
@@ -282,7 +282,7 @@ segmentation methods rather than 3D object detection, the task the ``detector'' 
 most naturally invokes. Detection benchmarks score oriented 3D bounding boxes by average
 precision, as in PointPillars~\cite{lang2019pointpillars} and
 CenterPoint~\cite{yin2021centerpoint}. This pipeline, however, emits point-level clusters
---- it must, because those clusters are the input to the completion stage (Chapter~\ref{ch:completion-method}) ---
+--- it must, because those clusters are the input to the completion stage (Section~\ref{ch:completion-method}) ---
 and never fits an oriented box; box AP would require a box-fitting stage the pipeline
 deliberately does not have. Point-level IoU against the ground-truth car points is
 therefore the metric that matches the actual output, and the choice of IoU threshold and

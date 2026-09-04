@@ -12,11 +12,21 @@
 %   - every number traceable to a finding / output artifact.
 %   - "the classifier's job is precision" claim deferred to the Ch-4 ablation.
 %
-\chapter{Detection Pipeline}
+\chapter{Methodology}
 \label{ch:pipeline}
 
-This chapter describes the car-detection pipeline that produces every detection
-evaluated in Chapter~\ref{ch:detection-eval} and every cluster completed in Chapters~\ref{ch:completion-method} and~\ref{ch:completion-eval}. The
+This chapter describes the method in the order a scan flows through it: a modular,
+classical car-detection pipeline (Section~\ref{sec:meth-detection}) that segments
+and classifies car clusters, and an object-completion stage
+(Section~\ref{ch:completion-method}) that reconstructs each detected car's full
+surface from the one-sided partial a single frame observes.
+
+\section{Detection pipeline}
+\label{sec:meth-detection}
+
+This section describes the car-detection pipeline that produces every detection
+evaluated in Chapter~\ref{ch:detection-eval} and every cluster completed in
+Section~\ref{ch:completion-method} and Chapter~\ref{ch:completion-eval}. The
 design is deliberately modular and classical: a chain of independent stages,
 each with a small number of interpretable parameters, rather than an end-to-end
 learned detector. This choice trades peak accuracy for interpretability,
@@ -33,7 +43,7 @@ parameter lives in a single dictionary, \texttt{PIPELINE\_CONFIG} in
 values are collected in Table~\ref{tab:pipeline-config}. Figure~\ref{fig:pipeline}
 gives the full chain with the measured per-stage cost.
 
-\section{Overview}
+\subsection{Overview}
 \label{sec:pipeline-overview}
 
 \begin{figure}[H]
@@ -105,7 +115,7 @@ observation worth making here is where the cost lives: clustering alone is
 classifier, is just \SI{5}{\percent}. The expensive parts of this pipeline are
 classical, not neural.
 
-\section{Preprocessing}
+\subsection{Preprocessing}
 \label{sec:pipeline-preprocess}
 
 Each raw scan (roughly \num{120000} points) passes through three cleaning steps
@@ -137,7 +147,7 @@ Preprocessing costs \SI{126}{\milli\second\per\frame} in total, split across the
 $z$-filter (\SI{58}{\milli\second}), denoising (\SI{50}{\milli\second}), and
 downsampling (\SI{18}{\milli\second}).
 
-\section{Ground removal}
+\subsection{Ground removal}
 \label{sec:pipeline-ground}
 
 The dominant remaining structure after preprocessing is the ground plane, which
@@ -161,7 +171,7 @@ data; the fit uses a fixed seed (\texttt{np.random.default\_rng(42)}) so ground
 removal, and therefore the whole pipeline, is deterministic across runs. Ground
 removal costs \SI{56}{\milli\second\per\frame} (\SI{9}{\percent} of the frame).
 
-\section{Clustering}
+\subsection{Clustering}
 \label{sec:pipeline-cluster}
 
 Non-ground points are grouped into object candidates with HDBSCAN, a
@@ -187,7 +197,7 @@ superlinear in the point count; the coarse-grid trick is as much a speed measure
 as an accuracy one. The clustering stage produces on average \num{45} candidate
 clusters per frame.
 
-\section{Geometric filtering}
+\subsection{Geometric filtering}
 \label{sec:pipeline-geometric}
 
 Most clusters are not cars: they are trees, poles, building facades, and
@@ -216,7 +226,7 @@ being perfectly level. The filter costs \SI{36}{\milli\second\per\frame}
 only that this stage is high-recall and low-precision by construction, and the
 classifier is what turns its survivors into precise detections.
 
-\section{Classifier}
+\subsection{Classifier}
 \label{sec:pipeline-classifier}
 
 Each surviving cluster is classified as \emph{car} or \emph{not-car} by a small
@@ -276,7 +286,7 @@ symmetric (Finding~\#30), is presented as a negative result rather than as a
 contribution. The classifier costs \SI{34}{\milli\second\per\frame} (about
 \SI{0.75}{\milli\second} per cluster over the \num{45} clusters in a frame).
 
-\section{Tracking and track-level filtering}
+\subsection{Tracking and track-level filtering}
 \label{sec:pipeline-tracker}
 
 Detections are linked across frames by a centroid tracker
@@ -300,7 +310,7 @@ the offline scope of the system; its contribution is isolated as an ablation row
 in Chapter~\ref{ch:detection-eval}. The tracker itself is effectively free at
 \SI{0.3}{\milli\second\per\frame}.
 
-\section{Frozen configuration}
+\subsection{Frozen configuration}
 \label{sec:pipeline-config}
 
 Table~\ref{tab:pipeline-config} lists the frozen parameter values that produce
@@ -349,5 +359,5 @@ were not altered to obtain any reported result.
 \end{table}
 
 The completion stage that operates on the tracked car detections
-(Figure~\ref{fig:pipeline}, right) is the subject of Chapter~\ref{ch:completion-method}; the evaluation of
+(Figure~\ref{fig:pipeline}, right) is the subject of Section~\ref{ch:completion-method}; the evaluation of
 the detections themselves is Chapter~\ref{ch:detection-eval}.

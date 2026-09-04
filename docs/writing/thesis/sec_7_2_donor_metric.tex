@@ -20,7 +20,7 @@ ground-truth surface. Real LiDAR offers no such surface: a car is seen once, fro
 one side. The obvious substitute is a \emph{pseudo}-ground-truth cloud --- the
 labelled points of one static car accumulated across every ego frame that
 observed it. This subsection explains why that substitute is not a valid target,
-and hence why the completion work of Chapter~\ref{ch:completion-method} needed a different metric
+and hence why the completion work of Section~\ref{ch:completion-method} needed a different metric
 altogether.
 
 The fundamental limitation is that the accumulation is itself one-sided. A parked car is
@@ -45,7 +45,7 @@ we scored, the raw partial had the lowest pseudo-ground-truth CD of the raw /
 mirrored / completed clouds in every case (renders in
 \texttt{output/experiments/verify\_pcn\_step2/}). Its consequence is that when the geometry work
 began, completion had no valid real-data metric at all --- the in-distribution
-synthetic CD of Chapter~\ref{ch:completion-method} (\SI{0.16}{\meter}) measures the network on synthetic
+synthetic CD of Section~\ref{ch:completion-method} (\SI{0.16}{\meter}) measures the network on synthetic
 cars but says nothing about a real cluster. The next subsection turns the very
 one-sidedness that breaks Chamfer into the basis of a metric that works.
 
@@ -177,7 +177,7 @@ Before using it we required it to pass four pre-stated checks
   \caption{The four validation checks for the donor metric, and the observed
     outcome (seq~08, per-car medians, $n=39$; the metric's original acceptance
     run, Finding~\#32, on the production path as it stood \emph{before} the
-    Chapter~\ref{ch:completion-method} length prior). Coverage figures are the car-median
+    Section~\ref{ch:completion-method} length prior). Coverage figures are the car-median
     \texttt{cov@0.1}; the guard figures are car-median out-of-box fractions.}
   \label{tab:donor-gate}
   \begin{tabular}{p{0.44\linewidth} p{0.48\linewidth}}
@@ -212,7 +212,7 @@ place only by beating it.
 
 The guard as first designed --- check~(d) above --- was a single median pooled
 over all cars, and that pooling hid a real failure mode. When we later evaluated
-a geometry change (the fixed length prior of Chapter~\ref{ch:completion-method}) with this guard ---
+a geometry change (the fixed length prior of Section~\ref{ch:completion-method}) with this guard ---
 now re-run on the promoted configuration, whose well-observed static set is
 $n=40$ ($8+27+5$ across the compact/normal/long bands; Finding~\#37) --- the
 pooled out-of-box fraction stayed comfortably low (\num{0.0020}) and the change

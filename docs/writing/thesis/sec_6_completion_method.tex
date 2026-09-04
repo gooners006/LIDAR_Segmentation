@@ -23,12 +23,12 @@
 %   Fig 6.3 viz_completion.py           -> completion_shape_08.png (final output, output/08)
 % Floats set [htbp]. Draft-grade renders; may get a cosmetic restyle in the figure pass.
 %
-\chapter{Point-Cloud Completion}
+\section{Object completion}
 \label{ch:completion-method}
 
-The second half of this thesis takes each detected car and \emph{completes} it:
+This part of the method takes each detected car and \emph{completes} it:
 from the one-sided, partial cluster a single LiDAR frame observes, it predicts
-the full car surface. This chapter describes the completion method. It is written
+the full car surface. This section describes the completion method. It is written
 as the debugging story that actually produced it, because the useful scientific
 content here is not the network --- a standard Point Completion Network (PCN)
 taken off the shelf --- but the sequence of failures and fixes needed to make a
@@ -38,10 +38,10 @@ smoothed over. The evaluation of the finished method --- whether it adds
 genuinely unseen surface, and whether that generalises --- is the subject of
 Chapter~\ref{ch:completion-eval}; here we state each fix's headline effect and defer the rest.
 
-\section{Completion targets}
+\subsection{Completion targets}
 \label{sec:completion-what}
 
-Completion runs on the tracked car detections of Chapter~\ref{ch:pipeline}. The input is a
+Completion runs on the tracked car detections of Section~\ref{sec:meth-detection}. The input is a
 \emph{single-frame} cluster in the sensor frame, not the accumulated multi-frame
 track. This is a deliberate choice with an evidence basis (the derisk study
 behind Finding~\#26): accumulating a moving car over many frames produces a
@@ -49,9 +49,9 @@ motion smear up to several metres long, which is neither a valid completion
 target nor matchable to a car shape. A single frame is one clean, if partial,
 observation. The value proposition --- that completing this partial improves the
 car's amodal box and recovers surface the frame never saw --- is what Chapter~\ref{ch:completion-eval}
-measures; this chapter is how the completion is produced.
+measures; this section is how the completion is produced.
 
-\section{The completion network}
+\subsection{The completion network}
 \label{sec:completion-pcn}
 
 We use PCN (Yuan et al., 2018), an encoder--decoder for point clouds
@@ -76,7 +76,7 @@ that follows is about the \emph{data} PCN is trained on and the \emph{geometry}
 of how a real partial is presented to it --- which is where all the difficulty
 turned out to live.
 
-\section{Domain-gap failures (a negative result)}
+\subsection{Domain-gap failures (a negative result)}
 \label{sec:completion-domaingap}
 
 The first several attempts to run PCN on real cars all produced ``blobs'' ---
@@ -87,10 +87,10 @@ augmentation of the synthetic partials, and real-data fine-tuning. None of them
 fixed the blobs, and the fine-tuning attempts (\#16/\#17/\#19) are recorded as a
 negative result: on this data, fine-tuning PCN on mined real pairs did not
 recover real-car geometry. The reason it could not is the subject of the next two
-sections --- the problem was in two places at once, and neither was the network
+subsections --- the problem was in two places at once, and neither was the network
 weights.
 
-\section{Synthesising KITTI-Like Partials}
+\subsection{Synthesising KITTI-like partials}
 \label{sec:completion-kittilike}
 
 The first real cause was that the synthetic \emph{partials} PCN trained on were
@@ -130,7 +130,7 @@ for the same ShapeNet car.
   \label{fig:kitti-like-partial}
 \end{figure}
 
-\section{Correcting the Inference-Normalisation Error}
+\subsection{Correcting the inference-normalisation error}
 \label{sec:completion-inferencebug}
 
 Retraining alone did not de-blob \emph{real} clusters, and this is the more
@@ -184,7 +184,7 @@ the fix's value is corrected geometry --- pose, scale, and the surface-coverage
 gains quantified in Chapter~\ref{ch:completion-eval}. A calibration study on
 synthetic cars (Finding~\#26) further identified the residual dominant error as
 \emph{centre estimation}, not scale --- which is what motivates the geometry work
-in the rest of this chapter.
+in the rest of this section.
 
 \begin{figure}[htbp]
   \centering
@@ -205,7 +205,7 @@ in the rest of this chapter.
   \label{fig:deblob}
 \end{figure}
 
-\section{L-Shape Input Gating}
+\subsection{L-shape input gating}
 \label{sec:completion-lshape}
 
 Even with correct normalisation, some clusters cannot complete into a plausible
@@ -226,7 +226,7 @@ An honest secondary finding from the same study: the L-shape heading itself is
 neutral against plain PCA on real data --- the fit earns its place by
 \emph{detecting bad inputs}, not by giving a better heading.
 
-\section{Per-Car Length Estimation}
+\subsection{Per-car length estimation}
 \label{sec:completion-length}
 
 The canonical-frame centre estimate re-centres the occluded lateral side and the
@@ -266,7 +266,7 @@ regenerated seq-08 output, \num{119} of \num{518} completed tracks
 gate-passed frames. This is above a comfortable threshold and is stated as a live
 limitation, not a solved problem; it is revisited in the discussion.
 
-\section{The Second Under-Extension Mechanism}
+\subsection{The second under-extension mechanism}
 \label{sec:completion-step1c}
 
 Targeting each car's \emph{true} length still leaves completions short on normal
@@ -284,7 +284,7 @@ defaulted off, and the production completion is unchanged. This negative result 
 reported because it bounds the method: the residual far-end shortfall on long cars
 is a known, characterised limit, not an oversight.
 
-\section{The Final Completion Path}
+\subsection{The final completion path}
 \label{sec:completion-summary}
 
 To summarise, a single-frame car cluster is completed by: fitting its footprint
