@@ -55,7 +55,7 @@ measures; this section is how the completion is produced.
 \label{sec:completion-pcn}
 
 We use PCN (Yuan et al., 2018), an encoder--decoder for point clouds
-(\texttt{src/pcn.py}). The encoder is a stacked PointNet: shared per-point MLPs
+(\texttt{src/pcn.py}; Figure~\ref{fig:pcn}). The encoder is a stacked PointNet: shared per-point MLPs
 lift each point to a local feature, a max-pool summarises the whole cloud into a
 global vector, that global vector is concatenated back onto every point, and a
 second MLP-plus-max-pool stage produces a single \num{1024}-dimensional shape
@@ -67,6 +67,39 @@ two-term Chamfer loss, $\mathrm{CD}_{\text{coarse}} + 0.5\,\mathrm{CD}_{\text{fi
 the fine term is down-weighted so the coarse skeleton is learned first. At
 inference the partial is subsampled to \num{256} points before it enters the
 encoder.
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[
+      font=\footnotesize, node distance=6mm and 7mm,
+      blk/.style={draw, rounded corners, align=center, fill=orange!12, thick,
+        minimum height=8mm, inner sep=3pt},
+      io/.style={draw, ellipse, align=center, fill=black!5, inner sep=2pt},
+      arr/.style={-{Stealth[length=2mm]}, thick},
+      lbl/.style={font=\footnotesize\itshape, text=black!60},
+    ]
+    \node[io] (in) {partial\\\num{256} pts};
+    \node[blk, right=of in] (ppm) {per-point\\MLP};
+    \node[blk, right=of ppm] (mp1) {max-pool,\\concat back};
+    \node[blk, right=of mp1] (mp2) {MLP,\\max-pool};
+    \node[blk, right=of mp2] (emb) {shape code\\\num{1024}-d};
+    \node[blk, below=10mm of emb] (fc) {FC};
+    \node[blk, left=of fc] (coarse) {\num{1024}\\coarse seeds};
+    \node[blk, left=of coarse] (fold) {grid-folding\\{\scriptsize 2D patch / seed}};
+    \node[io, left=of fold] (out) {dense car\\\num{4096} pts};
+    \draw[arr] (in)--(ppm); \draw[arr] (ppm)--(mp1); \draw[arr] (mp1)--(mp2);
+    \draw[arr] (mp2)--(emb); \draw[arr] (emb)--(fc); \draw[arr] (fc)--(coarse);
+    \draw[arr] (coarse)--(fold); \draw[arr] (fold)--(out);
+    \node[lbl, above=1mm of mp1] {encoder (stacked PointNet)};
+    \node[lbl, below=1mm of coarse] {decoder (coarse-to-fine)};
+  \end{tikzpicture}
+  \caption{The completion network (PCN, \texttt{src/pcn.py}). A stacked-PointNet
+    encoder maps the \num{256}-point partial to a \num{1024}-d global shape code;
+    a coarse-to-fine decoder predicts \num{1024} seed points and folds a small 2D
+    grid patch onto each to produce the dense \num{4096}-point car. Every block is
+    learned; the architecture is used off the shelf and unmodified.}
+  \label{fig:pcn}
+\end{figure}
 
 The architecture is not a contribution and was not modified: a controlled
 benchmark against PoinTr (Finding~\#28) found PoinTr's synthetic edge small

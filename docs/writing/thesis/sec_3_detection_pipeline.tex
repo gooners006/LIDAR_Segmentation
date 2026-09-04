@@ -239,7 +239,8 @@ an earlier multi-class (car/bus/motorcycle) design that was dropped once the dat
 showed near-zero real bus and motorcycle instances (Finding~\#20); the scope
 narrowing to cars is deliberate and is owned as such in the introduction.
 
-\paragraph{Architecture.} The network has two branches and about \num{80000}
+\paragraph{Architecture.} The network has two branches
+(Figure~\ref{fig:classifier}) and about \num{80000}
 parameters --- deliberately small (Finding~\#12):
 \begin{itemize}
   \item a \textbf{point branch} that takes \num{512} points (sampled or padded)
@@ -258,6 +259,46 @@ from the point branch: a distant small car and a nearby one have the same
 normalised shape but different real extents, and the metric branch is how the
 network sees the difference. There are no T-Nets, since clusters already sit in a
 consistent sensor frame.
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[
+      font=\footnotesize, node distance=6mm and 7mm,
+      blk/.style={draw, rounded corners, align=center, fill=blue!5, thick,
+        minimum height=8mm, inner sep=3pt},
+      lrn/.style={blk, fill=orange!12},
+      io/.style={draw, ellipse, align=center, fill=black!5, inner sep=2pt},
+      arr/.style={-{Stealth[length=2mm]}, thick},
+    ]
+    \node[io] (cl) at (0,0) {cluster};
+    \node[blk] (pts) at (2.3,1.3) {\num{512} points\\unit-sphere};
+    \node[lrn, right=of pts] (pmlp) {shared MLP\\{\scriptsize $3\!\to\!64\!\to\!128\!\to\!256$}};
+    \node[blk, right=of pmlp] (pool) {max-\\pool};
+    \node[blk, right=of pool] (pd) {shape\\\num{256}-d};
+    \node[blk] (feat) at (2.3,-1.3) {\num{8} OBB\\features};
+    \node[lrn, right=of feat] (bmlp) {MLP};
+    \node[blk, right=of bmlp] (bd) {metric\\\num{32}-d};
+    \node[blk] (cat) at ($(pd.east)+(1.1,-1.3)$) {concat\\\num{288}-d};
+    \node[lrn, right=of cat] (head) {head\\{\scriptsize $288\!\to\!128\!\to\!2$}};
+    \node[io, right=of head] (out) {car /\\not-car};
+    \draw[arr] (cl) |- (pts.west);
+    \draw[arr] (cl) |- (feat.west);
+    \draw[arr] (pts)--(pmlp); \draw[arr] (pmlp)--(pool); \draw[arr] (pool)--(pd);
+    \draw[arr] (feat)--(bmlp); \draw[arr] (bmlp)--(bd);
+    \draw[arr] (pd) -| (cat.north);
+    \draw[arr] (bd) -| (cat.south);
+    \draw[arr] (cat) -- (head);
+    \draw[arr] (head) -- (out);
+  \end{tikzpicture}
+  \caption{The dual-branch classifier (\texttt{src/classifier.py}), applied to one
+    cluster. The \emph{point branch} takes \num{512} unit-sphere-normalised points
+    through shared per-point MLPs and a max-pool to a \num{256}-d shape descriptor;
+    the \emph{bounding-box branch} takes \num{8} metric shape features --- the
+    absolute scale the sphere normalisation strips --- to \num{32}-d. The two are
+    concatenated and passed through a small head to a car/not-car decision. Learned
+    blocks are shaded.}
+  \label{fig:classifier}
+\end{figure}
 
 \paragraph{Training data (mined, not hand-labelled).} The classifier is trained
 on real LiDAR clusters mined automatically from SemanticKITTI
