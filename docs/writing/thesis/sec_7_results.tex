@@ -106,15 +106,18 @@ saw least.
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{donor_metric_08.png}
-  \caption{The donor metric in bird's-eye view on six seq-08 cars, ordered
-    best to worst completed coverage. Grey is the single-frame partial input; the
-    coloured points are the donor-only novel set (surface the input frame never
-    saw), coloured by whether the completion (green overlay) recovers them within
-    \SI{0.1}{\meter}. The best panels close the occluded far side almost entirely;
-    the worst isolate the two residual failure modes --- far-end under-completion
-    and heading/centre error on diagonal or sparse views --- that
-    Section~\ref{sec:results-box} and Chapter~\ref{ch:completion-method} address. Rendered by
-    \texttt{scratchpad/donor\_metric\_viz.py}.}
+  \caption{The donor metric in bird's-eye view on six seq-08 cars, spanning the
+    coverage range from best (top-left) to a residual failure (bottom-right). The
+    \emph{novel set} --- the donor-only surface the input frame never saw --- is
+    drawn blue where the completion recovers it within \SI{0.1}{\meter} and red
+    where it does not, so the blue fraction of the target is exactly the reported
+    \texttt{cov@0.1} in each title. The three candidate clouds are shown faintly
+    for context: the input partial (grey), its symmetry mirror (orange), and the
+    completion itself (green). The upper panels close the occluded far side almost
+    entirely; the last isolates the residual failure modes --- far-end
+    under-completion and heading/centre error on diagonal or sparse views --- that
+    Section~\ref{sec:results-box} and Chapter~\ref{ch:completion-method} address.
+    Rendered by \texttt{scratchpad/donor\_metric\_viz.py}.}
   \label{fig:donor-coverage}
 \end{figure}
 

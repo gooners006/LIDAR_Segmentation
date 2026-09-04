@@ -44,11 +44,18 @@ LiDAR segmentation is a single end-to-end network trained on dense per-point
 annotation, whereas this thesis builds an interpretable pipeline from training-free
 geometric clustering plus a lightweight learned classifier, and treats completion as a
 separate, downstream problem. Section~\ref{sec:bg-positioning} makes that contrast
-quantitative in a positioning table. The mechanics of each component are deferred to
-the method chapters (Chapter~\ref{ch:pipeline} for detection, Chapter~\ref{ch:completion-method} for completion); here the aim
-is to say what exists, and where this work sits within it.
+quantitative in a positioning table. The chapter is in two parts. Section~\ref{sec:bg-litreview} is the literature review ---
+what exists in LiDAR segmentation and object completion, and where this work sits within it
+--- and Section~\ref{sec:bg-theory} is a theoretical-background section that fixes the
+notation and standard definitions for the operators the pipeline is built from. The
+pipeline-specific architectures, configurations, and design choices of each component are
+deferred to the method chapters (Chapter~\ref{ch:pipeline} for detection,
+Chapter~\ref{ch:completion-method} for completion).
 
-\section{LiDAR point clouds and the SemanticKITTI benchmark}
+\section{Literature Review}
+\label{sec:bg-litreview}
+
+\subsection{LiDAR point clouds and the SemanticKITTI benchmark}
 \label{sec:bg-dataset}
 
 A rotating LiDAR sensor returns, for each scan, an unordered set of 3D points sampled
@@ -84,7 +91,7 @@ segmentation stage requires no labelled point clouds at all, and its classifier 
 trained on clusters mined and weakly labelled automatically from the pipeline's own
 output (Chapter~\ref{ch:pipeline}).
 
-\section{Deep segmentation of LiDAR point clouds}
+\subsection{Deep segmentation of LiDAR point clouds}
 \label{sec:bg-deep}
 
 The current benchmark leaders are deep networks trained end-to-end on the dense labels.
@@ -120,7 +127,7 @@ which its car/not-car classifier is built (Chapter~\ref{ch:pipeline}). The class
 small binary network applied to already-segmented clusters, not a full-scene
 segmentation model, and it is trained without any hand-drawn labels.
 
-\section{Classical geometric segmentation}
+\subsection{Classical geometric segmentation}
 \label{sec:bg-classical}
 
 Before end-to-end learning dominated the benchmarks, LiDAR objects were extracted by
@@ -153,7 +160,7 @@ fragmentation --- not classification error --- is the dominant recall limiter
 interpretability and near-zero annotation of the classical route are bought at a
 measurable recall cost relative to the supervised networks.
 
-\section{Object-level point-cloud completion}
+\subsection{Object-level point-cloud completion}
 \label{sec:bg-completion}
 
 The second phase of the pipeline reconstructs a denser shape from the sparse, single-view
@@ -202,7 +209,7 @@ same multi-frame idea but restricts scoring to the surface the input frame did \
 see, and adds an explicit hallucination guard, precisely so that reproducing the input
 earns nothing.
 
-\section{Positioning of this work}
+\subsection{Positioning of this work}
 \label{sec:bg-positioning}
 
 The pipeline studied here is a car-only instance detector built from training-free
@@ -297,3 +304,124 @@ pretraining is redundant for the classifier at scale (Chapter~\ref{ch:detection-
 is the backdrop against which those contributions are argued: this is an interpretable,
 annotation-light system whose value is in what it explains and measures, not in topping a
 benchmark it was never designed to win.
+
+\section{Theoretical Background}
+\label{sec:bg-theory}
+
+This section fixes notation and states the standard definitions for the operators the
+pipeline is built from, in the order a scan passes through them: ground-plane fitting, voxel
+downsampling, density-based clustering, the point-set classifier, and the point-set
+distances used for completion and its evaluation. Each is a textbook construction cited to
+its source; the pipeline's own architectures and parameter choices are given in the method
+chapters. A single LiDAR scan is written as a finite point set
+$P = \{\mathbf{x}_i \in \mathbb{R}^3\}_{i=1}^{N}$.
+
+\subsection{Ground-plane removal by RANSAC}
+\label{sec:th-ransac}
+A plane is a pair $(\mathbf{n}, d)$ with unit normal $\mathbf{n}\in\mathbb{R}^3$,
+$\lVert\mathbf{n}\rVert = 1$, and offset $d$; a point lies on it when
+$\mathbf{n}\cdot\mathbf{x} + d = 0$, and its signed distance to the plane is
+\begin{equation}
+  \delta(\mathbf{x};\mathbf{n},d) = \mathbf{n}\cdot\mathbf{x} + d .
+\end{equation}
+RANSAC~\cite{fischler1981random} fits the ground plane by repeatedly sampling three points,
+forming the plane through them, and scoring it by its inlier set --- the points closer than
+a tolerance $\tau_g$,
+\begin{equation}
+  \mathcal{I}(\mathbf{n},d) = \bigl\{\, \mathbf{x}\in P : \lvert \delta(\mathbf{x};\mathbf{n},d)\rvert \le \tau_g \,\bigr\}.
+\end{equation}
+The candidate with the largest inlier set is kept and its inliers removed as ground. To draw
+at least one all-inlier sample with probability $p$, given inlier fraction $w$ and $s=3$
+points per sample, the required number of iterations is
+\begin{equation}
+  T = \left\lceil \frac{\log(1-p)}{\log\!\bigl(1 - w^{s}\bigr)} \right\rceil .
+\end{equation}
+
+\subsection{Voxel-grid downsampling}
+\label{sec:th-voxel}
+To reduce the range-dependent density bias before clustering, the non-ground points are
+downsampled on a regular grid of side $v$. Each point maps to an integer cell index
+\begin{equation}
+  \mathrm{vox}(\mathbf{x}) = \left\lfloor \frac{\mathbf{x} - \mathbf{x}_{\min}}{v} \right\rfloor \in \mathbb{Z}^3
+\end{equation}
+(the floor taken per coordinate), and every occupied cell $c$ is replaced by the centroid of
+the points that fall in it,
+\begin{equation}
+  \bar{\mathbf{x}}_c = \frac{1}{\lvert P_c\rvert} \sum_{\mathbf{x}\in P_c} \mathbf{x} .
+\end{equation}
+
+\subsection{Density-based clustering: DBSCAN and HDBSCAN}
+\label{sec:th-clustering}
+The non-ground points are grouped into objects by density. DBSCAN~\cite{ester1996dbscan}
+uses a fixed radius $\varepsilon$ and a minimum count $m$: with the
+$\varepsilon$-neighbourhood
+$\mathcal{N}_\varepsilon(\mathbf{p}) = \{\mathbf{q}\in P : \lVert\mathbf{p}-\mathbf{q}\rVert \le \varepsilon\}$,
+a point is a \emph{core point} when
+\begin{equation}
+  \lvert \mathcal{N}_\varepsilon(\mathbf{p}) \rvert \ge m ,
+\end{equation}
+and clusters are the maximal sets connected through core points. A single $\varepsilon$
+cannot serve both the dense near field and the sparse far field of a scan.
+HDBSCAN~\cite{campello2013hdbscan,mcinnes2017hdbscan} removes the fixed radius. With the
+\emph{core distance} $d_{\mathrm{core}}(\mathbf{p})$ set to the distance from $\mathbf{p}$ to
+its $m$-th nearest neighbour, it defines the \emph{mutual reachability distance}
+\begin{equation}
+  d_{\mathrm{mreach}}(\mathbf{a},\mathbf{b}) = \max\!\bigl(\, d_{\mathrm{core}}(\mathbf{a}),\; d_{\mathrm{core}}(\mathbf{b}),\; \lVert\mathbf{a}-\mathbf{b}\rVert \,\bigr),
+\end{equation}
+builds a minimum spanning tree under it, and condenses the tree into a hierarchy indexed by
+$\lambda = 1/d_{\mathrm{mreach}}$. A candidate cluster $C$ born at $\lambda_{\min}(C)$, losing
+each point $\mathbf{p}$ at level $\lambda_{\mathbf{p}}$, has stability
+\begin{equation}
+  S(C) = \sum_{\mathbf{p}\in C} \bigl(\lambda_{\mathbf{p}} - \lambda_{\min}(C)\bigr),
+\end{equation}
+and the flat clustering is the set of disjoint clusters of maximum total stability.
+Stability-based extraction is what lets one setting cluster both near and far cars; it is
+also, as Chapter~\ref{ch:recall-bottleneck} shows, what splits a single car when an internal
+density gap makes two sub-clusters individually more stable than the whole.
+
+\subsection{Permutation-invariant point classification}
+\label{sec:th-pointnet}
+The car/not-car classifier is built on PointNet~\cite{Qi_2017_CVPR}, whose defining property
+is invariance to the ordering of its input points. A function of a point set is made
+permutation-invariant by applying a shared map $h$ to each point, pooling with a symmetric
+operator, and passing the pooled feature through a final map $g$:
+\begin{equation}
+  f(\{\mathbf{x}_1,\dots,\mathbf{x}_n\}) = g\!\left( \max_{i=1,\dots,n} h(\mathbf{x}_i) \right),
+\end{equation}
+the maximum taken coordinate-wise over the per-point feature vectors. Because the $\max$ pool
+is symmetric, $f$ is independent of the order of the points; $h$ and $g$ are multilayer
+perceptrons learned end-to-end. Chapter~\ref{ch:pipeline} applies this design to a single
+cluster.
+
+\subsection{Point-set distances: Chamfer, IoU, and donor coverage}
+\label{sec:th-distances}
+Completion and its evaluation are expressed through distances between point sets. The
+\emph{Chamfer distance} between sets $A$ and $B$ averages, in each direction, the squared
+distance from every point to the nearest point of the other set,
+\begin{equation}
+  \mathrm{CD}(A,B) = \frac{1}{\lvert A\rvert}\sum_{\mathbf{a}\in A} \min_{\mathbf{b}\in B} \lVert\mathbf{a}-\mathbf{b}\rVert^2 \;+\; \frac{1}{\lvert B\rvert}\sum_{\mathbf{b}\in B} \min_{\mathbf{a}\in A} \lVert\mathbf{b}-\mathbf{a}\rVert^2 ,
+\end{equation}
+and is the standard training objective for completion on synthetic
+shapes~\cite{fan2017point,yuan2019pcnpointcompletionnetwork};
+Chapter~\ref{ch:completion-eval} shows it is invalid as a real-data \emph{score}. Detection is
+scored by a point-level intersection-over-union between a predicted cluster $Q$ and a
+ground-truth car's point set $G$,
+\begin{equation}
+  \mathrm{IoU}(Q,G) = \frac{\lvert Q \cap G\rvert}{\lvert Q \cup G\rvert},
+\end{equation}
+a prediction matching a ground-truth object when $\mathrm{IoU}(Q,G)\ge 0.3$
+(Chapter~\ref{ch:detection-eval}). Completion is scored by the \emph{donor coverage} developed
+in Chapter~\ref{ch:completion-eval}. Given the input cluster $I$, a \emph{donor cloud} $D$ of
+the same car's labelled points accumulated from other frames, and a visibility radius
+$\tau$, the \emph{novel set} is the donor surface the input never observed,
+\begin{equation}
+  \mathcal{V} = \bigl\{\, \mathbf{d}\in D : \min_{\mathbf{p}\in I} \lVert\mathbf{d}-\mathbf{p}\rVert \ge \tau \,\bigr\},
+\end{equation}
+and the coverage of a candidate cloud $C$ at radius $r$ is the fraction of the novel set it
+reaches,
+\begin{equation}
+  \mathrm{cov}_r(C) = \frac{1}{\lvert\mathcal{V}\rvert} \Bigl\lvert \bigl\{\, \mathbf{d}\in\mathcal{V} : \min_{\mathbf{c}\in C} \lVert\mathbf{d}-\mathbf{c}\rVert < r \,\bigr\} \Bigr\rvert .
+\end{equation}
+By construction the raw partial covers none of $\mathcal{V}$; the full construction, its
+mirrored baseline, and its per-band hallucination guard are developed in
+Chapter~\ref{ch:completion-eval}.

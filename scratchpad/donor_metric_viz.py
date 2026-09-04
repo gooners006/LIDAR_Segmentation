@@ -64,14 +64,16 @@ def main():
                    if r["taus"][tp]["n_novel"] >= 100),
                   key=lambda r: r["taus"][tp]["completed"]["cov"])
 
-    # 2 best / 2 median / 2 worst, preferring distinct cars.
-    mid = len(qual) // 2
-    candidates = [qual[-1], qual[-2], qual[mid], qual[mid + 1], qual[1], qual[0]]
+    # Six panels spanning the coverage range but weighted to the typical/working
+    # regime (median completed cov ~0.30): one best, four across the upper-mid,
+    # one honest worst -- not 2-worst-of-worst, which over-represents failure.
+    n = len(qual)
+    idx = [n - 1, int(0.80 * n), int(0.60 * n), int(0.42 * n), int(0.24 * n), 0]
     picks, seen = [], set()
-    for r in candidates:
-        if r["inst_id"] in seen and len(qual) > 12:
-            alt = next((q for q in qual if q["inst_id"] not in seen), r)
-            r = alt
+    for i in idx:
+        r = qual[i]
+        if r["inst_id"] in seen and n > 12:
+            r = next((q for q in reversed(qual) if q["inst_id"] not in seen), r)
         picks.append(r)
         seen.add(r["inst_id"])
 
@@ -104,14 +106,27 @@ def main():
         d_in, _ = cKDTree(raw_w).query(donor)
         novel = donor[d_in >= tau]
 
-        ax.scatter(novel[:, 0], novel[:, 2], s=2, c="k", label="novel donor")
-        ax.scatter(comp_w[:, 0], comp_w[:, 2], s=2, c="tab:green", alpha=0.5,
-                   label="completed")
-        ax.scatter(mir_w[:, 0], mir_w[:, 2], s=2, c="tab:orange", alpha=0.4,
-                   label="mirrored half")
-        ax.scatter(raw_w[:, 0], raw_w[:, 2], s=3, c="tab:red", label="input")
+        # Three candidate clouds shown as context (input, mirror baseline,
+        # completion); the novel-set target on top, split by whether the
+        # completion covers each point within 0.1 m -- the recovered fraction is
+        # cov@0.1.
+        d_nc, _ = cKDTree(comp_w).query(novel)
+        covered = d_nc < 0.10
+        ax.scatter(raw_w[:, 0], raw_w[:, 2], s=3, c="#aab4bd", alpha=0.5,
+                   label="input", zorder=1)
+        ax.scatter(mir_w[:, 0], mir_w[:, 2], s=3, c="#e2952f", alpha=0.30,
+                   label="mirrored", zorder=2)
+        ax.scatter(comp_w[:, 0], comp_w[:, 2], s=3, c="#4aa06a", alpha=0.35,
+                   label="completed", zorder=3)
+        # Missed below, recovered on top: whichever colour dominates a panel then
+        # tracks the reported coverage instead of the last-drawn layer.
+        ax.scatter(novel[~covered, 0], novel[~covered, 2], s=6, c="#d24a3f",
+                   alpha=0.85, label="missed", zorder=4)
+        ax.scatter(novel[covered, 0], novel[covered, 2], s=9, c="#2f6fbf",
+                   label="novel set (recovered)", zorder=5)
         box = gt_box_corners_xz(amodal["instances"][str(inst)])
-        ax.plot(box[:, 0], box[:, 1], "k--", lw=1, label="amodal GT box")
+        ax.plot(box[:, 0], box[:, 1], "--", color="#333333", lw=1,
+                label="amodal GT box", zorder=6)
         # Ego is usually outside the zoom window; show the viewing direction.
         c_inst = amodal["instances"][str(inst)]["center_world"]
         v = np.array([t[0] - c_inst[0], t[2] - c_inst[2]])
@@ -132,10 +147,12 @@ def main():
         ax.set_ylim(cz - pad - 3, cz + pad + 3)
 
     handles, labels = axes[0, 0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=5, fontsize=10,
+    fig.legend(handles, labels, loc="lower center", ncol=6, fontsize=9.5,
                markerscale=3, frameon=False)
-    fig.suptitle(f"Donor-frame occluded-side metric — seq {args.seq} "
-                 f"(BEV X-Z; best->worst completed coverage)", fontsize=13)
+    fig.suptitle(f"Donor metric on seq {args.seq} (BEV top-down): novel-set target split into "
+                 f"recovered (blue) / missed (red); input/completed/mirror shown as clouds; "
+                 f"title cov = recovered fraction",
+                 fontsize=12)
     fig.tight_layout(rect=[0, 0.03, 1, 0.98])
     os.makedirs(os.path.dirname(out_png), exist_ok=True)
     fig.savefig(out_png, dpi=130)

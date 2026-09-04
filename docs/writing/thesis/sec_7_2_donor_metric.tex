@@ -66,7 +66,8 @@ The idea turns the one-sidedness of LiDAR from a problem into the measurement.
 For a static car observed across many frames, we complete it from \emph{one}
 frame's pipeline cluster and then score the completed cloud only against surface
 that the \emph{other} frames --- the \emph{donor} frames --- saw but the input
-frame did not. Two properties make this a fair test of completion:
+frame did not (Figure~\ref{fig:donor-principle}). Two properties make this a fair
+test of completion:
 
 \begin{itemize}
   \item The raw partial covers \emph{none} of that donor-only surface by
@@ -78,6 +79,21 @@ frame did not. Two properties make this a fair test of completion:
     raw versus completed on identical inputs, so it tolerates reference noise
     the same way the box evaluation does.
 \end{itemize}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.86\linewidth]{donor_principle.png}
+  \caption{The donor-frame occluded-side principle (schematic; a car seen from
+    above, the road below). The input frame observes the near flank (blue); as the
+    ego drives past, the \emph{donor} frames additionally observe the two ends
+    (amber), which together form the \emph{novel set} --- the surface the metric
+    scores against. The far flank (grey) is occluded from every frame and is not
+    part of the reference. Because the novel set lies at least $\tau$ from every
+    input point, the raw partial covers none of it by construction. Illustrative
+    geometry, not measured data; real per-car coverage on seq~08 is
+    Figure~\ref{fig:donor-coverage}.}
+  \label{fig:donor-principle}
+\end{figure}
 
 \paragraph{Relation to existing reference-free evaluation.} Completion on real LiDAR has
 been scored before without a complete target, but not against the previously-unseen
