@@ -23,17 +23,34 @@ goes to `scratchpad/` + new `output/experiments/` subfolders only (house
 data-safety rule). The remaining evidence tasks (B1–B6 in `THESIS_PLAN.md` §3)
 are read-only analyses against this frozen config — they do not change it.
 
-> **ACTIVE REFRAME (2026-09-03/04) — see `docs/writing/reframe_plan.md` (now the
-> active plan; Section A locked 2026-09-04).** The thesis is being reframed toward an
-> **input-quality / segmentation-bottleneck** headline (real-LiDAR completion is
-> bottlenecked by input segmentation quality, not completion-model capacity; the donor
-> metric makes it measurable; detection becomes the studied front-end). This carries a
-> **bounded mini-unfreeze** (reframe_plan A1 = Opt B): a gate-OFF ablation across all 11
-> labelled sequences, freeze-compliant (results into `output/experiments/gate_ablation_v2/`,
-> additive `--no-gate` flag on `main.py` — not a frozen artifact; frozen `src/pipeline.py`
-> / `completion.py` / `classifier.py` / checkpoints / `output/08` still untouched). A2 =
-> Opt 2 (retitle) needs advisor sign-off. `THESIS_PLAN.md` is still valuable but no longer
-> the sole authority; read `reframe_plan.md` alongside it.
+> **REFRAME COMPLETE (2026-09-04) — metric-centric, 5-chapter structure.** The thesis is
+> now built around a **single contribution: the donor-frame coverage metric** ("orbit the
+> metric"). The earlier **input-quality / segmentation-bottleneck headline was rejected**
+> this session: the #27 gate is measured by the plausibility box, not the donor metric, so
+> a bottleneck-first cover would rest on a *finding* and open a two-instrument seam.
+> Metric-first closes that seam — contribution and payoff share one instrument. The
+> bottleneck is **demoted to a single Discussion paragraph** (Ch5, context for why the
+> metric's scope is clean inputs), backed by the 11-seq ablation.
+>
+> **Locked & done this session:** (1) Title = *A Donor-Frame Coverage Metric for Evaluating
+> Occluded-Vehicle Completion in Automotive LiDAR* (metric leads; "Reference-Free" dropped
+> from the cover, kept/defended in prose); **advisor sign-off waived by the user.** (2) Full
+> **9→5 chapter merge** to the peer template: Ch1 Introduction, Ch2 Background, Ch3
+> Methodology (detection + completion method + donor-metric *definition*), Ch4 Evaluation
+> (protocol → detection results/ablations/range/runtime → recall bridge → donor
+> *validation* → completion results), Ch5 Discussion and Conclusion. (3) Ch2 split +
+> 13-equation Theoretical Background; per-block diagrams (classifier, PCN); donor-principle
+> schematic + fixed real-data results figure; de-welded metric eligibility. (4) Metric-first
+> abstract + §1.1 funnel. (5) Gate-OFF ablation across all 11 sequences (freeze-compliant,
+> `output/experiments/gate_ablation_v2/`, additive `--no-gate`; frozen `src/pipeline.py` /
+> `completion.py` / `classifier.py` / checkpoints / `output/08` untouched): **pooled
+> plausible-output rate off 0.473 → on 0.686 (+0.213), positive on 11/11 seqs; seq-08
+> one-render cross-check |Δ| 0.027.** Build clean throughout (85 pp, 0 undefined refs, 0
+> multiply-defined, 0 overfull >20 pt); fold diff-audit passed (0 Finding-citations lost).
+> Commits: 12c5884 (Ch2) → 0e2f87c/659afaa/5d8b3d7 (Ch3) → b0423fe (Ch4) → 1f6bfb8 (Ch5)
+> → 922d0c4 (Lane B). **Remaining (optional):** front-matter acknowledgments/declaration.
+> `docs/writing/reframe_plan.md` + `THESIS_PLAN.md` remain reference; this reframe is now
+> the executed state.
 
 **Evidence-task progress:** B1 (IoU sensitivity) + B6 (geometric-only ablation)
 DONE 2026-08-21 (Finding #47, `output/experiments/iou_sensitivity/`): headline
