@@ -79,6 +79,26 @@ frame did not. Two properties make this a fair test of completion:
     the same way the box evaluation does.
 \end{itemize}
 
+\paragraph{Relation to existing reference-free evaluation.} Completion on real LiDAR has
+been scored before without a complete target, but not against the previously-unseen
+surface specifically. The KITTI completion metrics introduced with
+PCN~\cite{yuan2019pcnpointcompletionnetwork} --- Fidelity, Minimal Matching Distance, and
+Consistency --- reference the input, a synthetic car prior, and the model's own cross-frame
+outputs respectively, so a completion that merely reproduces its input can score well on
+all three. Ren et al.~\cite{ren2022selfsupervised} come closest to the construction used
+here: they too accumulate each tracked vehicle across frames to form a pseudo ground truth.
+The difference is what the accumulation is scored against. They compare the completed cloud
+to the accumulation \emph{in full}, mixing the near surface the input already observed with
+the small amount the other views add; the donor metric keeps only the novel set --- the
+surface at least $\tau$ from every input point --- so already-observed surface contributes
+nothing and the raw partial scores zero by construction. This is also what separates the
+metric from semantic scene completion~\cite{Behley_2019_ICCV}, which scores voxel occupancy
+over a whole scene rather than surface coverage of one object. The novel-set restriction,
+the mirrored baseline of Section~\ref{sec:donor-definition}, and the per-band hallucination
+guard of Section~\ref{sec:donor-guard-lesson} are what make the metric measure
+occluded-surface recovery specifically, rather than overall resemblance to an accumulated
+cloud.
+
 \subsection{Definition}
 \label{sec:donor-definition}
 

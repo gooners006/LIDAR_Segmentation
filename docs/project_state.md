@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-09-03
+Last updated: 2026-09-04
 
 ## RESEARCH FREEZE — declared 2026-08-21 (write-up phase)
 
@@ -22,6 +22,18 @@ is the authoritative freeze table). Frozen items, all repo-verified 2026-08-21:
 goes to `scratchpad/` + new `output/experiments/` subfolders only (house
 data-safety rule). The remaining evidence tasks (B1–B6 in `THESIS_PLAN.md` §3)
 are read-only analyses against this frozen config — they do not change it.
+
+> **ACTIVE REFRAME (2026-09-03/04) — see `docs/writing/reframe_plan.md` (now the
+> active plan; Section A locked 2026-09-04).** The thesis is being reframed toward an
+> **input-quality / segmentation-bottleneck** headline (real-LiDAR completion is
+> bottlenecked by input segmentation quality, not completion-model capacity; the donor
+> metric makes it measurable; detection becomes the studied front-end). This carries a
+> **bounded mini-unfreeze** (reframe_plan A1 = Opt B): a gate-OFF ablation across all 11
+> labelled sequences, freeze-compliant (results into `output/experiments/gate_ablation_v2/`,
+> additive `--no-gate` flag on `main.py` — not a frozen artifact; frozen `src/pipeline.py`
+> / `completion.py` / `classifier.py` / checkpoints / `output/08` still untouched). A2 =
+> Opt 2 (retitle) needs advisor sign-off. `THESIS_PLAN.md` is still valuable but no longer
+> the sole authority; read `reframe_plan.md` alongside it.
 
 **Evidence-task progress:** B1 (IoU sensitivity) + B6 (geometric-only ablation)
 DONE 2026-08-21 (Finding #47, `output/experiments/iou_sensitivity/`): headline
@@ -146,6 +158,26 @@ collisions); (4) **full `shipped`→`final` sweep**, 35 occurrences across 7 fil
 all six new headings in TOC + body. NOT advisor-reviewed. **Follow-up commit:** the two `do not ship`/`do-not-ship`
 verdicts (#45) formalized — §6.8 (`sec_6`) → "not to adopt it", §7.4 (`sec_7_results`) → "to
 reject it"; rebuilt clean (79 pp), PDF release-jargon count now 0.
+
+**Donor-metric contribution hardening + prior-art positioning — 2026-09-04.**
+Prose-only, freeze-safe, NOT advisor-reviewed; `main.tex` rebuilds clean (exit 0,
+**81 pp**, was 79, zero undefined refs/citations/overfull >20pt). Verified the donor
+metric's novelty against the literature (previously training-memory only): closest
+prior work is **Ren et al. 2022 (arXiv 2203.10569)** — same multi-frame accumulation
+pseudo-GT for real vehicle completion, but scores the *whole* accumulated cloud, with
+no novel-set restriction / symmetry baseline / hallucination guard; SSC is scene-voxel;
+PCN's Fidelity/MMD/Consistency reference input/prior/own-output. **Defensible novelty =
+the novel-set restriction** (raw partial scores 0 by construction) + mirrored baseline
++ per-band guard; frame as a "novel-set-restricted refinement," not "a new reference-free
+metric." Edits: `references.bib` (+`ren2022selfsupervised`); §2.4 `sec_2_background.tex`
+(reference-free toolkit + Ren et al. paragraph); §7.2 `sec_7_2_donor_metric.tex`
+("Relation to existing reference-free evaluation"). Also settled: contributions #2
+(recall root-cause) and #3 (synthetic redundancy) are **findings, not contributions** —
+the donor metric is the one contribution-tier item; a "generalize detection to all
+objects" pivot was rejected (binary car classifier, car-trained PCN, cross-domain
+F1 0.000). **Open:** §7.2 still welds eligibility to the L-shape gate + lacks a
+general-form statement → metric reads half-reusable; de-weld is the next move. All edits
+uncommitted. See `docs/writing/reframe_plan.md` (the now-active reframe).
 
 **Thesis writing (T14) — STARTED 2026-08-21 (Protocol milestone).** §4.1
 (evaluation protocol) and §7.2 (donor metric) first-drafted as compilable LaTeX

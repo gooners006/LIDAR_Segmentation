@@ -2829,3 +2829,89 @@ No new experiments. Manuscript still builds clean at **79 pp**.
   §6.8 (`sec_6`) "do not ship" → "not to adopt it"; §7.4 (`sec_7_results`) "do-not-ship" →
   "to reject it". Rebuilt clean (79 pp, exit 0); PDF now has zero release-jargon
   (`shipped` = 0, `do not ship` = 0).
+
+---
+# Session — 2026-09-04
+
+## What was done
+
+### Donor-metric contribution: pressure-test + prior-art hardening
+Extended discussion stress-testing whether the donor-frame coverage metric is a
+genuine contribution, prompted by doubt that the input-cleanliness finding (#27)
+and the two secondary claims are "real" contributions. Conclusions:
+- **#2 (recall → HDBSCAN splitting, #23/#34) and #3 (synthetic-pretraining
+  redundancy, #25/#30) are findings, not contributions** — diagnostics of the
+  system's own behavior, not methods others reuse. The donor metric is the one
+  contribution-tier item.
+- **Rejected a proposed pivot** to reframe the contribution as "a general
+  detection pipeline that finds any object needing reconstruction, then completes
+  it." Not viable: classifier is binary car/not-car, PCN is car-trained,
+  cross-domain car F1 = 0.000 (#30); it also reopens the withdrawn multi-class
+  decision (#20) and is not novel (standard detect-then-complete).
+
+### Prior-art investigation (web, links recorded)
+Verified the donor metric's novelty against the literature (was training-memory
+before). Findings:
+- **Closest prior work: Ren et al. 2022, arXiv 2203.10569** ("Self-supervised
+  Point Cloud Completion on Real Traffic Scenes"). They *also* accumulate each
+  tracked vehicle across frames as pseudo-GT — but score the **whole** accumulated
+  cloud (Chamfer variants L-G/L-I/L-S), with **no** novel-set restriction, **no**
+  symmetry baseline, **no** box hallucination guard. Confirmed via ar5iv full-text.
+- SemanticKITTI SSC (Behley 2019): same accumulate-other-frames idea at scene-voxel
+  level, not per-instance surface.
+- KITTI reference-free toolkit — Fidelity / MMD / Consistency (from PCN, yuan2019) —
+  references input / synthetic prior / own outputs, never held-out real surface.
+- RealPC (2411.17580) does NOT threaten — manually builds paired GT, standard CD/HD.
+- **Defensible novelty = the novel-set restriction** (score only donor surface the
+  input never saw, so the raw partial scores 0 by construction) + mirrored baseline
+  + per-band hallucination guard. Reframe from "a new reference-free metric" to "a
+  novel-set-restricted refinement that fixes the under-completion reward inherent in
+  accumulate-and-score approaches (Ren et al.; SSC)." Finding #26 is the evidence
+  that whole-cloud scoring is inadequate.
+
+### Thesis edits (prose only; freeze-safe; NOT advisor-reviewed)
+- `references.bib`: +`ren2022selfsupervised`.
+- `sec_2_background.tex` §2.4: new paragraph — reference-free KITTI toolkit
+  (Fidelity/MMD/Consistency → PCN) + Ren et al. as closest prior work (whole-cloud
+  scoring), foreshadowing the novel-set distinction.
+- `sec_7_2_donor_metric.tex` §7.2: new "Relation to existing reference-free
+  evaluation" paragraph distinguishing the donor metric from Ren et al. (whole-cloud
+  vs novel-set), SSC (scene-voxel vs per-instance), and the KITTI toolkit.
+
+### Open issue identified, not yet fixed
+The metric is now **novelty-defended** but only **half-reusable** in the text:
+§7.2 Definition still welds eligibility to the pipeline ("A pair counts only if the
+input passes the L-shape gate") and there is no explicit general-form statement. This
+is the gap between contribution-tier and internal-tool; de-welding it is the proposed
+next move.
+
+## Files changed
+- **Modified (this session, prose only):** `docs/references.bib`,
+  `docs/writing/thesis/sec_2_background.tex`,
+  `docs/writing/thesis/sec_7_2_donor_metric.tex`.
+- **Also present uncommitted in the tree (concurrent reframe/ablation work, not this
+  conversation's prose edits):** `src/main.py` (+38 lines — additive `--no-gate`
+  ablation flag + raw-partial save; `main.py` is not a frozen artifact), and untracked
+  `scripts/run_gate_ablation.ps1`, `scratchpad/gate_ablation_analyze.py`,
+  `docs/writing/reframe_plan.md`.
+- Memory (outside repo): `~/.claude/.../memory/donor-metric-novelty.md` added.
+- No frozen artifact touched (`src/pipeline.py`, `src/completion.py`,
+  `src/classifier.py`, checkpoints, `output/08`).
+
+## Results / findings
+No new experiments run this session. Assembled `main.tex` rebuilds clean
+(TeX Live 2026): exit 0, **81 pp** (was 79), zero undefined refs/citations, zero
+multiply-defined labels, zero overfull >20 pt, `ren2022selfsupervised` resolved.
+
+## Next
+- **De-weld §7.2** for reusability: add a general-form metric definition and replace
+  the gate-based qualification with a pipeline-agnostic one (qualify on novel-set
+  point count alone). Closes the internal-tool gap. (Optionally sharpen §2.5's
+  contribution wording to "isolates recovery of previously-unobserved surface.")
+- **Gate-off ablation across all 11 sequences** (reframe_plan A1 = Opt B): the
+  prerequisite for the input-quality headline; tooling staged
+  (`scripts/run_gate_ablation.ps1` → `output/experiments/gate_ablation_v2/<seq>/`),
+  ~4–5 h resumable background job. Status unverified this session.
+- Advisor review (title change A2 = Opt 2 needs cover sign-off); then the reframe
+  Section-B chapter-restructure build sequence.
+- Commit this batch (thesis positioning edits) when ready — currently uncommitted.

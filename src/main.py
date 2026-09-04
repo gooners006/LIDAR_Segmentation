@@ -72,8 +72,20 @@ def parse_args():
         help="Heading estimator for completion reorientation (A/B: lshape vs pca)",
     )
     parser.add_argument(
+        "--no-gate", action="store_true",
+        help="Disable the completion input gate (fragment/merge rejection) so ALL "
+             "car tracks complete. Experiment-only (gate-ablation study); the shipped "
+             "pipeline keeps the gate on. NOTE: also disables the gate's frame filter "
+             "on the per-car length estimate (Finding #27 coupling).",
+    )
+    parser.add_argument(
         "--out-tag", type=str, default="",
         help="Suffix for the output dir (output/<seq><tag>); avoids clobbering",
+    )
+    parser.add_argument(
+        "--out-root", type=str, default="output",
+        help="Root dir for saved output (default 'output'; experiments should use "
+             "'output/experiments/<tag>' to honor the data-safety rule).",
     )
     parser.add_argument(
         "--mine-pairs", type=str, default=None, metavar="DIR",
@@ -139,13 +151,18 @@ def main():
                 f"PCN checkpoint not found: {args.pcn_ckpt}. "
                 "Use --no-completion to disable, or provide a valid --pcn-ckpt."
             )
+        gate_kwargs = (
+            {"merge_max_width": None, "fragment_min_length": None}
+            if args.no_gate else {}
+        )
         completer = PointCloudCompleter(
             model_path=args.pcn_ckpt,
             seed=PIPELINE_CONFIG["pcn_sample_seed"],
             heading_method=args.heading_method,
+            **gate_kwargs,
         )
         print(f"Loaded PCN completer from {args.pcn_ckpt} "
-              f"(heading={args.heading_method})")
+              f"(heading={args.heading_method}, gate={'OFF' if args.no_gate else 'on'})")
     else:
         completer = PointCloudCompleter(seed=PIPELINE_CONFIG["pcn_sample_seed"])
 
@@ -305,7 +322,7 @@ def main():
     # --- Output writing ---
     if args.save_output:
         seq_out = f"{args.seq}{args.out_tag}"
-        output_dir = os.path.join(PROJECT_ROOT, f"output/{seq_out}/objects")
+        output_dir = os.path.join(PROJECT_ROOT, args.out_root, seq_out, "objects")
         os.makedirs(output_dir, exist_ok=True)
 
         cfg = PIPELINE_CONFIG
@@ -356,6 +373,8 @@ def main():
 
             length_estimate_source = None
             n_gate_passed_frames = None
+            ref_fit_length = None
+            ref_fit_width = None
 
             if not completion_enabled:
                 output_pts = all_pts
@@ -384,6 +403,16 @@ def main():
                 length_estimate_source = (
                     "fallback" if len(fit_lengths) < COMPLETION_LENGTH_MIN_FRAMES
                     else "track_q90")
+
+                # Record the ref-frame L-shape footprint (gate-decision input).
+                # The footprint fit is independent of length_est (it only feeds the
+                # gate + heading), so the analysis can reconstruct the gate decision
+                # (fit_length >= 2.7 and fit_width <= 2.3) post-hoc from a gate-OFF
+                # render. Gate-ablation instrumentation only (Finding #27 study).
+                ref_est, _ = completer.estimate_canonical_frame(ref_sensor, length_est)
+                if ref_est is not None:
+                    ref_fit_length = float(ref_est["fit_length"])
+                    ref_fit_width = float(ref_est["fit_width"])
 
                 # Reset the subsample RNG per completion (Finding #38): otherwise
                 # self._rng carries state across tracks, so a track's completed
@@ -433,6 +462,9 @@ def main():
             if length_estimate_source is not None:
                 track_entry["length_estimate_source"] = length_estimate_source
                 track_entry["n_gate_passed_frames"] = n_gate_passed_frames
+            if ref_fit_length is not None:
+                track_entry["ref_fit_length"] = ref_fit_length
+                track_entry["ref_fit_width"] = ref_fit_width
             if skip_reason is not None:
                 track_entry["completion_skip_reason"] = skip_reason
             tracks_meta.append(track_entry)
@@ -444,7 +476,7 @@ def main():
             "pcn_checkpoint": args.pcn_ckpt if completion_enabled else None,
             "tracks": tracks_meta,
         }
-        json_path = os.path.join(PROJECT_ROOT, f"output/{seq_out}/tracks.json")
+        json_path = os.path.join(PROJECT_ROOT, args.out_root, seq_out, "tracks.json")
         with open(json_path, "w") as f:
             json.dump(meta, f, indent=2)
 

@@ -182,6 +182,26 @@ its place. This should be distinguished from \emph{semantic scene completion}, w
 fills a whole voxelised scene from a single scan; the present work completes individual
 segmented objects, a different and narrower task.
 
+Because real automotive LiDAR offers no complete target, a small toolkit of
+\emph{reference-free} completion metrics has grown up around the KITTI cars.
+PCN~\cite{yuan2019pcnpointcompletionnetwork} itself scores its KITTI completions by
+\emph{Fidelity} (how well the input is preserved in the output), \emph{Minimal Matching
+Distance} (Chamfer distance to the nearest complete car in a synthetic reference set), and
+\emph{Consistency} (agreement between the completions of one instance across consecutive
+frames). Each of these references something other than the real occluded surface --- the
+input, a synthetic prior, or the model's own outputs --- so none directly measures how much
+genuinely unobserved surface a completion recovers. Closest to the present work, Ren
+et al.~\cite{ren2022selfsupervised} complete vehicles in real traffic scenes and build a
+pseudo ground truth by accumulating each tracked instance across consecutive frames, then
+score the completed cloud against that accumulation with Chamfer-based distances. That
+accumulation is scored \emph{as a whole}, however: it mixes the near surface the input
+already observed with the little new surface the other views add, so a completion is not
+penalised for merely reproducing its input, and no baseline or bounding-box test guards
+against surface hallucinated outside the car. Chapter~\ref{ch:completion-eval} adopts the
+same multi-frame idea but restricts scoring to the surface the input frame did \emph{not}
+see, and adds an explicit hallucination guard, precisely so that reproducing the input
+earns nothing.
+
 \section{Positioning of this work}
 \label{sec:bg-positioning}
 
