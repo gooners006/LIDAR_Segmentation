@@ -51,7 +51,7 @@ which sets the agenda for the future work of Chapter~\ref{ch:conclusion}.
 \label{sec:disc-what-holds}
 
 Two contributions carry the strongest evidence. The first is methodological: the
-donor-frame occluded-side coverage metric (Chapter~\ref{ch:completion-eval}). We are not aware of a prior metric
+donor-frame occluded-side coverage metric (Section~\ref{sec:donor-validation}). We are not aware of a prior metric
 that scores a real LiDAR car's completion against donor frames of the same static
 instance --- a reference-leakage-free construction, and it comes with the demonstration
 that the obvious alternative --- Chamfer distance
@@ -75,7 +75,7 @@ $F_1$~\num{0.808} on the full sequence~08 (mean IoU of matched detections \num{0
 recall denominator: ground-truth car instances with at least \num{10} points surviving
 preprocessing, Section~\ref{sec:eval-protocol}), and it does so with an interpretable, near-annotation-free
 clustering front end on modest hardware. Its recall shortfall is not mysterious: it is
-root-caused to HDBSCAN splitting large, close cars into fragments (Chapter~\ref{ch:recall-bottleneck}), and that
+root-caused to HDBSCAN splitting large, close cars into fragments (Section~\ref{sec:recall-analysis}), and that
 diagnosis is itself a contribution. Two secondary findings round out the account: the
 recall bottleneck is clustering fragmentation with a recoverable-ceiling quantification
 (Findings~\#23/\#34), and the sim-to-real classifier gap is total and symmetric, which
@@ -109,7 +109,7 @@ predicts (Section~\ref{sec:results-ablations}): geometric clustering alone reach
 \num{0.730} (Findings~\#47/\#49), so the classifier's realised recall contribution is a
 small band and the dominant recall limit is the upstream clustering ceiling (\num{0.775}
 before the classifier acts) --- imposed by clustering, independent of the classifier, and
-holding on sequence~00 as well (Chapter~\ref{ch:recall-bottleneck}). The
+holding on sequence~00 as well (Section~\ref{sec:recall-analysis}). The
 model-selection structure therefore touched the precision and the classifier's few-point
 recall contribution, not the clustering-imposed ceiling that accounts for most of the
 missed cars; cross-validation now shows the touch was worth about two precision points and
@@ -310,7 +310,7 @@ assumption, and we name it.
 \label{sec:disc-architectural}
 
 \paragraph{Density clustering has no notion of objectness.}
-The recall ceiling is architectural, not a tuning failure (Chapter~\ref{ch:recall-bottleneck}). Coarsening the
+The recall ceiling is architectural, not a tuning failure (Section~\ref{sec:recall-analysis}). Coarsening the
 clustering voxel to \SI{0.10}{\metre} recovered part of the loss
 (recall \num{0.699}~$\rightarrow$~\num{0.730}; Finding~\#34) by preventing intra-car
 splits, but coarsening further would begin fusing adjacent cars, and the
@@ -319,7 +319,7 @@ HDBSCAN's recall at any tested radius (Finding~\#43). The residual limit is that
 density-based clustering groups points by proximity and density alone, with no model of
 what a car is, so it cannot be tuned to the recall of a learned object detector. Lifting
 this ceiling would require replacing the clustering stage with a learned detector, which
-is a different system and is left to future work (Chapter~\ref{ch:conclusion}). The value of Chapter~\ref{ch:recall-bottleneck} is to
+is a different system and is left to future work (Chapter~\ref{ch:conclusion}). The value of Section~\ref{sec:recall-analysis} is to
 have located the ceiling precisely --- clustering, splitting rather than
 classification-or-merging, and lower than first claimed --- rather than to have removed it.
 

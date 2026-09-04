@@ -6,7 +6,7 @@
 % MERGE/NUMBERING NOTE: this file opens with \section{The Recall Bottleneck} for
 % standalone compilation and numbering, but at final assembly the assembler
 % promotes it to a chapter (Chapter 5). Forward/back references to sibling chapters
-% and their tables use typed numerals ("Chapter~\ref{ch:detection-eval}", "Section~\ref{sec:results-ablations}", "Table~4.1")
+% and their tables use typed numerals ("Chapter~\ref{ch:evaluation}", "Section~\ref{sec:results-ablations}", "Table~4.1")
 % because the chapter files do not share a label namespace when built separately;
 % Chapter-4 sub-tables are referenced by section + Finding number rather than by
 % hard-coded table number, to stay robust to final renumbering.
@@ -22,27 +22,30 @@
 %   - every number traces to a finding / session log artifact (cited Finding~\#NN /
 %     session_history.md)
 %
-\chapter{Recall Analysis}
-\label{ch:recall-bottleneck}
+\section{Recall analysis: the bridge to completion}
+\label{sec:recall-analysis}
 
-Chapter~\ref{ch:detection-eval} established two facts about the headline operating point: the pipeline is
+The detection operating point above established two facts: the pipeline is
 precision-saturated (false positives are low and flat, about \num{0.7} per frame),
 and it is recall-limited, missing roughly one car in four
-($R=\num{0.730}$ on sequence~08). This chapter explains \emph{why} the recall is
-limited. We show that the shortfall is a clustering failure rather than a
-classification failure (Section~\ref{sec:recall-diagnosis}), root-cause it to
-HDBSCAN splitting large, close cars into fragments (Section~\ref{sec:split-analysis}),
-report a search of repair strategies that all fail to generalise
-(Section~\ref{sec:repairs}), and describe the one intervention that did help ---
-coarsening the clustering resolution --- which forces a correction of an earlier,
-overstated ``hard ceiling'' claim (Section~\ref{sec:resolution-fix}). The negative
-results are reported as findings, not apologised for: mapping which repairs fail,
-and why, is itself a contribution, and it is what justifies the residual limitation
-carried to Chapter~\ref{ch:discussion}. Unless stated otherwise, the recall denominator throughout is
-the one defined in Section~\ref{sec:eval-protocol} --- ground-truth car instances with at least
-\num{10} points surviving preprocessing.
+($R=\num{0.730}$ on sequence~08). This section explains \emph{why} the recall is
+limited, and it is the bridge to the completion evaluation that follows: the same
+clustering step that caps recall is the one that decides whether a detected car
+reaches completion as a clean single-object cluster. We show that the shortfall is
+a clustering failure rather than a classification failure
+(Section~\ref{sec:recall-diagnosis}), root-cause it to HDBSCAN splitting large,
+close cars into fragments (Section~\ref{sec:split-analysis}), report a search of
+repair strategies that all fail to generalise (Section~\ref{sec:repairs}), and
+describe the one intervention that did help --- coarsening the clustering
+resolution --- which forces a correction of an earlier, overstated ``hard
+ceiling'' claim (Section~\ref{sec:resolution-fix}). The negative results are
+reported as findings, not apologised for: mapping which repairs fail, and why, is
+itself a contribution, and it is what justifies the residual limitation carried to
+Chapter~\ref{ch:discussion}. Unless stated otherwise, the recall denominator
+throughout is the one defined in Section~\ref{sec:eval-protocol} --- ground-truth
+car instances with at least \num{10} points surviving preprocessing.
 
-\section{The shortfall as a clustering failure}
+\subsection{The shortfall as a clustering failure}
 \label{sec:recall-diagnosis}
 
 The recall ceiling is upstream of the learned classifier. The stage decomposition
@@ -82,7 +85,7 @@ surviving cluster, so it establishes that the rejections are dominated by small
 fragments, not that every one belongs to an otherwise-detected car. Either way the
 diagnosis points one stage further upstream, at the clustering itself.
 
-\section{Root cause: HDBSCAN fragmentation of large, close cars}
+\subsection{Root cause: HDBSCAN fragmentation of large, close cars}
 \label{sec:split-analysis}
 
 To quantify how clustering caps recall we measured, for every eligible ground-truth
@@ -176,7 +179,7 @@ mid- and far-range cars (green) are detected as single clusters.
   \label{fig:failure-zooms}
 \end{figure}
 
-\section{Limits of the repair strategies}
+\subsection{Limits of the repair strategies}
 \label{sec:repairs}
 
 Given that splitting caps recall, the obvious responses fall into two families:
@@ -284,7 +287,7 @@ project conclusion --- that recall was fixed at a hard ceiling of about \num{0.7
 in Table~\ref{tab:strategies}, and also, as the next section shows, wrong: it read a
 limit on \emph{these} repairs as a limit on the approach.
 
-\section{Clustering resolution and the corrected ceiling}
+\subsection{Clustering resolution and the corrected ceiling}
 \label{sec:resolution-fix}
 
 The intervention that helped was not a repair at all but a change to the clustering
@@ -353,7 +356,7 @@ the clustering stage, it is splitting rather than classification or merging, and
 is lower than first claimed --- and to have mapped which repairs cannot move it and
 which one can.
 
-\section{Summary}
+\subsection{Recall analysis: summary}
 \label{sec:recall-summary}
 
 The recall shortfall is clustering-bound, not classifier-bound: the classifier and

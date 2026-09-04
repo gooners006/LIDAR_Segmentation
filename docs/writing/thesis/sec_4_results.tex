@@ -5,10 +5,10 @@
 % MERGE/NUMBERING NOTE: this file opens with \section{Detection Evaluation} for
 % standalone compilation and numbering, but carries a DISTINCT label
 % (\label{ch:detection-eval-results}) so it does not clash with sec_4_1's
-% \label{ch:detection-eval}. At final assembly the assembler drops this
+% \label{ch:evaluation}. At final assembly the assembler drops this
 % \section line and the subsections below fold under sec_4_1's chapter, so that
 % 4.1 (protocol) ... 4.5 (runtime) are one chapter. Forward/back references to
-% sibling sections use typed numerals ("Section~\ref{sec:eval-protocol}", "Chapter~\ref{ch:recall-bottleneck}") exactly as
+% sibling sections use typed numerals ("Section~\ref{sec:eval-protocol}", "Section~\ref{sec:recall-analysis}") exactly as
 % sec_4_1 does, because the two files do not share a label namespace when built
 % separately.
 %
@@ -48,7 +48,7 @@ nearest (\SI{66}{\percent} at \SIrange{0}{10}{\metre}, Finding~\#24).
 Section~\ref{sec:results-distance} exhibits the resulting near-range recall dip
 directly, and the time series (Figure~\ref{fig:timeseries}) shows per-frame
 recall tending to fall in the denser frames while false positives stay flat. We
-root-cause the splitting mechanism in Chapter~\ref{ch:recall-bottleneck}; here we establish only that
+root-cause the splitting mechanism in Section~\ref{sec:recall-analysis}; here we establish only that
 recall, not precision, is the dominant error mode, and that it does not come from
 the classifier misfiring (false positives stay flat regardless).
 
@@ -69,7 +69,7 @@ the classifier misfiring (false positives stay flat regardless).
   \caption{Per-frame detection behaviour over sequence~08. False positives (lower
     trace) stay low and flat --- under one per frame --- regardless of scene
     content, while per-frame recall tends to fall in frames with more
-    ground-truth cars. The structural recall limit is root-caused in Chapter~\ref{ch:recall-bottleneck}
+    ground-truth cars. The structural recall limit is root-caused in Section~\ref{sec:recall-analysis}
     (HDBSCAN splitting, Findings~\#23/\#24).}
   \label{fig:timeseries}
 \end{figure}
@@ -131,7 +131,7 @@ recall (\num{0.730}), roughly \num{1600} true positives forgone for the
 $\sim$\num{152000}-false-positive removal --- but that trade runs through a
 recall dip and a partial recovery, not a simple monotone loss. We report it
 rather than hiding it: the system is deliberately tuned for precision, and the
-recall it forgoes here is small next to the recall it never had (Chapter~\ref{ch:recall-bottleneck}). The
+recall it forgoes here is small next to the recall it never had (Section~\ref{sec:recall-analysis}). The
 pre-promotion geometric-only figure ($F_1$~\num{0.305}, Finding~\#18) is
 superseded by this like-for-like \num{0.250} and kept only as a historical
 record.
@@ -284,7 +284,7 @@ none of which matches the whole instance, so it is counted as a miss. The neares
 also has the \emph{lowest} mean IoU of matched detections (\num{0.902}),
 consistent with fragments eroding the overlap even on the cars that do match. We
 develop this splitting mechanism, and why post-hoc fragment-merging fails to
-recover it, in Chapter~\ref{ch:recall-bottleneck}.
+recover it, in Section~\ref{sec:recall-analysis}.
 
 Beyond the peak the decline is ordinary sparsity: recall falls from \num{0.862}
 at \SIrange{10}{20}{\metre} to \num{0.549} at \SIrange{20}{40}{\metre} and

@@ -11,8 +11,22 @@
 %   - measured vs inferred evidence tiers marked in prose
 %   - every number traceable to a finding / output artifact
 %
-\chapter{Detection Evaluation}
-\label{ch:detection-eval}
+\chapter{Evaluation}
+\label{ch:evaluation}
+
+This chapter evaluates the full pipeline end to end, but its destination is the
+contribution: the donor-frame coverage metric and what it reveals about
+completion. The route there runs through the detection front-end that supplies
+the metric its inputs. We first fix the detection evaluation protocol
+(Section~\ref{sec:eval-protocol}) and report the detection operating point,
+ablations, range, and runtime (Sections~\ref{sec:results-detection}--\ref{sec:results-runtime});
+we then diagnose why detection recall is capped, because the same clustering
+step that limits recall is what governs input cleanliness for completion
+(Section~\ref{sec:recall-analysis}). The chapter then turns to its centre: the
+donor metric is put through its validation battery
+(Section~\ref{sec:donor-validation}) and used to score completion on real cars ---
+surface coverage, the downstream amodal box, moving cars, and a pre-registered
+held-out replication (Sections~\ref{sec:results-coverage}--\ref{sec:results-heldout}).
 
 \section{Evaluation protocol}
 \label{sec:eval-protocol}
@@ -56,9 +70,9 @@ are a re-partition of the existing mined data and require no re-mining.
   \item \textbf{Sequence 08 (reported operating point; \num{4071} frames).} The
     largest labelled sequence is the operating point at which the pipeline is
     reported in detail: the stage ablations (Section~\ref{sec:results-ablations}),
-    the recall root-cause analysis (Chapter~\ref{ch:recall-bottleneck}), the
+    the recall root-cause analysis (Section~\ref{sec:recall-analysis}), the
     IoU-threshold sensitivity below, and the completion evaluation
-    (Chapter~\ref{ch:completion-eval}) are all computed on the sequence-08 output
+    (Section~\ref{sec:donor-validation}) are all computed on the sequence-08 output
     of the \emph{final} classifier. Sequence~08 was never used to tune the
     classical stages. The final classifier was historically selected on
     sequence~08, so its sequence-08 numbers could in principle be optimistic; the
@@ -66,7 +80,7 @@ are a re-partition of the existing mined data and require no re-mining.
     last-epoch, never selected on 08) settles this empirically below.
   \item \textbf{Sequence 00 (completion held-out; 100 frames).} Sequence~00 is
     the held-out sequence for the \emph{completion} replication
-    (Chapter~\ref{ch:completion-eval}), where its being unseen by the completion
+    (Section~\ref{sec:donor-validation}), where its being unseen by the completion
     model is what matters. Its classical pipeline parameters
     (\texttt{PIPELINE\_CONFIG}) were historically hand-tuned on it, so the
     seq-00 detection fold retains classical-stage familiarity even though its
@@ -175,7 +189,7 @@ cross-validation that confirms it follows in Section~\ref{sec:eval-loso}.
 The pipeline is precision-saturated and recall-limited: false positives are flat
 at roughly one per frame, while recall is set by how many eligible cars the
 clustering stage recovers as single objects. The remaining sections of this
-chapter report the ablations that decompose this operating point, and Chapter~\ref{ch:recall-bottleneck}
+chapter report the ablations that decompose this operating point, and Section~\ref{sec:recall-analysis}
 root-causes the recall shortfall.
 
 \subsection{Leave-one-sequence-out cross-validation}

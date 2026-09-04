@@ -22,20 +22,20 @@ and classifies car clusters, an object-completion stage
 surface from the one-sided partial a single frame observes, and the reference-free
 donor metric (Section~\ref{sec:donor-metric}) that makes that completion measurable
 on real data. The completion is evaluated with this metric in
-Chapter~\ref{ch:completion-eval}.
+Section~\ref{sec:donor-validation}.
 
 \section{Detection pipeline}
 \label{sec:meth-detection}
 
 This section describes the car-detection pipeline that produces every detection
-evaluated in Chapter~\ref{ch:detection-eval} and every cluster completed in
-Section~\ref{ch:completion-method} and Chapter~\ref{ch:completion-eval}. The
+evaluated in Chapter~\ref{ch:evaluation} and every cluster completed in
+Section~\ref{ch:completion-method} and Section~\ref{sec:donor-validation}. The
 design is deliberately modular and classical: a chain of independent stages,
 each with a small number of interpretable parameters, rather than an end-to-end
 learned detector. This choice trades peak accuracy for interpretability,
 reproducibility, and near-zero manual annotation --- the classifier is trained on
 labels mined automatically from the pipeline itself
-(Section~\ref{sec:pipeline-classifier}) --- and it is what lets Chapter~\ref{ch:recall-bottleneck}
+(Section~\ref{sec:pipeline-classifier}) --- and it is what lets Section~\ref{sec:recall-analysis}
 root-cause the recall shortfall to a single stage rather than to an opaque
 network.
 
@@ -112,7 +112,7 @@ The system is \emph{offline} by design: the tracker and the track-level filter
 use the whole sequence, and real-time operation is out of scope. At
 \SI{623.5}{\milli\second\per\frame} the pipeline is roughly \SI{1.6}{\fps}, an order
 of magnitude below sensor rate; we characterise this cost honestly in the runtime
-section of Chapter~\ref{ch:detection-eval} rather than claiming real-time capability. The one
+section of Chapter~\ref{ch:evaluation} rather than claiming real-time capability. The one
 observation worth making here is where the cost lives: clustering alone is
 \SI{59}{\percent} of the frame budget, and the only learned per-frame stage, the
 classifier, is just \SI{5}{\percent}. The expensive parts of this pipeline are
@@ -143,7 +143,7 @@ The order of the last two steps is behaviour-changing. In the frozen configurati
 denoising, so the statistical outlier test operates on roughly ten times fewer
 points --- and on a regularised point set, which changes which points survive.
 This ordering was adopted as part of the Finding~\#34 optimisation primarily
-because it improves detection (discussed in Chapter~\ref{ch:detection-eval}); its effect on the measured
+because it improves detection (discussed in Chapter~\ref{ch:evaluation}); its effect on the measured
 denoising cost is small. It is behaviour-changing, so we flag it here rather than
 presenting the two orderings as equivalent.
 Preprocessing costs \SI{126}{\milli\second\per\frame} in total, split across the
@@ -183,7 +183,7 @@ and minimum samples of \num{5}. HDBSCAN is chosen over a fixed-radius method
 because LiDAR density falls off with range: a single Euclidean radius that merges
 nothing at \SI{5}{\meter} will over-segment at \SI{40}{\meter}. HDBSCAN's
 variable-density hierarchy adapts to this without a hand-tuned radius schedule,
-and Chapter~\ref{ch:detection-eval} reports a controlled benchmark (Finding~\#43) confirming it beats
+and Chapter~\ref{ch:evaluation} reports a controlled benchmark (Finding~\#43) confirming it beats
 DBSCAN and Euclidean extraction on recall at matched settings.
 
 Two details of the frozen configuration are load-bearing. First, clustering runs
@@ -193,7 +193,7 @@ HDBSCAN is run there, and the labels are propagated back to the full-resolution
 points by nearest neighbour. This was adopted (Finding~\#34) because the coarser
 grid closes intra-car density gaps that otherwise cause a single car to split
 into several clusters --- the central mechanism of the recall bottleneck analysed
-in Chapter~\ref{ch:recall-bottleneck} --- and it added \num{1655} true positives on the full sequence~08.
+in Section~\ref{sec:recall-analysis} --- and it added \num{1655} true positives on the full sequence~08.
 Second, HDBSCAN is by far the most expensive stage at
 \SI{370}{\milli\second\per\frame} (\SI{59}{\percent} of the budget), because it is
 superlinear in the point count; the coarse-grid trick is as much a speed measure
@@ -225,7 +225,7 @@ remove obvious non-cars while leaving the fine car/not-car decision to the
 learned classifier. The height gate is computed \emph{relative to the fitted
 ground plane}, not to a fixed world height, so it is robust to the sensor not
 being perfectly level. The filter costs \SI{36}{\milli\second\per\frame}
-(\SI{6}{\percent}). Its individual gates are ablated in Chapter~\ref{ch:detection-eval}; here we note
+(\SI{6}{\percent}). Its individual gates are ablated in Chapter~\ref{ch:evaluation}; here we note
 only that this stage is high-recall and low-precision by construction, and the
 classifier is what turns its survivors into precise detections.
 
@@ -320,7 +320,7 @@ mined real clusters from
 random initialisation (val macro-$F_1$ \num{0.9285}, Finding~\#31). An earlier
 two-stage design first pretrained on synthetic ShapeNet partial renders
 (``Stage~A'') and then fine-tuned on the real clusters (``Stage~B''). We report
-the two-stage machinery in Chapter~\ref{ch:detection-eval} as an \emph{ablation}, because a controlled
+the two-stage machinery in Chapter~\ref{ch:evaluation} as an \emph{ablation}, because a controlled
 comparison (Finding~\#25) showed the synthetic pretraining to be \emph{redundant}
 given \num{420000} real clusters: the from-scratch classifier matches the
 pretrained one (macro-$F_1$ \num{0.9285} vs.\ \num{0.9225}). The final pipeline
@@ -351,7 +351,7 @@ classifier flickers on --- a car in one frame, not-car in the next --- is thus
 resolved by temporal majority rather than trusted per frame. Because this filter
 consults the whole track, it is an offline post-processing step, consistent with
 the offline scope of the system; its contribution is isolated as an ablation row
-in Chapter~\ref{ch:detection-eval}. The tracker itself is effectively free at
+in Chapter~\ref{ch:evaluation}. The tracker itself is effectively free at
 \SI{0.3}{\milli\second\per\frame}.
 
 \subsection{Frozen configuration}
@@ -404,4 +404,4 @@ were not altered to obtain any reported result.
 
 The completion stage that operates on the tracked car detections
 (Figure~\ref{fig:pipeline}, right) is the subject of Section~\ref{ch:completion-method}; the evaluation of
-the detections themselves is Chapter~\ref{ch:detection-eval}.
+the detections themselves is Chapter~\ref{ch:evaluation}.

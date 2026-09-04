@@ -8,7 +8,7 @@
 % MERGE/NUMBERING NOTE: this file opens with \section{Conclusion and Future Work} for
 % standalone compilation and numbering, but at final assembly the assembler promotes it
 % to a chapter (Chapter 9). Forward/back references to sibling chapters and their tables
-% use typed numerals ("Chapter~\ref{ch:completion-eval}", "Section~\ref{sec:results-heldout}", "Table~4.5") because the chapter files
+% use typed numerals ("Section~\ref{sec:donor-validation}", "Section~\ref{sec:results-heldout}", "Table~4.5") because the chapter files
 % do not share a label namespace when built separately.
 %
 % Honesty-phrasing rules applied (personal_agenda P1):
@@ -38,7 +38,7 @@ Chapter~\ref{ch:introduction} posed three research questions. Each is answered b
 answer is reported at the reach the evidence actually supports.
 
 \paragraph{RQ1 --- evaluating completion on real LiDAR.}
-The measurement question is answered in Chapter~\ref{ch:completion-eval}. Reference-based Chamfer distance against
+The measurement question is answered in Section~\ref{sec:donor-validation}. Reference-based Chamfer distance against
 an accumulated pseudo-ground-truth is \emph{invalid} on real cars: because the accumulated
 reference is itself occluded on the same side as the input, the raw partial cloud scores
 best on that metric, so a lower Chamfer distance rewards under-completion rather than
@@ -53,7 +53,7 @@ lesson about band-blind gates, not an erratum to the direction it validated
 real LiDAR in this setting.
 
 \paragraph{RQ2 --- does completion recover unseen surface, and does the benefit hold out?}
-Also answered in Chapter~\ref{ch:completion-eval}, and reported exactly as it fell. On real sequence-08 cars the
+Also answered in Section~\ref{sec:donor-validation}, and reported exactly as it fell. On real sequence-08 cars the
 donor metric shows that PCN recovers genuinely occluded surface several times above the
 symmetry-mirror baseline (occluded-side coverage at \SI{0.1}{\metre} rising from
 \num{0.000} for the raw partial and \num{0.043} for the mirror baseline to \num{0.304} for
@@ -72,7 +72,7 @@ plausibility scoping is stated in Section~\ref{sec:results-movers} and the held-
 neither is softened here.
 
 \paragraph{RQ3 --- what limits recall, and is synthetic pretraining necessary?}
-The first half is answered in Chapter~\ref{ch:recall-bottleneck}, the second in Chapter~\ref{ch:detection-eval}. Recall is limited not by
+The first half is answered in Section~\ref{sec:recall-analysis}, the second in Chapter~\ref{ch:evaluation}. Recall is limited not by
 the classifier but by the clustering stage: HDBSCAN splits single cars into multiple
 fragments, with \SIrange{31}{37}{\percent} of ground-truth cars split (Finding~\#23), and
 the classifier's role is to buy precision, which it does at a cost to recall that the track
@@ -106,14 +106,14 @@ architectural, and none a claim of novelty for the pipeline itself.
   donor-frame occluded-side coverage metric that replaces it, with its hallucination guard and
   validation gate --- through which completion is shown to recover genuinely occluded surface
   and improve amodal boxes on static, gate-passed cars, a benefit that partially holds on a
-  pre-registered held-out sequence (Findings~\#26/\#29/\#32/\#37/\#42; Chapter~\ref{ch:completion-eval}).
+  pre-registered held-out sequence (Findings~\#26/\#29/\#32/\#37/\#42; Section~\ref{sec:donor-validation}).
   This is the completion half's central contribution.
   \item \textbf{A root-cause account of the recall bottleneck:} recall is clustering-bound,
   not classifier-bound, and the accompanying chain of negative repair results is reported as
-  findings in their own right (Findings~\#21/\#23/\#24/\#34; Chapter~\ref{ch:recall-bottleneck}).
+  findings in their own right (Findings~\#21/\#23/\#24/\#34; Section~\ref{sec:recall-analysis}).
   \item \textbf{Evidence that synthetic pretraining is redundant for the classifier at
   scale,} which directly replaces a contribution promised in the proposal
-  (Findings~\#25/\#30; Chapter~\ref{ch:detection-eval}).
+  (Findings~\#25/\#30; Chapter~\ref{ch:evaluation}).
 \end{enumerate}
 
 Alongside these, the thesis carries engineering contributions that it does not claim as

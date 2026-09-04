@@ -105,7 +105,7 @@ cars --- so it is not counted among the contributions. Second, the completion
 network is trained only on synthetic partial renders made to imitate LiDAR
 sampling; it never sees a labelled real car. This is what makes the pipeline
 near-annotation-free, and it is also the source of the sim-to-real questions that
-Chapters~\ref{ch:detection-eval} and~\ref{ch:completion-eval} take up.
+Chapter~\ref{ch:evaluation} takes up.
 
 \section{Research questions}
 \label{sec:intro-rq}
@@ -116,15 +116,15 @@ The work is organised around three questions.
   \item[RQ1.] How can the quality of point-cloud completion be evaluated on
     \emph{real} LiDAR, where no clean reference shape exists and an accumulated
     pseudo-ground-truth is itself one-sided? This is a measurement question, and it
-    is prior to any claim that completion helps. It is answered in Chapter~\ref{ch:completion-eval}.
+    is prior to any claim that completion helps. It is answered in Section~\ref{sec:donor-validation}.
   \item[RQ2.] Does learned completion recover genuinely \emph{unseen} surface --- as
     opposed to redistributing the points it was already given --- and does it
     improve downstream amodal bounding boxes on real LiDAR cars? And does any such
     benefit survive on a held-out sequence under a pre-registered test? This is
-    answered in Chapter~\ref{ch:completion-eval}, with the held-out outcome reported exactly as it fell.
+    answered in Section~\ref{sec:donor-validation}, with the held-out outcome reported exactly as it fell.
   \item[RQ3.] What limits the recall of a training-free clustering-plus-classifier
     detector, and is synthetic pretraining actually necessary for the classifier?
-    The first half is answered in Chapter~\ref{ch:recall-bottleneck}, the second in Chapter~\ref{ch:detection-eval}.
+    The first half is answered in Section~\ref{sec:recall-analysis}, the second in Chapter~\ref{ch:evaluation}.
 \end{description}
 
 \section{Contributions}
@@ -149,7 +149,7 @@ blocks, reimplemented and tuned here.
     baseline and improves amodal boxes on static, gate-passed cars, and that the
     benefit partially holds on a pre-registered held-out sequence
     (Findings~\#29/\#42). This is the completion half's central contribution and is
-    developed in Chapter~\ref{ch:completion-eval}.
+    developed in Section~\ref{sec:donor-validation}.
   \item \textbf{A root-cause account of the recall bottleneck, with a chain of
     negative repair results.} Recall is limited not by the classifier but by
     density clustering splitting single cars into fragments (Finding~\#23). A
@@ -157,13 +157,13 @@ blocks, reimplemented and tuned here.
     adaptive and BEV clustering, temporal accumulation --- fails to generalise,
     each for a structural reason (Findings~\#21/\#24); the one lever that helped
     was the clustering resolution itself (Finding~\#34). The negative results are reported as findings in their
-    own right in Chapter~\ref{ch:recall-bottleneck}.
+    own right in Section~\ref{sec:recall-analysis}.
   \item \textbf{Evidence that synthetic pretraining is redundant for the classifier
     at scale.} A from-scratch classifier matches a synthetically pretrained one once
     real training clusters are plentiful, and a cross-domain matrix shows the
     sim-to-real gap is total and symmetric (Findings~\#25/\#30). This directly
     replaces a contribution promised in the proposal, as discussed in
-    Section~\ref{sec:intro-scope}, and is presented in Chapter~\ref{ch:detection-eval}.
+    Section~\ref{sec:intro-scope}, and is presented in Chapter~\ref{ch:evaluation}.
 \end{enumerate}
 
 Alongside these, the thesis delivers several \emph{engineering} contributions that
@@ -232,18 +232,21 @@ the proposal was silent on runtime.
 \section{Thesis outline}
 \label{sec:intro-outline}
 
-The remainder of the thesis is organised as follows. Chapter~\ref{ch:background} (Background and
-Related Work) places the pipeline against the deep-learning segmentation and
-point-completion literature and carries the positioning table that defends the
-comparison. Chapter~\ref{ch:pipeline} (The Detection Pipeline) describes every stage and the
-classifier's training. Chapter~\ref{ch:detection-eval} (Detection Evaluation) sets out the evaluation
-protocol and reports the seq-08 results, the ablations, the distance breakdown, and
-the runtime. Chapter~\ref{ch:recall-bottleneck} (The Recall Bottleneck) root-causes the recall shortfall to
-clustering fragmentation and reports the chain of negative repair strategies.
-Section~\ref{ch:completion-method} (Point-Cloud Completion) covers the completion method and the debugging
-story behind it. Chapter~\ref{ch:completion-eval} (Completion Evaluation) introduces the donor-frame
-metric, shows why pseudo-ground-truth Chamfer is invalid, and reports the
-real-data coverage results, the amodal-box utility, the moving-car case, and the
-pre-registered held-out replication. Chapter~\ref{ch:discussion} (Discussion and Limitations) names
-every weakness the work is subject to, and Chapter~\ref{ch:conclusion} (Conclusion and Future Work)
-answers the three research questions and lays out what remains.
+The remainder of the thesis is organised as follows. Chapter~\ref{ch:background}
+(Background and Related Work) places the pipeline against the deep-learning
+segmentation and point-completion literature and carries the positioning table
+that defends the comparison. Chapter~\ref{ch:pipeline} (Methodology) describes
+every stage of the detection pipeline and the classifier's training, the
+point-cloud completion method, and --- as the chapter's destination --- the
+definition of the donor-frame coverage metric that is this thesis's contribution.
+Chapter~\ref{ch:evaluation} (Evaluation) then evaluates the pipeline end to end:
+it fixes the detection protocol and reports the seq-08 operating point, the
+ablations, the distance breakdown, and the runtime; root-causes the recall
+shortfall to clustering fragmentation and reports the chain of negative repair
+strategies, which is also the bridge to completion; and turns to its centre,
+putting the donor metric through its validation battery and using it to report
+the real-data coverage results, the amodal-box utility, the moving-car case, and
+the pre-registered held-out replication. Chapter~\ref{ch:discussion} (Discussion
+and Limitations) names every weakness the work is subject to, and
+Chapter~\ref{ch:conclusion} (Conclusion and Future Work) answers the three
+research questions and lays out what remains.

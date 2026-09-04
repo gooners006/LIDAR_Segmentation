@@ -36,7 +36,7 @@ completion model trained on synthetic CAD data work on real LiDAR. Several of
 those steps are negative results, and they are reported as findings rather than
 smoothed over. The evaluation of the finished method --- whether it adds
 genuinely unseen surface, and whether that generalises --- is the subject of
-Chapter~\ref{ch:completion-eval}; here we state each fix's headline effect and defer the rest.
+Section~\ref{sec:donor-validation}; here we state each fix's headline effect and defer the rest.
 
 \subsection{Completion targets}
 \label{sec:completion-what}
@@ -48,7 +48,7 @@ behind Finding~\#26): accumulating a moving car over many frames produces a
 motion smear up to several metres long, which is neither a valid completion
 target nor matchable to a car shape. A single frame is one clean, if partial,
 observation. The value proposition --- that completing this partial improves the
-car's amodal box and recovers surface the frame never saw --- is what Chapter~\ref{ch:completion-eval}
+car's amodal box and recovers surface the frame never saw --- is what Section~\ref{sec:donor-validation}
 measures; this section is how the completion is produced.
 
 \subsection{The completion network}
@@ -214,7 +214,7 @@ well-observed cars, blobbier on the sparsest), and a completion is a filled
 are the \emph{in-distribution synthetic} ones of
 Section~\ref{sec:completion-kittilike} (Chamfer \SI{0.16}{\meter}); on real data
 the fix's value is corrected geometry --- pose, scale, and the surface-coverage
-gains quantified in Chapter~\ref{ch:completion-eval}. A calibration study on
+gains quantified in Section~\ref{sec:donor-validation}. A calibration study on
 synthetic cars (Finding~\#26) further identified the residual dominant error as
 \emph{centre estimation}, not scale --- which is what motivates the geometry work
 in the rest of this section.
@@ -234,7 +234,7 @@ in the rest of this section.
     render (\texttt{fig62\_box\_overlay.py}), not an aggregate finding. The figure
     measures \emph{pose and scale}
     via the box; the completed cloud is car-shaped in the canonical frame but
-    filled rather than crisp (Chapter~\ref{ch:completion-eval} quantifies real-data surface coverage).}
+    filled rather than crisp (Section~\ref{sec:donor-validation} quantifies real-data surface coverage).}
   \label{fig:deblob}
 \end{figure}
 
@@ -265,7 +265,7 @@ neutral against plain PCA on real data --- the fit earns its place by
 The canonical-frame centre estimate re-centres the occluded lateral side and the
 ground cut, but a partial truncated at the occluded far \emph{end} is normalised
 around its observed near portion, so PCN's output stops short of the far end. The
-donor metric of Chapter~\ref{ch:completion-eval} confirmed the far end as the single worst-covered
+donor metric of Section~\ref{sec:donor-validation} confirmed the far end as the single worst-covered
 region. Two successive fixes address it, both inference-only (no retraining).
 
 \paragraph{The fixed length prior (Finding~\#35).} A longitudinal, extend-only
@@ -291,7 +291,7 @@ per-track quantity, so the pipeline (which owns the track) computes it and passe
 it in; the completion module itself stays stateless. It removes the compact
 over-extension (compact signed $\Delta L$ \SI{+0.295}{}$\to$\SI{+0.063}{\meter})
 and improves the box metric overall (BEV IoU \num{0.747}$\to$\num{0.771}), at a
-measured cost in pooled donor coverage that Chapter~\ref{ch:completion-eval} reports in full.
+measured cost in pooled donor coverage that Section~\ref{sec:donor-validation} reports in full.
 
 \paragraph{Limitation (Finding~\#41).} The fallback is not rare: on the
 regenerated seq-08 output, \num{119} of \num{518} completed tracks
@@ -337,10 +337,10 @@ single-frame partial (blue) leaves one-sided --- recognisably car-shaped down to
 ($L \approx \SI{4.2}{\meter}$, $W \approx \SI{1.9}{\meter}$,
 $H \approx \SI{1.6}{\meter}$ on the well-observed cars). Consistent with the
 caveats above, the sparsest inputs complete more coarsely and can inflate the
-width (Chapter~\ref{ch:completion-eval}, Finding~\#44), and the clouds are filled rather than CAD-clean;
+width (Section~\ref{sec:donor-validation}, Finding~\#44), and the clouds are filled rather than CAD-clean;
 the point here is qualitative shape, with the quantitative real-data assessment ---
 whether the completion adds genuinely unseen surface, and whether that survives a
-pre-registered held-out replication --- being what Chapter~\ref{ch:completion-eval} sets out to measure.
+pre-registered held-out replication --- being what Section~\ref{sec:donor-validation} sets out to measure.
 
 \begin{figure}[htbp]
   \centering
@@ -352,7 +352,7 @@ pre-registered held-out replication --- being what Chapter~\ref{ch:completion-ev
     PCN completion. The completion recovers the full car footprint and a rough
     roofline silhouette from a one-sided partial; crispness and dimensional
     accuracy degrade on the sparsest inputs (the \num{64}-point car shows the
-    width inflation discussed in Chapter~\ref{ch:completion-eval}). Rendered by
+    width inflation discussed in Section~\ref{sec:donor-validation}). Rendered by
     \texttt{scratchpad/viz\_completion.py} from the final-config \texttt{output/08}.}
   \label{fig:completion-shape}
 \end{figure}
@@ -364,7 +364,7 @@ Evaluating the completion output requires a metric, and on real LiDAR there is n
 complete ground-truth surface to score against. This section explains why the
 obvious choice --- Chamfer distance to a pseudo ground truth --- is invalid, then
 defines the leakage-free \emph{donor-frame} metric used in its place. The metric is
-validated and applied to the completion output in Chapter~\ref{ch:completion-eval};
+validated and applied to the completion output in Section~\ref{sec:donor-validation};
 it is defined on static cars by construction, with moving cars treated separately in
 Section~\ref{sec:results-movers}.
 

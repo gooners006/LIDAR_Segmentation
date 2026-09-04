@@ -9,7 +9,7 @@
 % MERGE/NUMBERING NOTE: this file opens with \section{Background and Related Work} for
 % standalone compilation and numbering, but at final assembly the assembler promotes it
 % to a chapter (Chapter 2). Forward references to sibling chapters use typed numerals
-% ("Chapter~\ref{ch:pipeline}", "Chapter~\ref{ch:recall-bottleneck}", "Chapter~\ref{ch:completion-eval}") because the chapter files do not share a label
+% ("Chapter~\ref{ch:pipeline}", "Section~\ref{sec:recall-analysis}", "Section~\ref{sec:donor-validation}") because the chapter files do not share a label
 % namespace when built separately.
 %
 % CITATIONS: unlike the results/methods siblings (which cite the internal Finding record),
@@ -30,7 +30,7 @@
 %   - every quantitative claim about a published method traces to a cited primary source;
 %     all Table 2.1 numbers are SemanticKITTI test-set figures verified against the paper
 %   - this work's own row uses the frozen headline numbers (F1 0.808 / R 0.730 / P 0.905,
-%     seq 08; Chapter~\ref{ch:detection-eval}, Finding~#34) with the point-IoU>=0.3 protocol named
+%     seq 08; Chapter~\ref{ch:evaluation}, Finding~#34) with the point-IoU>=0.3 protocol named
 %   - "recall" is stated against its car-only, >=10-surviving-points denominator where used
 %
 \chapter{Background and Related Work}
@@ -156,7 +156,7 @@ stage is inspectable. Its weaknesses are equally concrete and are documented dir
 this thesis: density-based clustering has no notion of objectness, so it fragments a
 single car into several clusters when internal density gaps appear, and this
 fragmentation --- not classification error --- is the dominant recall limiter
-(Chapter~\ref{ch:recall-bottleneck}). The positioning below should be read with that trade in view: the
+(Section~\ref{sec:recall-analysis}). The positioning below should be read with that trade in view: the
 interpretability and near-zero annotation of the classical route are bought at a
 measurable recall cost relative to the supervised networks.
 
@@ -180,10 +180,10 @@ Two points from this literature bear directly on later chapters. First, models t
 on clean synthetic partials face a synthetic-to-real domain gap when applied to noisy,
 sparse LiDAR clusters; this thesis adopts PCN and confronts that gap head-on
 (Section~\ref{ch:completion-method}), and its comparison of PCN against a transformer alternative found no
-decisive real-data advantage for the heavier model (Chapter~\ref{ch:completion-eval}). Second, and more
+decisive real-data advantage for the heavier model (Section~\ref{sec:donor-validation}). Second, and more
 consequentially, the standard completion metric --- Chamfer distance to a reference
 shape --- presupposes a complete ground-truth surface, which real accumulated LiDAR does
-not provide: the accumulation is itself one-sided. Chapter~\ref{ch:completion-eval} shows this makes pseudo
+not provide: the accumulation is itself one-sided. Section~\ref{sec:donor-validation} shows this makes pseudo
 ground-truth Chamfer scoring invalid on real cars and develops an alternative metric in
 its place. This should be distinguished from \emph{semantic scene completion}, which
 fills a whole voxelised scene from a single scan; the present work completes individual
@@ -204,7 +204,7 @@ score the completed cloud against that accumulation with Chamfer-based distances
 accumulation is scored \emph{as a whole}, however: it mixes the near surface the input
 already observed with the little new surface the other views add, so a completion is not
 penalised for merely reproducing its input, and no baseline or bounding-box test guards
-against surface hallucinated outside the car. Chapter~\ref{ch:completion-eval} adopts the
+against surface hallucinated outside the car. Section~\ref{sec:donor-validation} adopts the
 same multi-frame idea but restricts scoring to the surface the input frame did \emph{not}
 see, and adds an explicit hallucination guard, precisely so that reproducing the input
 earns nothing.
@@ -237,7 +237,7 @@ axis, and no two cells in that column are the same metric unless their headers s
     classifier uses only automatically mined, weakly labelled clusters. The table
     compares \emph{requirements and paradigm}; on raw accuracy the supervised networks
     are stronger by design. Published figures are the test-set numbers reported by the
-    cited papers; this work's row is the frozen sequence~08 headline (Chapter~\ref{ch:detection-eval},
+    cited papers; this work's row is the frozen sequence~08 headline (Chapter~\ref{ch:evaluation},
     Finding~\#34). RangeNet++ appears in two rows: as a standalone semantic backbone
     (mIoU 52.2) and as the semantic half of the semantics-plus-detector panoptic
     baseline of~\cite{behley2021panoptic} (PQ 37.1).}
@@ -266,14 +266,14 @@ axis, and no two cells in that column are the same metric unless their headers s
 Read as requirements, the table states the thesis's position plainly. The supervised
 networks reach substantially higher accuracy on their own metrics, and this work does
 not contest that; its car-only recall of \num{0.730} (against the
-$\ge$-10-surviving-points denominator of Chapter~\ref{ch:detection-eval}) is well below the accuracy of those
+$\ge$-10-surviving-points denominator of Chapter~\ref{ch:evaluation}) is well below the accuracy of those
 networks --- a difference of paradigm, not a lower score on a shared axis, since none of
 the published metrics is this work's point-level car F$_1$. What the pipeline offers instead is a different set of properties: it
 segments without any labelled point clouds, it runs on a single consumer GPU without a
 training stage for detection (its runtime is reported in Section~\ref{sec:results-runtime}), and every stage of
 its decision is inspectable, so its
 failure modes can be --- and are --- root-caused rather than left opaque (the recall
-shortfall is traced to clustering fragmentation, not classifier error, in Chapter~\ref{ch:recall-bottleneck}).
+shortfall is traced to clustering fragmentation, not classifier error, in Section~\ref{sec:recall-analysis}).
 The accuracy gap is therefore a deliberate consequence of choosing interpretability and
 near-zero annotation over benchmark accuracy, not an unexplained deficiency.
 
@@ -298,9 +298,9 @@ AB3DMOT~\cite{weng2020ab3dmot}, and not a contribution of this work), and PCN-st
 completion are established building blocks, reimplemented and tuned here. The
 contributions this work does claim are methodological and diagnostic: a leakage-free
 metric for completion quality on real LiDAR where reference-based Chamfer distance is
-invalid (Chapter~\ref{ch:completion-eval}), the root-cause analysis of the recall bottleneck together with the
-chain of negative repair results (Chapter~\ref{ch:recall-bottleneck}), and the finding that synthetic
-pretraining is redundant for the classifier at scale (Chapter~\ref{ch:detection-eval}). The positioning table
+invalid (Section~\ref{sec:donor-validation}), the root-cause analysis of the recall bottleneck together with the
+chain of negative repair results (Section~\ref{sec:recall-analysis}), and the finding that synthetic
+pretraining is redundant for the classifier at scale (Chapter~\ref{ch:evaluation}). The positioning table
 is the backdrop against which those contributions are argued: this is an interpretable,
 annotation-light system whose value is in what it explains and measures, not in topping a
 benchmark it was never designed to win.
@@ -376,7 +376,7 @@ each point $\mathbf{p}$ at level $\lambda_{\mathbf{p}}$, has stability
 \end{equation}
 and the flat clustering is the set of disjoint clusters of maximum total stability.
 Stability-based extraction is what lets one setting cluster both near and far cars; it is
-also, as Chapter~\ref{ch:recall-bottleneck} shows, what splits a single car when an internal
+also, as Section~\ref{sec:recall-analysis} shows, what splits a single car when an internal
 density gap makes two sub-clusters individually more stable than the whole.
 
 \subsection{Permutation-invariant point classification}
@@ -403,15 +403,15 @@ distance from every point to the nearest point of the other set,
 \end{equation}
 and is the standard training objective for completion on synthetic
 shapes~\cite{fan2017point,yuan2019pcnpointcompletionnetwork};
-Chapter~\ref{ch:completion-eval} shows it is invalid as a real-data \emph{score}. Detection is
+Section~\ref{sec:donor-validation} shows it is invalid as a real-data \emph{score}. Detection is
 scored by a point-level intersection-over-union between a predicted cluster $Q$ and a
 ground-truth car's point set $G$,
 \begin{equation}
   \mathrm{IoU}(Q,G) = \frac{\lvert Q \cap G\rvert}{\lvert Q \cup G\rvert},
 \end{equation}
 a prediction matching a ground-truth object when $\mathrm{IoU}(Q,G)\ge 0.3$
-(Chapter~\ref{ch:detection-eval}). Completion is scored by the \emph{donor coverage} developed
-in Chapter~\ref{ch:completion-eval}. Given the input cluster $I$, a \emph{donor cloud} $D$ of
+(Chapter~\ref{ch:evaluation}). Completion is scored by the \emph{donor coverage} developed
+in Section~\ref{sec:donor-validation}. Given the input cluster $I$, a \emph{donor cloud} $D$ of
 the same car's labelled points accumulated from other frames, and a visibility radius
 $\tau$, the \emph{novel set} is the donor surface the input never observed,
 \begin{equation}
@@ -424,4 +424,4 @@ reaches,
 \end{equation}
 By construction the raw partial covers none of $\mathcal{V}$; the full construction, its
 mirrored baseline, and its per-band hallucination guard are developed in
-Chapter~\ref{ch:completion-eval}.
+Section~\ref{sec:donor-validation}.
