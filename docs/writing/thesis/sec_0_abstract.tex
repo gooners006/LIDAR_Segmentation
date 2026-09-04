@@ -1,12 +1,12 @@
 % Abstract
 % Standalone, compilable draft (FPT-template article class + booktabs), sibling to
-% sec_1_introduction.tex / sec_9_conclusion.tex. Three short paragraphs (approach ->
-% detection findings -> completion contribution) compressing the whole contribution
-% story: the modular near-annotation-free detection+completion pipeline, the detection
-% headline and its root-caused recall limit, the synthetic-pretraining-redundancy
-% negative, and the completion half's scientific core (Chamfer-invalidity + the
-% leakage-free donor metric + the PARTIALLY-HOLDS held-out result). It is the first
-% thing a committee reads, so every number and hedge must be defensible.
+% sec_1_introduction.tex / sec_9_conclusion.tex. Metric-first funnel (four short
+% paragraphs): the measurement gap (Chamfer invalid on real LiDAR, #26) -> the
+% contribution (the leakage-free donor metric + its four-part validation + the
+% completion payoff, PARTIALLY-HOLDS held-out) -> the pipeline it lives in and the two
+% diagnostic findings (recall root-cause; synthetic-pretraining redundancy) with the
+% segmentation bottleneck as one late sentence -> the three-contribution close. It is
+% the first thing a committee reads, so every number and hedge must be defensible.
 %
 % MERGE/NUMBERING NOTE: this file opens with \section*{Abstract} (unnumbered) for
 % standalone compilation; at final assembly the assembler places it in the front
@@ -35,27 +35,38 @@
 \chapter*{Abstract}
 \label{ch:abstract}
 
-This thesis explores the limits of an interpretable, near-annotation-free pipeline
-for detecting and completing cars in LiDAR point clouds. The approach uses classical
-geometry where it is reliable (ground removal and HDBSCAN density clustering) and
-lightweight learned models only where discrimination is necessary (a binary
-classifier and a PCN completion network).
+Automotive LiDAR sees every car from one side: the occluded surface is missing, and
+point-cloud completion aims to restore it. On real data, however, that completion cannot
+be measured. No clean reference shape --- no CAD model or mesh --- exists for a real car,
+and the natural surrogate, reference-based Chamfer distance against an accumulated
+multi-frame cloud, is invalid: because the accumulation is itself occluded on the same
+side, the raw partial input scores \emph{best}, ranking a network that does nothing above
+one that genuinely completes. Completion quality on real LiDAR thus had no valid metric.
 
-On the detection side, the pipeline achieves high precision (\num{0.905}) but is
-structurally recall-limited (\num{0.730} at a point-IoU of \num{0.3}, on cars with
-enough returns to be scorable), a result validated across all eleven labelled
-sequences to rule out model-selection bias. The thesis root-causes this recall
-shortfall directly to density clustering fragmenting single vehicles, a limitation
-that multiple repair strategies failed to overcome. Synthetic classifier pretraining
-is further shown to be redundant once real training clusters are plentiful.
+The central contribution of this thesis is such a metric. It defines and validates a
+leakage-free, donor-frame occluded-side coverage metric that scores how much of the
+surface seen only in \emph{other} frames of the same static car a completion recovers,
+guarded against surface hallucinated outside the car's box and benchmarked against a
+symmetry-mirror baseline that adds surface with no learned parameters. The metric passes
+a four-part validation battery before it is used. Applied to real sequence-08 cars, it
+shows that a PCN completion network recovers genuinely unseen surface well above the
+mirror baseline and improves amodal bounding boxes on static, gate-passed cars --- a
+benefit that partially replicates under a pre-registered held-out test.
 
-On the completion side, the thesis demonstrates that standard reference-based Chamfer
-distance is invalid on real accumulated LiDAR because the raw partial input
-artificially scores best. In its place, this work defines and validates a
-leakage-free, donor-frame occluded-side coverage metric. Evaluated on this metric,
-the completion network recovers genuinely unseen surface well above a symmetry-mirror
-baseline and improves amodal bounding boxes on static, gate-passed cars---a benefit
-that partially replicates under a pre-registered held-out test. Ultimately, the thesis
-contributions are methodological and diagnostic: a validated real-data completion
-metric, a root-cause account of why the classical clustering detector is
-recall-limited, and evidence that synthetic pretraining is redundant at scale.
+The metric is developed inside an interpretable, near-annotation-free pipeline that uses
+classical geometry where it is reliable (ground removal and HDBSCAN density clustering)
+and lightweight learned models only where discrimination is necessary (a binary car
+classifier and the completion network). Characterising this pipeline yields two
+diagnostic findings. Detection is high-precision (\num{0.905}) but structurally
+recall-limited (\num{0.730} at a point-IoU of \num{0.3}, on cars with enough returns to be
+scorable; validated across all eleven labelled sequences to rule out model-selection
+bias), a shortfall root-caused to density clustering fragmenting single vehicles that
+multiple repair strategies failed to overcome; and synthetic classifier pretraining is
+redundant once real training clusters are plentiful. The same clustering step also governs
+completion: an eleven-sequence ablation shows that input quality, not the choice of
+completion model, decides whether completion is usable at all.
+
+The thesis's contributions are thus methodological and diagnostic: a validated,
+leakage-free metric for completion quality on real LiDAR; a root-cause account of why the
+classical clustering detector is recall-limited; and evidence that synthetic pretraining
+is redundant at scale.

@@ -68,17 +68,24 @@ classifier and the completion network --- are trained without any point-wise
 semantic labels. The price of this transparency, and the limits it runs into, are as
 much the subject of this thesis as its successes.
 
-A second thread runs alongside detection. Completing a partially observed car ---
-recovering the far side that the sensor cannot reach --- is attractive for
-downstream box estimation, and point-completion networks such as
+It is the second half of this pipeline that carries the thesis's central
+contribution, and it begins with a measurement problem. Completing a partially
+observed car --- recovering the far side that the sensor cannot reach --- is
+attractive for downstream box estimation, and point-completion networks such as
 PCN~\cite{yuan2019pcnpointcompletionnetwork} are well studied on synthetic
 benchmarks. Applying them to real LiDAR raises a problem that turns out to be
 central: there is no clean ground-truth complete shape to measure against, and the
 obvious substitute --- accumulating the same static car across many frames to build
 a pseudo-ground-truth --- is itself one-sided and, as this thesis shows, invalid as
-a reference. Much of the completion half of the work is therefore about how to
-\emph{measure} completion quality on real data at all, before asking whether it
-helps.
+a reference, because the raw partial input scores \emph{best} against it. Before
+completion can be claimed to help, it must be possible to measure at all. The
+central contribution of this thesis is a metric that does so: a validated,
+leakage-free donor-frame coverage metric that scores how much genuinely occluded
+surface a completion recovers, and which, applied to real cars, shows that learned
+completion recovers such surface well above a parameter-free baseline. The detection
+pipeline above is, in this light, the front-end that supplies the metric its inputs;
+what limits that front-end is itself diagnosed and reported, but the measurement is
+the spine the thesis is built around.
 
 \section{Approach}
 \label{sec:intro-approach}

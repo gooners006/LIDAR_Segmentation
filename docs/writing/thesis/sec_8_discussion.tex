@@ -185,6 +185,30 @@ bound than the static \SI{53.7}{\percent}, and the parity conclusion (motion doe
 degrade plausibility) is if anything understated. We flag this as the expected direction of
 the bias rather than a measured orientation distribution, which we did not compute.
 
+\paragraph{Input quality, not model choice, bounds the metric's scope.}
+The donor metric scores completion only on clean, gate-passed single-object clusters, and
+that scope is not incidental: whether a detected car reaches completion as such a clean
+input is decided upstream, by the same clustering step that caps recall
+(Section~\ref{sec:recall-analysis}). An eleven-sequence ablation isolates the effect of
+input quality. Rendering completion with the L-shape completion input gate (Finding~\#27)
+switched off and then on, and scoring each output by the \emph{plausibility box} --- the
+footprint length/width/height check, a different instrument from the donor metric --- the
+fraction of completions whose footprint lands in the plausible-car range rises from
+\num{0.473} to \num{0.686} pooled, a \num{+0.213} shift that is positive on every one of
+the eleven sequences (per-sequence \num{+0.081} to \num{+0.319}). The gate carries a real
+cost, which we report rather than hide: it drops \SI{15.5}{\percent} of otherwise-plausible
+cars (\num{356} pooled) as false rejections. The complementary result is that the
+completion \emph{network} does not carry this benefit: on the same clean-gated tracks, two
+completion architectures (PCN and PoinTr) produce statistically indistinguishable real-data
+plausibility (\num{18}/\num{26} versus \num{16}/\num{26}, the difference threshold noise;
+Finding~\#28), because the residual centroid-estimation gap is architecture-independent
+(Finding~\#26). Input quality, set by segmentation, therefore governs whether completion is
+usable at all, whereas the choice of completion model --- across the two tried --- does
+not. This is the segmentation bottleneck; we raise it as context for the metric's scope ---
+the donor metric earns clean numbers precisely on the inputs the L-shape gate admits, and
+widening that admission is a segmentation problem, not a completion one --- rather than as a
+result the metric itself produces.
+
 \paragraph{The per-car length estimate falls back too often.}
 The final length geometry uses a per-car length estimate (the \num{90}th percentile of
 gate-passed longitudinal extents over a track, plus \SI{0.12}{\metre}), which fixed the
