@@ -17,9 +17,12 @@
 
 This chapter describes the method in the order a scan flows through it: a modular,
 classical car-detection pipeline (Section~\ref{sec:meth-detection}) that segments
-and classifies car clusters, and an object-completion stage
+and classifies car clusters, an object-completion stage
 (Section~\ref{ch:completion-method}) that reconstructs each detected car's full
-surface from the one-sided partial a single frame observes.
+surface from the one-sided partial a single frame observes, and the reference-free
+donor metric (Section~\ref{sec:donor-metric}) that makes that completion measurable
+on real data. The completion is evaluated with this metric in
+Chapter~\ref{ch:completion-eval}.
 
 \section{Detection pipeline}
 \label{sec:meth-detection}

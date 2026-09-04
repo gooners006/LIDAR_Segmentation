@@ -323,3 +323,167 @@ pre-registered held-out replication --- being what Chapter~\ref{ch:completion-ev
     \texttt{scratchpad/viz\_completion.py} from the final-config \texttt{output/08}.}
   \label{fig:completion-shape}
 \end{figure}
+
+\section{A reference-free completion metric}
+\label{sec:donor-metric}
+
+Evaluating the completion output requires a metric, and on real LiDAR there is no
+complete ground-truth surface to score against. This section explains why the
+obvious choice --- Chamfer distance to a pseudo ground truth --- is invalid, then
+defines the leakage-free \emph{donor-frame} metric used in its place. The metric is
+validated and applied to the completion output in Chapter~\ref{ch:completion-eval};
+it is defined on static cars by construction, with moving cars treated separately in
+Section~\ref{sec:results-movers}.
+
+\subsection{The invalidity of Chamfer distance on real cars}
+\label{sec:chamfer-invalid}
+
+The natural way to score a completed car is Chamfer distance (CD) against a
+ground-truth surface. Real LiDAR offers no such surface: a car is seen once, from
+one side. The obvious substitute is a \emph{pseudo}-ground-truth cloud --- the
+labelled points of one static car accumulated across every ego frame that
+observed it. This subsection explains why that substitute is not a valid target,
+and hence why the completion work of Section~\ref{ch:completion-method} needed a different metric
+altogether.
+
+The fundamental limitation is that the accumulation is itself one-sided. A parked car is
+observed from a road running past one of its flanks, so every frame sees broadly
+the same near faces --- the road-facing side, the near end, the roofline edge ---
+and none sees the occluded far side or the underbody. Pooling those frames
+densifies the \emph{visible} surface but adds almost no genuinely new surface: the
+pseudo-ground-truth is a denser partial, not a whole car.
+
+Scored against such a reference, plain Chamfer \emph{rewards under-completion}.
+The distance is symmetric, so every predicted point pays the distance to its
+nearest reference point. A completion that correctly reconstructs the occluded
+far side places points where the reference has nothing, and each such point adds
+cost; a model that predicts only the already-observed surface pays nothing for
+what it omits. The raw partial --- which by construction sits exactly on observed
+surface and predicts nothing new --- therefore scores the \emph{lowest} (best) CD
+of any cloud, on every real example (Finding~\#26). A metric that ranks the
+un-completed input first cannot be used to measure completion.
+
+This is a measured failure rather than a conjecture: across the real seq-08 cars
+we scored, the raw partial had the lowest pseudo-ground-truth CD of the raw /
+mirrored / completed clouds in every case (renders in
+\texttt{output/experiments/verify\_pcn\_step2/}). Its consequence is that when the geometry work
+began, completion had no valid real-data metric at all --- the in-distribution
+synthetic CD of Section~\ref{ch:completion-method} (\SI{0.16}{\meter}) measures the network on synthetic
+cars but says nothing about a real cluster. The next subsection turns the very
+one-sidedness that breaks Chamfer into the basis of a metric that works.
+
+\subsection{The donor-frame occluded-side principle}
+\label{sec:donor-principle}
+
+The idea turns the one-sidedness of LiDAR from a problem into the measurement.
+For a static car observed across many frames, we complete it from \emph{one}
+frame's pipeline cluster and then score the completed cloud only against surface
+that the \emph{other} frames --- the \emph{donor} frames --- saw but the input
+frame did not (Figure~\ref{fig:donor-principle}). Two properties make this a fair
+test of completion:
+
+\begin{itemize}
+  \item The raw partial covers \emph{none} of that donor-only surface by
+    construction, so any coverage the completion achieves is genuinely added,
+    previously-unseen surface --- not a rescoring of the input points.
+  \item The reference is built from ground-truth labelled points only, never
+    from a pipeline output, so no detection or completion error can leak into
+    the thing we measure against. The metric is a \emph{paired} comparison of
+    raw versus completed on identical inputs, so it tolerates reference noise
+    the same way the box evaluation does.
+\end{itemize}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.86\linewidth]{donor_principle.png}
+  \caption{The donor-frame occluded-side principle (schematic; a car seen from
+    above, the road below). The input frame observes the near flank (blue); as the
+    ego drives past, the \emph{donor} frames additionally observe the two ends
+    (amber), which together form the \emph{novel set} --- the surface the metric
+    scores against. The far flank (grey) is occluded from every frame and is not
+    part of the reference. Because the novel set lies at least $\tau$ from every
+    input point, the raw partial covers none of it by construction. Illustrative
+    geometry, not measured data; real per-car coverage on seq~08 is
+    Figure~\ref{fig:donor-coverage}.}
+  \label{fig:donor-principle}
+\end{figure}
+
+\paragraph{Relation to existing reference-free evaluation.} Completion on real LiDAR has
+been scored before without a complete target, but not against the previously-unseen
+surface specifically. The KITTI completion metrics introduced with
+PCN~\cite{yuan2019pcnpointcompletionnetwork} --- Fidelity, Minimal Matching Distance, and
+Consistency --- reference the input, a synthetic car prior, and the model's own cross-frame
+outputs respectively, so a completion that merely reproduces its input can score well on
+all three. Ren et al.~\cite{ren2022selfsupervised} come closest to the construction used
+here: they too accumulate each tracked vehicle across frames to form a pseudo ground truth.
+The difference is what the accumulation is scored against. They compare the completed cloud
+to the accumulation \emph{in full}, mixing the near surface the input already observed with
+the small amount the other views add; the donor metric keeps only the novel set --- the
+surface at least $\tau$ from every input point --- so already-observed surface contributes
+nothing and the raw partial scores zero by construction. This is also what separates the
+metric from semantic scene completion~\cite{Behley_2019_ICCV}, which scores voxel occupancy
+over a whole scene rather than surface coverage of one object. The novel-set restriction,
+the mirrored baseline of Section~\ref{sec:donor-definition}, and the per-band hallucination
+guard of Section~\ref{sec:donor-guard-lesson} are what make the metric measure
+occluded-surface recovery specifically, rather than overall resemblance to an accumulated
+cloud.
+
+\subsection{Definition}
+\label{sec:donor-definition}
+
+For each (frame, instance) true-positive pair on the well-observed static cars,
+we form three point sets and score them against a common target.
+
+\paragraph{Inputs.} The \textbf{input} is the production pipeline's cluster for
+that car in that frame, completed through the production path (the KITTI-like
+PCN checkpoint behind the L-shape input gate). The \textbf{donor cloud} is the
+union of the instance's ground-truth (labelled-car) points from every observing
+frame \emph{except} the input frame, transformed to the world frame and
+voxelised at \SI{3}{\centi\meter}.
+
+\paragraph{Novel set (the visibility mask).} From the donor cloud we keep only
+points that lie at least $\tau$ from \emph{every} input point (nearest-neighbour
+test). This \emph{novel set} is exactly the surface the input frame did not
+observe. We use $\tau = \SI{0.15}{\meter}$ as the primary radius and
+\SI{0.10}{} / \SI{0.20}{\meter} as stability checks.
+
+\paragraph{Scored clouds.} We score three clouds against the novel set so that
+completion is judged against meaningful baselines rather than in isolation:
+\begin{itemize}
+  \item \textbf{raw} --- the partial input (the floor: covers no novel surface
+    by construction);
+  \item \textbf{mirrored} --- the input unioned with its own reflection across
+    the car's estimated symmetry plane (a cheap, hallucination-free way to add
+    surface; the baseline completion must beat to justify a learned model);
+  \item \textbf{completed} --- the PCN output.
+\end{itemize}
+
+\paragraph{Scores.} Each cloud gets three numbers, all one-directional from the
+novel set to the cloud:
+\begin{itemize}
+  \item \textbf{coverage} (\texttt{cov@0.1}) --- the fraction of novel points
+    within \SI{0.1}{\meter} of the cloud (the primary quality score: how much
+    unseen surface was recovered);
+  \item \textbf{median novel distance} --- the median distance from novel points
+    to the cloud (a threshold-free companion to coverage);
+  \item \textbf{out-of-box} --- the fraction of the cloud's points falling
+    outside the amodal ground-truth box (plus a \SI{0.2}{\meter} margin): a
+    \emph{hallucination guard}, since a model can trivially raise coverage by
+    inventing surface everywhere.
+\end{itemize}
+
+\paragraph{Eligibility.} The metric applies to any completion whose input is a
+\emph{single, well-formed object cluster} --- one cluster corresponding to one
+car, with a footprint consistent with a whole vehicle --- so that there is a
+coherent object shape to score. In this pipeline that admission is realised by the
+L-shape input gate of Section~\ref{ch:completion-method} (fitted footprint length
+$\geq \SI{2.7}{\meter}$ and width $\leq \SI{2.3}{\meter}$, rejecting fragments and
+merges), but the metric itself does not depend on that particular gate: any
+admission rule that isolates a single object serves in its place.
+
+\paragraph{Statistics.} A pair counts if its input is admitted and its novel set
+has at least \num{100} points at the primary $\tau$. Because the frames of one
+parked car are autocorrelated, we reduce each car to its per-car median and test
+across cars with the Wilcoxon signed-rank test --- the same paired, per-car design
+used for the box evaluation.
+
