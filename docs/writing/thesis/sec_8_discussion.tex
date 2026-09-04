@@ -25,11 +25,12 @@
 %     SemanticKITTI label-quality assumption -- plus the clustering-objectness ceiling
 %     (Ch 5) and the offline-runtime scope
 %
-\chapter{Discussion and Limitations}
-\label{ch:discussion}
+\chapter{Discussion and Conclusion}
+\label{ch:conclusion}
 
-The preceding chapters reported results; this one interprets them. It states, in one
-place, what the evidence in this thesis does and does not support, and then names every
+The preceding chapters reported results; this one interprets them and closes the
+thesis. It states, in one place, what the evidence in this thesis does and does not
+support, and then names every
 limitation the work carries --- including the ones an examiner is most likely to raise.
 The organising principle is deliberate: a limitation that the thesis names, quantifies,
 and bounds is a defended limitation; one that a committee surfaces first is not. Every
@@ -44,8 +45,11 @@ groups: threats to the validity of the evaluation itself
 (Section~\ref{sec:disc-completion-scope}), the ground-truth and dataset assumptions
 (Section~\ref{sec:disc-gt}), and the architectural and operational limits of the
 approach (Section~\ref{sec:disc-architectural}). Section~\ref{sec:disc-generalises}
-closes by separating what generalises from what is specific to the sequences studied,
-which sets the agenda for the future work of Chapter~\ref{ch:conclusion}.
+separates what generalises from what is specific to the sequences studied. The
+chapter then concludes the thesis: it answers the three research questions in the
+form they were asked (Section~\ref{sec:conclusion-rqs}), restates the contributions
+(Section~\ref{sec:conclusion-contributions}), and turns the most consequential of the
+boundaries drawn here into future work (Section~\ref{sec:conclusion-future}).
 
 \section{Established results}
 \label{sec:disc-what-holds}
@@ -319,7 +323,7 @@ HDBSCAN's recall at any tested radius (Finding~\#43). The residual limit is that
 density-based clustering groups points by proximity and density alone, with no model of
 what a car is, so it cannot be tuned to the recall of a learned object detector. Lifting
 this ceiling would require replacing the clustering stage with a learned detector, which
-is a different system and is left to future work (Chapter~\ref{ch:conclusion}). The value of Section~\ref{sec:recall-analysis} is to
+is a different system and is left to future work (Section~\ref{sec:conclusion-future}). The value of Section~\ref{sec:recall-analysis} is to
 have located the ceiling precisely --- clustering, splitting rather than
 classification-or-merging, and lower than first claimed --- rather than to have removed it.
 
@@ -414,6 +418,7 @@ it, they are hypotheses for future work rather than results.
 
 This is the boundary the thesis draws. The contributions in
 Section~\ref{sec:disc-what-holds} hold within it, each limitation above marks where it
-ends, and Chapter~\ref{ch:conclusion} turns the most consequential of those boundaries --- the clustering
+ends, and the future work of Section~\ref{sec:conclusion-future} turns the most
+consequential of those boundaries --- the clustering
 objectness ceiling, the length-estimate fallback rate, and the missing long-band and
-mover accuracy evidence --- into concrete future work.
+mover accuracy evidence --- into concrete next steps.

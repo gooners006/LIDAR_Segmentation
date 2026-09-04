@@ -19,17 +19,15 @@
 %   - #37 as a metric-design lesson, not an erratum
 %   - claims kept within the Section-6 claims map (C1-C11); nothing beyond C9's scope
 %
-\chapter{Conclusion and Future Work}
-\label{ch:conclusion}
-
-This thesis studied an interpretable, near-annotation-free pipeline for detecting and
+Having drawn the boundary around each result, the chapter now closes the thesis.
+This work studied an interpretable, near-annotation-free pipeline for detecting and
 completing cars in LiDAR point clouds, and asked what such a system can and cannot
 establish. The detection side is a training-free clustering-plus-classifier pipeline whose
 recall was root-caused rather than tuned away; the completion side is a learned model
 whose value on real data had to be measured before it could be claimed, because no valid
-real-data metric existed at the outset. Chapter~\ref{ch:discussion} drew the boundary around each result.
-This chapter states the answers in the form the questions were asked, restates what the
-thesis contributes, and turns the most consequential of those boundaries into future work.
+real-data metric existed at the outset. What follows states the answers in the form the
+questions were asked, restates what the thesis contributes, and turns the most
+consequential of those boundaries into future work.
 
 \section{Answers to the research questions}
 \label{sec:conclusion-rqs}
@@ -125,7 +123,7 @@ Findings~\#16/\#17/\#19/\#28; a sparse-fallback length model, Finding~\#40).
 \section{Future work}
 \label{sec:conclusion-future}
 
-Chapter~\ref{ch:discussion} named the boundaries of the present results. Three of them are the natural next
+The limitations above named the boundaries of the present results. Three of them are the natural next
 steps, each already scoped by a finding rather than left open.
 
 \paragraph{A real-time variant.} The pipeline runs offline at roughly

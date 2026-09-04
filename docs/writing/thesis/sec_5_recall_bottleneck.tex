@@ -41,7 +41,7 @@ resolution --- which forces a correction of an earlier, overstated ``hard
 ceiling'' claim (Section~\ref{sec:resolution-fix}). The negative results are
 reported as findings, not apologised for: mapping which repairs fail, and why, is
 itself a contribution, and it is what justifies the residual limitation carried to
-Chapter~\ref{ch:discussion}. Unless stated otherwise, the recall denominator
+Chapter~\ref{ch:conclusion}. Unless stated otherwise, the recall denominator
 throughout is the one defined in Section~\ref{sec:eval-protocol} --- ground-truth
 car instances with at least \num{10} points surviving preprocessing.
 
@@ -350,7 +350,7 @@ HDBSCAN's recall. The ceiling that remains is the one imposed by density-based
 clustering having no model of what a car is: it groups points by proximity and
 density alone, so it cannot be pushed to the recall of a learned object detector by
 tuning. Reaching that level would require replacing the clustering stage with a
-learned detector, which is outside the scope of this thesis (Chapter~\ref{ch:discussion}). The
+learned detector, which is outside the scope of this thesis (Chapter~\ref{ch:conclusion}). The
 contribution of this chapter is to have located the ceiling precisely --- it is in
 the clustering stage, it is splitting rather than classification or merging, and it
 is lower than first claimed --- and to have mapped which repairs cannot move it and
@@ -375,4 +375,4 @@ resolution: a coarser pre-clustering voxel prevents splits from forming, lifting
 recall \num{0.699}~$\rightarrow$~\num{0.730} and correcting the earlier overstated
 ``hard ceiling'' (Section~\ref{sec:resolution-fix}). The residual limit is
 architectural --- density clustering has no notion of objectness --- and is carried
-to the limitations and future-work discussion of Chapter~\ref{ch:discussion}.
+to the limitations and future-work discussion of Chapter~\ref{ch:conclusion}.
