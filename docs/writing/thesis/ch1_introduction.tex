@@ -35,53 +35,46 @@
 \section{Problem and motivation}
 \label{sec:intro-motivation}
 
-Perception for autonomous driving rests on a LiDAR scanner that returns, several
-times a second, an unordered cloud of over a hundred thousand three-dimensional points.
-Turning that raw geometry into a list of objects --- where the cars are, how large
-they are, which way they face --- is the first step in almost every downstream
-driving task. The dominant way to do this is to train a deep network end to end on
-densely annotated scans. The public benchmarks that make such training possible make
-the cost of the approach plain: SemanticKITTI~\cite{Behley_2019_ICCV}, built on the
-KITTI odometry data~\cite{geiger2012we}, provides a dense point-wise semantic label
-for every point of its labelled sequences (billions of points in total), an
-annotation effort that is far out of reach for most groups and datasets. A model trained this way is also
-difficult to inspect: when it misses a car, the failure is distributed across
-millions of weights, and there is no single stage to point at.
+Autonomous driving depends on a perception system that can recover, several times a
+second, the three-dimensional layout of the scene around the vehicle: where the other
+road users are, how large they are, and which way they face. Among the sensors
+available for this task, LiDAR occupies a central place. It measures range directly
+rather than inferring it, returning an unordered cloud of over a hundred thousand
+three-dimensional points per scan that is largely invariant to lighting and supplies
+the metric depth that distance estimation and motion planning depend on. That
+directness is why the benchmarks that opened modern autonomous-driving research were
+built around it: the KITTI suite~\cite{geiger2012we} paired a scanning LiDAR with
+calibrated cameras and posed the field's motivating question --- whether the available
+perception was good enough to drive on --- and its point-wise successor
+SemanticKITTI~\cite{Behley_2019_ICCV} turned the same driving sequences into the dense
+semantic-segmentation benchmark much of the field is now measured against. Turning a
+raw scan into a list of objects is the first step in almost every downstream driving
+task.
+
+The interest LiDAR has attracted is visible in the methods built on it. The dominant
+paradigm is to train a deep network end to end on annotated scans: point-based
+segmentation networks that consume the raw cloud directly~\cite{Qi_2017_CVPR,NIPS2017_d8bf84be,Hu_2020_CVPR},
+projection- and voxel-based models designed for large-scale driving scans~\cite{10.1109/ICRA.2018.8462926,milioto2019rangenet++,zhu2021cylindrical},
+object detectors that localise road users in a single pass~\cite{lang2019pointpillars,yin2021centerpoint},
+and panoptic models that segment and separate object instances jointly~\cite{zhou2021panopticpolarnet,hong2021dsnet}.
+These methods define the state of the art in accuracy, and this thesis does not set out
+to compete with them on that axis. What they share is a pair of costs the accuracy is
+paid in. The first is supervision: the results rest on dense, point-wise semantic
+labels, and the annotation effort behind a benchmark like SemanticKITTI --- a class
+assigned to every one of billions of points --- is far out of reach for most groups and
+most new datasets. The second is opacity: a network trained end to end distributes each
+decision across millions of weights, so when it misses a car the failure has no single
+stage that can be inspected or repaired.
 
 This thesis takes the opposite starting point. It asks how far a \emph{modular},
 largely annotation-free pipeline can go using classical geometry for the parts that
 geometry solves well and small learned models only where discrimination genuinely
-needs them. Ground points are removed and the remaining cloud is clustered into
-candidate objects by unsupervised density clustering; a lightweight binary
-classifier decides which clusters are cars; a short tracker filters transient
-detections; and, for each detected car, a point-completion network fills in the
-occluded surface that a single viewpoint never sees. Every stage is separately
+needs them --- an approach to LiDAR vehicle detection that has itself drawn renewed
+interest~\cite{lim2025longrange}. Every stage is separately
 observable and separately debuggable, and the only learned components --- the
 classifier and the completion network --- are trained without any point-wise
 semantic labels. The price of this transparency, and the limits it runs into, are as
 much the subject of this thesis as its successes.
-
-It is the second half of this pipeline that carries the thesis's central
-contribution, and it begins with a measurement problem. Completing a partially
-observed car --- recovering the far side that the sensor cannot reach --- is
-attractive for downstream box estimation, and point-completion networks such as
-PCN~\cite{yuan2019pcnpointcompletionnetwork} are well studied on synthetic
-benchmarks. Applying them to real LiDAR raises a problem that turns out to be
-central: there is no clean ground-truth complete shape to measure against, and the
-obvious substitute --- accumulating the same static car across many frames to build
-a pseudo-ground-truth --- is itself one-sided and, as this thesis shows, invalid as
-a reference, because the raw partial input scores \emph{best} against it. Before
-completion can be claimed to help, it must be possible to measure at all. The
-central contribution of this thesis is a metric that does so: a validated
-donor-frame coverage metric that scores how much genuinely occluded
-surface a completion recovers, and which, applied to real cars, shows that learned
-completion recovers such surface well above a parameter-free baseline. The detection
-pipeline above is, in this light, the front-end that supplies the metric its inputs;
-what limits that front-end is itself diagnosed and reported, but the measurement is
-the spine the thesis is built around.
-
-\section{Approach}
-\label{sec:intro-approach}
 
 The system is a modular hybrid. A raw scan is filtered and downsampled, the ground
 plane is removed by a relative-height RANSAC fit, and the remaining points are
@@ -107,10 +100,31 @@ sampling; it never sees a labelled real car. This is what makes the pipeline
 near-annotation-free, and it is also the source of the sim-to-real questions that
 Chapter~\ref{ch:evaluation} takes up.
 
-\section{Research questions}
-\label{sec:intro-rq}
+It is the second half of this pipeline that carries the thesis's central
+contribution, and it begins with a measurement problem. Completing a partially
+observed car --- recovering the far side that the sensor cannot reach --- is
+attractive for downstream box estimation, and point-completion networks such as
+PCN~\cite{yuan2019pcnpointcompletionnetwork} are well studied on synthetic
+benchmarks. Applying them to real LiDAR raises a problem that turns out to be
+central: there is no clean ground-truth complete shape to measure against, and the
+obvious substitute --- accumulating the same static car across many frames to build
+a pseudo-ground-truth --- is itself one-sided and, as this thesis shows, invalid as
+a reference, because the raw partial input scores \emph{best} against it. Before
+completion can be claimed to help, it must be possible to measure at all. The
+central contribution of this thesis is a metric that does so: a validated
+donor-frame coverage metric that scores how much genuinely occluded
+surface a completion recovers, and which, applied to real cars, shows that learned
+completion recovers such surface well above a parameter-free baseline. The detection
+pipeline above is, in this light, the front-end that supplies the metric its inputs;
+what limits that front-end is itself diagnosed and reported, but the measurement is
+the spine the thesis is built around.
 
-The work is organised around three questions.
+\section{Contributions and scope}
+\label{sec:intro-contributions}
+
+The work is organised around three research questions; the contributions that follow
+answer them in turn, and the scope stated at the end of the section bounds where those
+answers hold.
 
 \begin{description}
   \item[RQ1.] How can the quality of point-cloud completion be evaluated on
@@ -126,9 +140,6 @@ The work is organised around three questions.
     detector, and is synthetic pretraining actually necessary for the classifier?
     The first half is answered in Section~\ref{sec:recall-analysis}, the second in Chapter~\ref{ch:evaluation}.
 \end{description}
-
-\section{Contributions}
-\label{sec:intro-contributions}
 
 The thesis makes three claimed contributions, all methodological or diagnostic
 rather than architectural. It does not claim novelty for the pipeline itself: the
@@ -162,8 +173,8 @@ blocks, reimplemented and tuned here.
     at scale.} A from-scratch classifier matches a synthetically pretrained one once
     real training clusters are plentiful, and a cross-domain matrix shows the
     sim-to-real gap is total and symmetric (Findings~\#25/\#30). This directly
-    replaces a contribution promised in the proposal, as discussed in
-    Section~\ref{sec:intro-scope}, and is presented in Chapter~\ref{ch:evaluation}.
+    replaces a contribution promised in the proposal, as reconciled at the end of
+    this section, and is presented in Chapter~\ref{ch:evaluation}.
 \end{enumerate}
 
 Alongside these, the thesis delivers several \emph{engineering} contributions that
@@ -174,9 +185,6 @@ that the frozen results rest on. A number of directions that did not work ---
 architecture swaps and real-data fine-tuning for completion (Findings~\#16/\#17/\#19/\#28),
 and a sparse-fallback length model (Finding~\#40) --- are reported as negative
 findings rather than omitted.
-
-\section{Scope and reconciliation with the proposal}
-\label{sec:intro-scope}
 
 The thesis is deliberately narrow, and the boundaries are worth stating plainly
 rather than leaving to be inferred. \textbf{The detector is car-only:} the

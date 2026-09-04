@@ -168,7 +168,7 @@ cross-validation that confirms it follows in Section~\ref{sec:eval-loso}.
 
 \begin{table}[H]
   \centering
-  \caption{Reported detection operating point under the frozen protocol, using
+  \caption[Reported detection operating point]{Reported detection operating point under the frozen protocol, using
     the final classifier. Sequence~08 is the largest labelled sequence and was
     never used to tune the classical stages; sequence~00 is a completion held-out
     reference whose classifier saw seq-00 clusters in training (so its detection
@@ -208,7 +208,7 @@ operating-point number), and the macro mean~$\pm$~standard deviation across fold
 
 \begin{table}[H]
   \centering
-  \caption{Leave-one-sequence-out cross-validation over all eleven labelled
+  \caption[Leave-one-sequence-out cross-validation]{Leave-one-sequence-out cross-validation over all eleven labelled
     sequences (full sequences, $\tau=0.3$, final configuration). Each fold's
     classifier trained on the other ten sequences and was never selected on the
     held-out one, so no row's classifier has seen the sequence it scores.
@@ -297,7 +297,7 @@ $\tau \in \{0.25, 0.30, 0.50\}$ with everything else frozen
 
 \begin{table}[H]
   \centering
-  \caption{IoU-threshold sensitivity on the full sequence~08 (frozen
+  \caption[IoU-threshold sensitivity on seq~08]{IoU-threshold sensitivity on the full sequence~08 (frozen
     configuration). The $\tau = 0.30$ row is the headline. $F_1$ moves by at most
     \num{2.6} points across the tested range (\num{0.811} at $\tau=0.25$ to
     \num{0.785} at $\tau=0.50$); mean IoU of matched detections rises at the
@@ -373,7 +373,7 @@ the classifier misfiring (false positives stay flat regardless).
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{seq08_bev_detections.png}
-  \caption{Bird's-eye view of detections on a representative sequence~08 frame.
+  \caption[Bird's-eye view of detections on seq~08]{Bird's-eye view of detections on a representative sequence~08 frame.
     Detected car clusters (coloured) are overlaid on the ground-removed point
     cloud; ego is at the origin. Detections concentrate on true vehicles, with
     few spurious clusters --- the precision-saturated behaviour reported in
@@ -384,7 +384,7 @@ the classifier misfiring (false positives stay flat regardless).
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{seq08_timeseries.png}
-  \caption{Per-frame detection behaviour over sequence~08. False positives (lower
+  \caption[Per-frame detection behaviour on seq~08]{Per-frame detection behaviour over sequence~08. False positives (lower
     trace) stay low and flat --- under one per frame --- regardless of scene
     content, while per-frame recall tends to fall in frames with more
     ground-truth cars. The structural recall limit is root-caused in Section~\ref{sec:recall-analysis}
@@ -410,7 +410,7 @@ configuration); the full row is the headline.
 
 \begin{table}[H]
   \centering
-  \caption{Stage ablation on the full sequence~08 (frozen configuration). Rows
+  \caption[Stage ablation on seq~08]{Stage ablation on the full sequence~08 (frozen configuration). Rows
     add one filtering stage at a time on top of geometric clustering. The
     per-frame classifier is the precision mechanism (it removes $\sim$\num{149000}
     junk clusters) but is conservative on borderline cars (recall drops); the
@@ -484,7 +484,7 @@ work; the synthetic prior neither helps nor, once fine-tuned, survives.
 
 \begin{table}[H]
   \centering
-  \caption{Cross-domain classifier transfer (car-class $F_1$; Finding~\#30). Each
+  \caption[Cross-domain classifier transfer]{Cross-domain classifier transfer (car-class $F_1$; Finding~\#30). Each
     model is trained on one domain and evaluated on the other's validation set;
     diagonal cells (italic) are in-domain, for scale. Both off-diagonal cells
     collapse to \num{0.000} --- against strong in-domain performance
@@ -518,7 +518,7 @@ comparable to each other but not to the track-filtered headline.
 
 \begin{table}[H]
   \centering
-  \caption{Clustering-method benchmark at fixed voxel resolution
+  \caption[Clustering-method benchmark]{Clustering-method benchmark at fixed voxel resolution
     ($\SI{0.10}{\metre}$), identical pipeline, per-frame / track-filter-off
     (Finding~\#43). HDBSCAN wins $F_1$ on both sequences, entirely through
     recall; precision is essentially method-independent. The alternatives are
@@ -568,7 +568,7 @@ as a re-derivation of the headline.
 
 \begin{table}[H]
   \centering
-  \caption{Detection stratified by range-to-ego on sequence~08 (stride-20 sample,
+  \caption[Detection stratified by range-to-ego on seq~08]{Detection stratified by range-to-ego on sequence~08 (stride-20 sample,
     frozen configuration, per-frame / track-filter-off). Recall is
     \emph{non-monotonic}: it dips in the nearest bin, peaks at
     \SIrange{10}{20}{\metre}, then falls with range. The nearest-bin dip is
@@ -633,7 +633,7 @@ classifier is \SI{33.7}{\milli\second} for the $\sim$\num{45} clusters in a fram
 
 \begin{table}[H]
   \centering
-  \caption{Per-frame runtime by stage on the full sequence~08 under the final
+  \caption[Per-frame runtime by stage on seq~08]{Per-frame runtime by stage on the full sequence~08 under the final
     (promoted) configuration (\num{4068} timed frames; mean ms; Finding~\#34).
     Clustering alone is nearly \SI{60}{\percent} of the frame. The total is
     $\approx\SI{623.5}{\milli\second}$ ($\approx$\num{1.6}~fps) on this full run;
@@ -775,7 +775,7 @@ Table~\ref{tab:split} gives the result on both sequences.
 
 \begin{table}[H]
   \centering
-  \caption{Distribution of ground-truth cars across HDBSCAN clusters
+  \caption[Ground-truth cars across HDBSCAN clusters]{Distribution of ground-truth cars across HDBSCAN clusters
     (Finding~\#23; pre-promotion configuration; sequence~00, \num{100} frames;
     sequence~08, held-out sample). The four states partition the population and sum
     to the denominator; \emph{split} is the dominant failure mode and \emph{merging}
@@ -843,7 +843,7 @@ mid- and far-range cars (green) are detected as single clusters.
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{seq08_failure_zooms.png}
-  \caption{Failure close-ups on sequence~08 (true positives green, false positives
+  \caption[Detection failure close-ups on seq~08]{Failure close-ups on sequence~08 (true positives green, false positives
     red, missed ground-truth cars orange; dashed outlines are ground-truth car
     footprints). Near-ego missed cars are fragmented into several small point groups
     rather than one cluster, matching the split mechanism of
@@ -869,7 +869,7 @@ sequence~08.
 
 \begin{table}[H]
   \centering
-  \caption{Recall-repair strategies against the pre-promotion baseline (full
+  \caption[Recall-repair strategies]{Recall-repair strategies against the pre-promotion baseline (full
     pipeline, sequence~00, \num{100} frames; held-out sequence-08 $F_1$ where
     measured). Every strategy either loses $F_1$ outright or fails to hold its
     sequence-00 gain on the held-out sequence. This is the \emph{pre-promotion}
@@ -976,7 +976,7 @@ enough not to fuse neighbouring cars.
 
 \begin{table}[H]
   \centering
-  \caption{Effect of coarsening the clustering voxel from \SI{0.05}{\metre} to
+  \caption[Effect of coarsening the clustering voxel]{Effect of coarsening the clustering voxel from \SI{0.05}{\metre} to
     \SI{0.10}{\metre} on the split rate (Finding~\#34; sequence~08, \num{100}
     frames, \num{810} ground-truth cars). More cars cluster cleanly and none newly
     merge --- the coarsening removes splits without fusing neighbours.}
@@ -1080,7 +1080,7 @@ Before using it we required the metric to pass four pre-stated checks
 
 \begin{table}[H]
   \centering
-  \caption{The four validation checks for the donor metric, and the observed
+  \caption[The four donor-metric validation checks]{The four validation checks for the donor metric, and the observed
     outcome (seq~08, per-car medians, $n=39$; the metric's original acceptance
     run, Finding~\#32, on the production path as it stood \emph{before} the
     Section~\ref{ch:completion-method} length prior). Coverage figures are the car-median
@@ -1130,7 +1130,7 @@ kept the pooled median quiet.
 
 \begin{table}[H]
   \centering
-  \caption{The pooled guard is blind to a band-localised violation. Out-of-box
+  \caption[Pooled guard blind to a band-localised violation]{The pooled guard is blind to a band-localised violation. Out-of-box
     fraction as completed / that band's mirrored baseline, split by amodal-GT
     length. The final length prior passes the pooled check yet hallucinates on
     compacts at \num{100}$\times$ the band baseline.}
@@ -1217,7 +1217,7 @@ geometry is evaluated in Section~\ref{sec:results-box}.
 
 \begin{table}[H]
   \centering
-  \caption{Real-data surface coverage on the donor metric (seq~08, per-car
+  \caption[Real-data surface coverage on the donor metric]{Real-data surface coverage on the donor metric (seq~08, per-car
     medians, $n=39$ of the \num{40} well-observed static cars --- one car's pairs
     are all gate-skipped; $\tau=\SI{0.15}{\meter}$;
     Finding~\#32). \texttt{cov@0.1} is the fraction of never-observed (donor-only)
@@ -1266,7 +1266,7 @@ saw least.
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{donor_metric_08.png}
-  \caption{The donor metric in bird's-eye view on six seq-08 cars, spanning the
+  \caption[The donor metric on six seq-08 cars]{The donor metric in bird's-eye view on six seq-08 cars, spanning the
     coverage range from best (top-left) to a residual failure (bottom-right). The
     \emph{novel set} --- the donor-only surface the input frame never saw --- is
     drawn blue where the completion recovers it within \SI{0.1}{\meter} and red
@@ -1294,7 +1294,7 @@ Table~\ref{tab:box-quality} reports it.
 
 \begin{table}[H]
   \centering
-  \caption{Amodal box quality, raw partial vs.\ completion (seq~08, per-car
+  \caption[Amodal box quality: raw partial vs.\ completion]{Amodal box quality, raw partial vs.\ completion (seq~08, per-car
     medians, $n=39$ of the \num{40} well-observed static cars --- one has no
     completed pair; Finding~\#29). BEV IoU is the oriented
     bird's-eye-view box overlap; $|\Delta W|,|\Delta H|,|\Delta L|$ are absolute
@@ -1342,7 +1342,7 @@ length correction.
 
 \begin{table}[H]
   \centering
-  \caption{Length geometry on the amodal box (seq~08, well-observed static cars,
+  \caption[Length geometry on the amodal box]{Length geometry on the amodal box (seq~08, well-observed static cars,
     per-car medians, $n=40$, promoted configuration; Findings~\#35/\#36).
     ``no prior'' is the completion with the canonical-frame centre but no
     longitudinal push; ``fixed \SI{4.14}{}'' is the population-median prior;
@@ -1409,7 +1409,7 @@ is a characterised, length-dependent limit, not an oversight.
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{completion_box_overlays_08.png}
-  \caption{Amodal box overlays on six seq-08 cars: the ground-truth box (black),
+  \caption[Amodal box overlays on six seq-08 cars]{Amodal box overlays on six seq-08 cars: the ground-truth box (black),
     the box fitted to the raw single-frame partial (blue), and the box fitted to
     the completion (green), over the raw points (grey). The completion tightens
     the box on the occluded width and far end and centres it better; the one
@@ -1437,7 +1437,7 @@ Table~\ref{tab:movers} gives the result.
 
 \begin{table}[H]
   \centering
-  \caption{Completion plausibility by track motion (final seq-08 output,
+  \caption[Completion plausibility by track motion]{Completion plausibility by track motion (final seq-08 output,
     \num{518} completed car tracks; Finding~\#44). Motion is the net displacement
     of the track centroid (median of first vs.\ last five frames). Plausible =
     bird's-eye dimensions in the car range ($L\in[3.3,4.9]$, $W\in[1.5,2.1]$,
@@ -1471,7 +1471,7 @@ of the earlier sections does not hide a mover failure mode.
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{t11_mover_completions_bev.png}
-  \caption{Bird's-eye completions of moving-car tracks on seq~08 (blue partial
+  \caption[Completions of moving-car tracks on seq~08]{Bird's-eye completions of moving-car tracks on seq~08 (blue partial
     input, green completion). Most form recognisable car footprints; the failures
     are width inflation on diagonally-oriented cars, an artefact of the
     axis-aligned plausibility measure rather than of motion. Rendered by
@@ -1505,7 +1505,7 @@ well-observed static cars.
 
 \begin{table}[H]
   \centering
-  \caption{Held-out replication on seq~00 (well-observed static cars, per-car
+  \caption[Held-out replication on seq~00]{Held-out replication on seq~00 (well-observed static cars, per-car
     medians, $n=45$; the two pre-registered primaries in bold, secondary
     dimensions below; Finding~\#42). Both primaries are decisive wins over the
     raw partial.}

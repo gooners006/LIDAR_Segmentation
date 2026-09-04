@@ -30,38 +30,25 @@
 \chapter*{Abstract}
 \label{ch:abstract}
 
-Automotive LiDAR sees every car from one side: the occluded surface is missing, and
-point-cloud completion aims to restore it. On real data, however, that completion cannot
-be measured. No clean reference shape --- no CAD model or mesh --- exists for a real car,
-and the natural surrogate, reference-based Chamfer distance against an accumulated
-multi-frame cloud, is invalid: because the accumulation is itself occluded on the same
-side, the raw partial input scores \emph{best}, ranking a network that does nothing above
-one that genuinely completes. Completion quality on real LiDAR thus had no valid metric.
+Automotive LiDAR sees every car from one side, and point-cloud completion aims to
+restore the occluded surface --- but on real data it cannot be measured. No clean
+reference shape exists for a car, and Chamfer distance against an accumulated
+multi-frame cloud is invalid: the accumulation is occluded on the same side, so the raw
+partial scores \emph{best}, ranking a network that does nothing above one that completes.
 
-The central contribution of this thesis is such a metric. It defines and validates a
-donor-frame occluded-side coverage metric that scores how much of the
-surface seen only in \emph{other} frames of the same static car a completion recovers,
-guarded against surface hallucinated outside the car's box and benchmarked against a
-symmetry-mirror baseline that adds surface with no learned parameters. The metric passes
-a four-part validation battery before it is used. Applied to real sequence-08 cars, it
-shows that a PCN completion network recovers genuinely unseen surface well above the
-mirror baseline and improves amodal bounding boxes on static, gate-passed cars --- a
-benefit that partially replicates under a pre-registered held-out test.
+The central contribution of this thesis is a valid metric: a donor-frame coverage score
+for how much of the surface seen only in \emph{other} frames of the same static car a
+completion recovers, guarded against out-of-box hallucination and compared to a
+parameter-free symmetry-mirror baseline, and passing a four-part validation battery. On
+real sequence-08 cars a PCN network recovers genuinely unseen surface well above the
+mirror and tightens amodal boxes on static, gate-passed cars --- a benefit that
+partially replicates on a pre-registered held-out sequence.
 
-The metric is developed inside an interpretable, near-annotation-free pipeline that uses
-classical geometry where it is reliable (ground removal and HDBSCAN density clustering)
-and lightweight learned models only where discrimination is necessary (a binary car
-classifier and the completion network). Characterising this pipeline yields two
-diagnostic findings. Detection is high-precision (\num{0.905}) but structurally
-recall-limited (\num{0.730} at a point-IoU of \num{0.3}, on cars with enough returns to be
-scorable; validated across all eleven labelled sequences to rule out model-selection
-bias), a shortfall root-caused to density clustering fragmenting single vehicles that
-multiple repair strategies failed to overcome; and synthetic classifier pretraining is
-redundant once real training clusters are plentiful. The same clustering step also governs
-completion: an eleven-sequence ablation shows that input quality, not the choice of
-completion model (of the two tested), decides whether completion is usable at all.
-
-The thesis's contributions are thus methodological and diagnostic: a validated
-metric for completion quality on real LiDAR; a root-cause account of why the
-classical clustering detector is recall-limited; and evidence that synthetic pretraining
-is redundant at scale.
+The metric lives in an interpretable, near-annotation-free pipeline of classical
+geometry and small learned models. Characterising it yields two diagnostic findings:
+detection is high-precision (\num{0.905}) but structurally recall-limited (\num{0.730}
+at a point-IoU of \num{0.3}, on cars with enough returns to be scorable; cross-validated
+across all eleven labelled sequences), root-caused to clustering fragmenting single
+vehicles rather than the classifier; and synthetic pretraining is redundant once real
+clusters are plentiful. The contributions are methodological and diagnostic, not
+architectural.

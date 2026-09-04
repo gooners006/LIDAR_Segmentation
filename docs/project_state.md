@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-09-04
+Last updated: 2026-09-05
 
 ## RESEARCH FREEZE — declared 2026-08-21 (write-up phase)
 
@@ -56,6 +56,15 @@ progress** below) are read-only analyses against this frozen config — they do 
 > `ch3_methodology`, `ch4_evaluation`, `ch5_discussion_conclusion` — wired by `main.tex`
 > (down from 13 `sec_*` fragments). `THESIS_PLAN.md` was deleted the same day; its claims
 > map (C1–C11), freeze table, and defense Q&A live on here and in git history.
+>
+> **Polish pass (2026-09-05):** "leakage-free"/"reference-free" dropped as contribution
+> badges (stated by mechanism where the property is genuine hygiene). Ch1 introduction
+> rewritten --- 1.1 expanded into a motivation funnel with AD/LiDAR method citations (all
+> pre-existing in `references.bib`), and the six sections consolidated to three (Problem
+> and motivation / Contributions and scope / Thesis outline). Abstract trimmed to ~190
+> words (4->3 paragraphs), all honesty hedges kept. Short `\caption[...]{}` list entries
+> added to all 33 figures/tables so the LoF/LoT fit ~1 page each. Build clean (latexmk
+> exit 0, 0 undefined refs, 85 pp).
 
 **Evidence-task progress:** B1 (IoU sensitivity) + B6 (geometric-only ablation)
 DONE 2026-08-21 (Finding #47, `output/experiments/iou_sensitivity/`): headline

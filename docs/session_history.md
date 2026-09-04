@@ -2915,3 +2915,62 @@ multiply-defined labels, zero overfull >20 pt, `ren2022selfsupervised` resolved.
 - Advisor review (title change A2 = Opt 2 needs cover sign-off); then the reframe
   Section-B chapter-restructure build sequence.
 - Commit this batch (thesis positioning edits) when ready — currently uncommitted.
+
+---
+# Session — 2026-09-05 (Debadge, 13->6 file consolidation, Ch1 rewrite, abstract/caption trims)
+
+## What was done
+
+### Dropped "leakage-free" / "reference-free" as contribution badges (committed ef8884c)
+Removed both phrases where used as selling points (abstract, intro, conclusion,
+discussion, contribution lists, the completion-metric section title). Where the
+property is genuine hygiene (LOSO protocol, completion-eval independence) it is now
+stated by mechanism instead of the badge word.
+
+### Consolidated thesis 13 -> 6 files (committed ef8884c, pushed)
+Merged the sec_* fragments into `ch0_abstract`, `ch1_introduction`, `ch2_background`,
+`ch3_methodology` (detection + completion), `ch4_evaluation` (protocol + detection
+results + recall + donor metric + completion results), `ch5_discussion_conclusion`.
+Rewrote `main.tex` \input list + header; swept stale per-fragment header comments.
+
+### Deleted THESIS_PLAN.md (committed ef8884c)
+Stale after the 9->5 restructure. `docs/project_state.md` is now the plan of record;
+updated `project_state.md` + `defense/plan.md` pointers and the `thesis-plan-authority`
+memory. Claims map C1-C11 survives in git history + embedded chapter-comment labels.
+
+### Introduction rewrite (this session)
+- Expanded 1.1 into a motivation funnel: autonomous-driving significance + why LiDAR
+  (KITTI/SemanticKITTI), a survey of existing deep-LiDAR methods (Qi/PointNet++/
+  RandLA-Net; SqueezeSeg/RangeNet++/Cylinder3D; PointPillars/CenterPoint;
+  Panoptic-PolarNet/DS-Net), then two honest limits (annotation cost, opacity);
+  `lim2025longrange` added at the modular-approach transition. All citations already in
+  `references.bib` -- none fabricated.
+- Consolidated Ch1 from 6 sections to 3: 1.1 Problem and motivation (Approach folded
+  in, contribution paragraph moved to close), 1.2 Contributions and scope (RQs +
+  Contributions + Scope merged), 1.3 Thesis outline. Redirected the one internal \ref.
+
+### List of Figures / Tables shortened
+Added `\caption[short]{full}` to all 33 captions (1 ch2, 8 ch3, 24 ch4); full captions
+preserved under the floats. LoF/LoT went from multi-line-per-entry (several pages) to
+one line each.
+
+### Abstract trimmed
+~330 -> ~190 prose words, 4 -> 3 paragraphs. Cut the CAD/mesh aside, restatements, the
+component-list aside, the input-quality ablation sentence, and the standalone
+contributions list (folded to one clause). All honesty hedges kept (0.730 @ point-IoU
+0.3 on scorable cars; cross-validated 11 seq; static/gate-passed; partially replicates;
+0.905; "a valid metric", no "first").
+
+## Files changed
+- Committed ef8884c (pushed): 13->6 `ch*.tex`, `main.tex`, `THESIS_PLAN.md` (deleted),
+  `docs/project_state.md`, `docs/defense/plan.md`, 2 figures.
+- Modified this session, then committed in the bookkeeping commit: `ch0_abstract.tex`,
+  `ch1_introduction.tex`, `ch2_background.tex`, `ch3_methodology.tex`,
+  `ch4_evaluation.tex`, `docs/project_state.md`, `docs/session_history.md`.
+
+## Results / findings
+Build clean throughout (latexmk exit 0, 0 undefined refs/citations, 85 pp).
+
+## Next
+- Optional: front-matter acknowledgments/declaration.
+- Ch1 prose + abstract NOT advisor-reviewed.
