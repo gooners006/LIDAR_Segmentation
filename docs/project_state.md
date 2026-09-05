@@ -65,6 +65,34 @@ progress** below) are read-only analyses against this frozen config — they do 
 > words (4->3 paragraphs), all honesty hedges kept. Short `\caption[...]{}` list entries
 > added to all 33 figures/tables so the LoF/LoT fit ~1 page each. Build clean (latexmk
 > exit 0, 0 undefined refs, 85 pp).
+>
+> **Metric-first editorial pass (2026-09-05, second session; prose/format-only, freeze-safe,
+> NOT advisor-reviewed).** The manuscript now presents a **single scientific contribution
+> = the donor-frame coverage metric**; the recall root-cause and synthetic-pretraining
+> redundancy are **findings, not contributions** (this executes the 2026-09-04 settled
+> decision in the .tex). Changes across `ch0..ch5` + `main.tex`: (1) Ch1 now poses **two
+> RQs** (RQ3 removed, its content demoted to two diagnostic findings); (2) all
+> novelty-disclaimers removed and three "do not claim" hedges reworded positively; (3) **all
+> internal `Finding~\#NN` citations (~150) purged** from rendered body/captions and the
+> strategies-table "Src" column (via `scratchpad/strip_findings.py` + ~20 manual rewrites;
+> co-located `task~B6`/`T13` and internal audit dates removed; `%` comments still hold the
+> numbers); (4) **proposal-drift / original-intent purged** (Ch1 Sec 1.2 subsection deleted;
+> Ch4/Ch5 reworded); (5) meta/editorializing removed in two passes ("deliberately narrow",
+> "worth noting/separating/grading", "Interestingly", "Crucially", etc.); (6) Sec 1.1 cut to
+> a 4-paragraph funnel (pipeline compressed, caveats moved to Sec 1.2 scope), Sec 1.2 findings
+> collapsed to one sentence, **central claim sharpened** (bold "a validated metric for
+> evaluating occluded-vehicle completion on real LiDAR"); (7) abstract made metric-first
+> (detection numbers + seq-08 dropped, bookend closer added, then a one-line detection nod for
+> balance; ~204 words). **Formatting:** `indentfirst` added; **student ID removed from the
+> running footer** (`\rfoot{MSE13205}` deleted; page number centered; ID stays on title page);
+> **Keywords + Declaration front-matter pages added** (order Title -> Keywords -> Abstract ->
+> Declaration -> Contents); closing summary+signpost added to Ch2(->Ch3) and Ch3(->Ch4).
+> Validated against `docs/writing/BAKBOOK-thesis.doc` (UWC Thesis Guide) + a web survey of ~20
+> theses/guides: structure/length conform (body ~28.4k words, within the 20-45k Master's band).
+> Build clean throughout (latexmk exit 0, 0 undefined, 0 overfull >20pt); **final 78 pp**.
+> **Open (optional):** 1.5 line spacing if FPT requires (thesis is currently single-spaced,
+> no `setspace`); acknowledgements page; confirm FPT's mandated Declaration wording (current
+> text is conventional). `BAKBOOK-thesis.doc` left untracked (third-party reference).
 
 **Evidence-task progress:** B1 (IoU sensitivity) + B6 (geometric-only ablation)
 DONE 2026-08-21 (Finding #47, `output/experiments/iou_sensitivity/`): headline

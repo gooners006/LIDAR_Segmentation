@@ -25,7 +25,7 @@ The preceding chapters reported results; this one interprets them and closes the
 thesis. It states, in one place, what the evidence in this thesis does and does not
 support, and then names every
 limitation the work carries --- including the ones an examiner is most likely to raise.
-The organising principle is deliberate: a limitation that the thesis names, quantifies,
+A limitation that the thesis names, quantifies,
 and bounds is a defended limitation; one that a committee surfaces first is not. Every
 weakness discussed here is already measured elsewhere in the document, and is
 cross-referenced to the finding that quantifies it. Nothing in this chapter softens a
@@ -39,7 +39,7 @@ groups: threats to the validity of the evaluation itself
 (Section~\ref{sec:disc-gt}), and the architectural and operational limits of the
 approach (Section~\ref{sec:disc-architectural}). Section~\ref{sec:disc-generalises}
 separates what generalises from what is specific to the sequences studied. The
-chapter then concludes the thesis: it answers the three research questions in the
+chapter then concludes the thesis: it answers the two research questions in the
 form they were asked (Section~\ref{sec:conclusion-rqs}), restates the contributions
 (Section~\ref{sec:conclusion-contributions}), and turns the most consequential of the
 boundaries drawn here into future work (Section~\ref{sec:conclusion-future}).
@@ -47,24 +47,23 @@ boundaries drawn here into future work (Section~\ref{sec:conclusion-future}).
 \section{Established results}
 \label{sec:disc-what-holds}
 
-Two contributions carry the strongest evidence. The first is methodological: the
-donor-frame occluded-side coverage metric (Section~\ref{sec:donor-validation}). We are not aware of a prior metric
+Two threads carry the strongest evidence, both belonging to the metric contribution. The
+first is methodological: the donor-frame occluded-side coverage metric (Section~\ref{sec:donor-validation}). We are not aware of a prior metric
 that scores a real LiDAR car's completion against donor frames of the same static
 instance, and it comes with the demonstration
 that the obvious alternative --- Chamfer distance
 against accumulated pseudo-ground-truth --- is invalid, because accumulated LiDAR is
 itself one-sided and so rewards under-completion (the raw partial scored the lowest
-Chamfer distance on every real example; Finding~\#26). This is a measured negative
+Chamfer distance on every real example). This is a measured negative
 result about metrics, not an opinion. The second is empirical and rests on that metric:
 completion adds genuinely unseen surface (median coverage of never-observed surface
 within \SI{0.1}{\metre} of \num{0.304} on sequence~08, seven times the symmetry-mirror
-baseline of \num{0.043} and against a raw-partial baseline of \num{0.000};
-Finding~\#32) and improves the amodal bounding box --- the final completed box reaches a median
+baseline of \num{0.043} and against a raw-partial baseline of \num{0.000}) and improves the amodal bounding box --- the final completed box reaches a median
 bird's-eye-view IoU of \num{0.771} against the amodal ground-truth box, up from
 \num{0.725} for the raw partial, with the gains concentrated on width, height, and
-centre where the sensor saw least (Finding~\#36) --- and both headline claims survive a
+centre where the sensor saw least --- and both headline claims survive a
 pre-registered held-out replication, with named coverage caveats
-(Finding~\#42, outcome \textsc{partially holds}; Section~\ref{sec:disc-eval-validity}).
+(outcome \textsc{partially holds}; Section~\ref{sec:disc-eval-validity}).
 
 The detection pipeline is a strong engineering result rather than a claim of
 state-of-the-art accuracy. It reaches precision \num{0.905}, recall \num{0.730}, and
@@ -73,11 +72,9 @@ recall denominator: ground-truth car instances with at least \num{10} points sur
 preprocessing, Section~\ref{sec:eval-protocol}), and it does so with an interpretable, near-annotation-free
 clustering front end on modest hardware. Its recall shortfall is not mysterious: it is
 root-caused to HDBSCAN splitting large, close cars into fragments (Section~\ref{sec:recall-analysis}), and that
-diagnosis is itself a contribution. Two secondary findings round out the account: the
-recall bottleneck is clustering fragmentation with a recoverable-ceiling quantification
-(Findings~\#23/\#34), and the sim-to-real classifier gap is total and symmetric, which
-makes synthetic pretraining redundant once \num{420000} real clusters are available
-(Findings~\#25/\#30) --- a negative result that replaces, rather than supports, the
+diagnosis is itself a finding. Two secondary findings round out the account: the
+recall bottleneck is clustering fragmentation with a recoverable-ceiling quantification, and the sim-to-real classifier gap is total and symmetric, which
+makes synthetic pretraining redundant once \num{420000} real clusters are available --- a negative result that replaces, rather than supports, the
 two-stage-training contribution proposed at the outset.
 
 The rest of this chapter is about how far each of these reaches.
@@ -103,7 +100,7 @@ does exist is confined to precision and is about two points: fold-08 precision i
 \num{0.881} versus the final \num{0.905}. This is exactly what the stage decomposition
 predicts (Section~\ref{sec:results-ablations}): geometric clustering alone reaches recall
 \num{0.775}, the classifier lowers it to \num{0.677}, and the track filter recovers it to
-\num{0.730} (Findings~\#47/\#49), so the classifier's realised recall contribution is a
+\num{0.730}, so the classifier's realised recall contribution is a
 small band and the dominant recall limit is the upstream clustering ceiling (\num{0.775}
 before the classifier acts) --- imposed by clustering, independent of the classifier, and
 holding on sequence~00 as well (Section~\ref{sec:recall-analysis}). The
@@ -123,9 +120,9 @@ real, from recall \num{0.336} on the sparse highway sequence~01 to \num{0.761} o
 urban sequence~00 (macro mean \num{0.633}~$\pm$~\num{0.121}; precision far steadier at
 \num{0.840}~$\pm$~\num{0.070}). The completion side is held out by a different and
 stronger construction: its headline claims are re-tested on sequence~00 under a
-pre-registration committed before any sequence-00 evaluation was run (Finding~\#42), and
+pre-registration committed before any sequence-00 evaluation was run, and
 the completion model was trained on synthetic data and never on any evaluation sequence.
-The detection and completion contributions thus still carry different evidential weights,
+The detection findings and the completion contribution thus still carry different evidential weights,
 but detection is now a cross-validated result with a quantified, precision-only selection
 exposure, not a bare validation-set number.
 
@@ -134,7 +131,7 @@ The pre-registered replication returned the outcome \textsc{partially holds}, no
 \textsc{holds}, and the reasons are specific and named. Both primary metrics were
 decisive wins on the held-out sequence~00 (BEV IoU \num{0.739}~$\rightarrow$~\num{0.766},
 $p=\num{1.6e-3}$; donor coverage at \SI{0.1}{\metre} \num{0.000}~$\rightarrow$~\num{0.413},
-$p\approx0$; Finding~\#42), so the value of completion does replicate. Two gaps prevent a
+$p\approx0$), so the value of completion does replicate. Two gaps prevent a
 full \textsc{holds}. First, the \emph{long band is empty}: no car of at least
 \SI{4.6}{\metre} survived the well-observed-static-car construction on sequence~00
 (bands: compact \num{17}, normal \num{28}, long \num{0}), so the per-car length estimate's
@@ -160,16 +157,14 @@ if the car does not move; the amodal box is built from accumulated static-car po
 Moving cars therefore cannot be scored by either metric. We report them separately and
 only as a plausibility check: on the final sequence-08 output, moving car tracks
 complete into plausible car boxes at essentially the same rate as static ones
-(\SI{57.9}{\percent}, \num{11}/\num{19}, versus \SI{53.7}{\percent}, \num{225}/\num{419};
-Finding~\#44). This supports the statement that motion does not \emph{degrade}
+(\SI{57.9}{\percent}, \num{11}/\num{19}, versus \SI{53.7}{\percent}, \num{225}/\num{419}). This supports the statement that motion does not \emph{degrade}
 completion plausibility --- expected, since completion is single-frame and carries no
 motion smear --- but it is a plausibility parity result, not an accuracy result. We never
 claim mover completion \emph{accuracy}; the metrics that would license that claim do not
 apply to movers. One direction of the plausibility measure's bias is worth naming, because
 it works in the mover cohort's favour. The plausibility flag reads axis-aligned bounding-box
 dimensions, which overstate the width and length of any car whose heading is not aligned
-with the sensor axes, pushing such a car toward the ``too wide'' edge of the plausible band
-(Finding~\#44). Moving cars are the sub-population most likely to be non-axis-aligned ---
+with the sensor axes, pushing such a car toward the ``too wide'' edge of the plausible band. Moving cars are the sub-population most likely to be non-axis-aligned ---
 static cars in these sequences are overwhelmingly parked parallel to the roadside, whereas
 movers include vehicles turning at junctions and changing lanes --- so this bias should fall
 disproportionately on movers, marking some plausible mover completions as implausible. To
@@ -183,7 +178,7 @@ The donor metric scores completion only on clean, gate-passed single-object clus
 that scope is not incidental: whether a detected car reaches completion as such a clean
 input is decided upstream, by the same clustering step that caps recall
 (Section~\ref{sec:recall-analysis}). An eleven-sequence ablation isolates the effect of
-input quality. Rendering completion with the L-shape completion input gate (Finding~\#27)
+input quality. Rendering completion with the L-shape completion input gate
 switched off and then on, and scoring each output by the \emph{plausibility box} --- the
 footprint length/width/height check, a different instrument from the donor metric --- the
 fraction of completions whose footprint lands in the plausible-car range rises from
@@ -193,9 +188,7 @@ cost, which we report rather than hide: it drops \SI{15.5}{\percent} of otherwis
 cars (\num{356} pooled) as false rejections. The complementary result is that the
 completion \emph{network} does not carry this benefit: on the same clean-gated tracks, two
 completion architectures (PCN and PoinTr) produce statistically indistinguishable real-data
-plausibility (\num{18}/\num{26} versus \num{16}/\num{26}, the difference threshold noise;
-Finding~\#28), because the residual centroid-estimation gap is architecture-independent
-(Finding~\#26). Input quality, set by segmentation, therefore governs whether completion is
+plausibility (\num{18}/\num{26} versus \num{16}/\num{26}, the difference threshold noise), because the residual centroid-estimation gap is architecture-independent. Input quality, set by segmentation, therefore governs whether completion is
 usable at all, whereas the choice of completion model --- across the two tried --- does
 not. This is the segmentation bottleneck; we raise it as context for the metric's scope ---
 the donor metric earns clean numbers precisely on the inputs the L-shape gate admits, and
@@ -206,16 +199,16 @@ result the metric itself produces.
 The final length geometry uses a per-car length estimate (the \num{90}th percentile of
 gate-passed longitudinal extents over a track, plus \SI{0.12}{\metre}), which fixed the
 compact-overshoot problem of the earlier fixed prior (compact signed length error
-\num{+0.295}~$\rightarrow$~\num{+0.063}~m; Finding~\#36). But it falls back to the fixed
+\num{+0.295}~$\rightarrow$~\num{+0.063}~m). But it falls back to the fixed
 population prior of \SI{4.14}{\metre} on tracks with fewer than five gate-passed frames,
 and that fallback fires on \SI{23.0}{\percent} of final completed tracks
-(\num{119}/\num{518} on the regenerated sequence-08 output; Finding~\#41). This is well
+(\num{119}/\num{518} on the regenerated sequence-08 output). This is well
 above a comfortable threshold and is not solved: on those tracks the length geometry is
 the population prior, not a per-car estimate, and it reintroduces the compact-overshoot
 risk the per-car estimate was built to remove. We measured the fallback frequency rather
 than assuming it small, and we carry it as a live limitation. What the rate is \emph{not}
 is an unquantified risk sitting outside the reported result. The headline box-quality gain
-(median BEV IoU \num{0.725}~$\rightarrow$~\num{0.771}; Finding~\#36) is measured on the
+(median BEV IoU \num{0.725}~$\rightarrow$~\num{0.771}) is measured on the
 final sequence-08 output --- the same \num{518} tracks of which the \num{119} fallback
 tracks are a subset --- so the fallback cost is already \emph{inside} that number, not
 additional to it. The \num{0.771} is therefore what the pipeline delivers \emph{with} the
@@ -225,7 +218,7 @@ short, few-frame tracks, which are the \emph{sparsest} and typically most distan
 where the amodal box is least certain and the completed box contributes least to any
 downstream use; and the per-band hallucination guard already isolates the worst case ---
 on the fallback tracks the compact out-of-box ratio returns to the full
-\num{100}-times-baseline violation (Finding~\#37), a bound we report rather than average
+\num{100}-times-baseline violation, a bound we report rather than average
 away. The honest reading is that the fallback caps how much better the aggregate could be,
 and that a mitigation --- a lower gate, or a per-band prior for the fallback path ---
 is concrete future work, not a defect hidden inside the headline.
@@ -236,7 +229,7 @@ far end, and the amount needed to correct this scales with car length. We tried 
 it: a pre-registered intervention (decoupling the output radius from the length push, plus
 a synthetic-calibrated length-axis fill factor) fixed the target on normal and long cars
 but over-extended compacts, failing the pre-registered compact non-regression guard on
-both sequences (Finding~\#45). We report this as a finding: the compensation is
+both sequences. We report this as a finding: the compensation is
 irreducibly length-dependent, so a single global fix cannot remove it without regressing
 another band, and pursuing per-length compensation would need more cars than the data
 safely supports. The far end is therefore the weakest-covered region of the completed car,
@@ -247,10 +240,10 @@ The completion network was trained only on synthetic KITTI-like partial renders.
 what keeps its real-data evaluation independent of its training data (Section~\ref{sec:disc-eval-validity}), but it is
 also a limitation, and we name it as the completion counterpart of the classifier
 sim-to-real gap of Section~\ref{sec:disc-what-holds}. The model never saw real sensor
-statistics, and Finding~\#26 attributes the residual flatness of real completions on the
-sparsest, most one-sided inputs to exactly this remaining domain gap (alongside imperfect
+statistics, and the residual flatness of real completions on the
+sparsest, most one-sided inputs traces to exactly this remaining domain gap (alongside imperfect
 centre estimation). Closing it would call for real-data fine-tuning, which is itself a
-documented negative-result line in this project (Findings~\#16/\#17/\#19) and is left to
+documented negative-result line in this project and is left to
 future work; the synthetic-only training is thus at once the source of the metric's
 validity and a ceiling on real-data crispness.
 
@@ -260,14 +253,14 @@ they must be kept distinct. The completion defect: the final completion sprays p
 outside the true box on \emph{compact} cars. The metric lesson: the original out-of-box
 hallucination guard was a pooled median across all cars, and that pooled statistic was
 blind to exactly this band-localised failure. The fixed \SI{4.14}{\metre} length prior
-that Finding~\#35 sized --- using that same pooled guard --- hallucinates on compact cars
+--- sized using that same pooled guard --- hallucinates on compact cars
 at roughly \num{100} times the compact band's mirrored baseline (\num{0.0433} versus
 \num{0.0004}), a failure the pooled number could not see because the other \num{32} of
-\num{40} cars sit near it (Finding~\#37). The final per-car length estimate, which
+\num{40} cars sit near it. The final per-car length estimate, which
 replaced that fixed prior, reduces the compact hallucination to about \num{16} times the
 baseline (\num{0.0065}) --- roughly a sevenfold reduction, not elimination --- but on the
 \SI{23}{\percent} of tracks that fall back to the fixed \SI{4.14}{\metre} prior (the
-fallback of the previous paragraph; Finding~\#41) the full \num{100}-times compact
+fallback of the previous paragraph) the full \num{100}-times compact
 hallucination returns. So the defect is real, is worst on the fallback tracks, and is not
 eliminated on any track.
 
@@ -280,10 +273,10 @@ confirms the defect does not clear off the tuning sequence either --- a milder b
 failing \num{1.8} times (completed \num{0.009} versus mirrored \num{0.005}). The compact
 mirrored baseline is itself near \num{0.0004} --- mirroring a compact car barely leaves its
 box --- so that band's bar is effectively ``do not leave the box at all,'' and no method
-reaches it. We therefore do not claim the guard ``passes'' on compacts; we report the
-ratios and let them stand, because tuning the metric until it passes would defeat the
+reaches it. We therefore treat the guard as failing on compacts and report the ratios as
+they stand, because tuning the metric until it passes would defeat the
 purpose of a hallucination guard. The per-band guard is what makes the defect visible
-where a pooled median hid it (Finding~\#37) --- but the underlying fact is a completion
+where a pooled median hid it --- but the underlying fact is a completion
 accuracy limitation on compact cars, not merely a property of the metric.
 
 \section{Ground-truth and dataset assumptions}
@@ -301,7 +294,7 @@ rather than an external reference: the paired evaluation design tolerates refere
 because it compares raw versus completed against the \emph{same} box; the construction
 guards enforce viewpoint coverage and near-zero motion; and the dimension distribution is
 sane (median L~\num{4.14}~/~W~\num{1.75}~/~H~\num{1.47}~\si{\metre}, consistent with
-published car statistics). We do not claim the amodal ground truth is error-free; we claim
+published car statistics). The amodal ground truth is not error-free; the claim is that
 the paired design is robust to the errors it can plausibly contain.
 
 \paragraph{Recall against all annotated cars, and the two ``$\geq$10-point'' rules.}
@@ -312,7 +305,7 @@ recall is a recall against \emph{eligible} cars, not against all annotated cars.
 quantify the gap rather than leave it implicit: on a stride-20 sample of sequence~08,
 \SI{25.5}{\percent} of all annotated cars (and \SI{14.6}{\percent} of cars with at least
 \num{10} \emph{raw} points) are excluded by the eligibility rule, so recall against all
-annotated cars is approximately \num{0.54} (Finding~\#48). The two ``$\geq$10-point''
+annotated cars is approximately \num{0.54}. The two ``$\geq$10-point''
 thresholds are different quantities --- one counts raw label points, the other counts
 points surviving preprocessing --- and they are not interchangeable; we keep them
 distinct wherever both appear. Stating the \num{0.54} figure alongside the \num{0.730}
@@ -333,10 +326,10 @@ assumption, and we name it.
 \paragraph{Density clustering has no notion of objectness.}
 The recall ceiling is architectural, not a tuning failure (Section~\ref{sec:recall-analysis}). Coarsening the
 clustering voxel to \SI{0.10}{\metre} recovered part of the loss
-(recall \num{0.699}~$\rightarrow$~\num{0.730}; Finding~\#34) by preventing intra-car
+(recall \num{0.699}~$\rightarrow$~\num{0.730}) by preventing intra-car
 splits, but coarsening further would begin fusing adjacent cars, and the
 clustering-method benchmark shows that no fixed-radius density clusterer reaches even
-HDBSCAN's recall at any tested radius (Finding~\#43). The residual limit is that
+HDBSCAN's recall at any tested radius. The residual limit is that
 density-based clustering groups points by proximity and density alone, with no model of
 what a car is, so it cannot be tuned to the recall of a learned object detector. Lifting
 this ceiling would require replacing the clustering stage with a learned detector, which
@@ -388,7 +381,7 @@ The pipeline runs at about \SI{623.5}{\milli\second} per frame on the reference 
 (\num{1.6}~frames/s; promoted-configuration full-sequence timing, Section~\ref{sec:results-runtime}), dominated
 by the classical CPU stages (HDBSCAN alone is roughly \SI{59}{\percent}). This is offline,
 not real-time, and real-time operation is explicitly out of scope. The runtime work that
-was done (Findings~\#33/\#34) reached this operating point and established that the
+was done reached this operating point and established that the
 $\leq\SI{400}{\milli\second}$ target is not reachable through the authorised
 exact-output and voxel-resolution tiers, because the post-ground object cloud is
 intrinsically sparse; GPU clustering was deliberately not pursued. A real-time variant is
@@ -397,7 +390,7 @@ future work, not a claim of this thesis.
 \paragraph{Tracking is used but not quantified.}
 The centroid tracker is evaluated only indirectly. It feeds the per-car length estimate
 and the completion aggregation, and its five-gate-passed-frame requirement is what drives
-the \SI{23}{\percent} length-estimate fallback (Finding~\#41): identity switches or
+the \SI{23}{\percent} length-estimate fallback: identity switches or
 fragmented tracks raise that fallback rate directly, and thereby the compact-overshoot
 risk it carries. Yet we report no multi-object-tracking accuracy metric (no MOTA, IDF1, or
 equivalent) --- the tracker is used as a filter and an aggregator, not assessed as a
@@ -407,12 +400,12 @@ propagates, is not separately measured. Quantifying tracking robustness is futur
 \section{Generality and sequence-specific factors}
 \label{sec:disc-generalises}
 
-It is worth separating the results that should transfer beyond the sequences studied
-from those that are tied to them. The detection operating point is the broadest: it is
+The results split into those that should transfer beyond the sequences studied and
+those tied to them. The detection operating point is the broadest: it is
 cross-validated across all eleven labelled sequences (Section~\ref{sec:eval-loso}), so its
 pooled figure and its per-sequence spread are measured, not extrapolated. The
 \emph{mechanisms} behind the completion and recall-diagnosis results generalise more
-narrowly, though not all with the same evidential force, and it is worth grading them. Two transfer by argument rather
+narrowly, and not all with the same evidential force. Two transfer by argument rather
 than by sample: the demonstration that accumulated-pseudo-ground-truth Chamfer is invalid
 follows deductively from the one-sidedness of accumulated LiDAR, which is a property of the
 sensor and not of any sequence; and the donor metric's construction is dataset-agnostic by
@@ -433,7 +426,7 @@ was untestable on the held-out sequence, and moving cars are covered only by the
 plausibility check. Within that scope the claims are pre-registered and replicated; outside
 it, they are hypotheses for future work rather than results.
 
-This is the boundary the thesis draws. The contributions in
+This is the boundary the thesis draws. The results in
 Section~\ref{sec:disc-what-holds} hold within it, each limitation above marks where it
 ends, and the future work of Section~\ref{sec:conclusion-future} turns the most
 consequential of those boundaries --- the clustering
@@ -470,22 +463,22 @@ consequential of those boundaries into future work.
 \section{Answers to the research questions}
 \label{sec:conclusion-rqs}
 
-Chapter~\ref{ch:introduction} posed three research questions. Each is answered by a specific chapter, and each
-answer is reported at the reach the evidence actually supports.
+Chapter~\ref{ch:introduction} posed two research questions, both about measuring completion on real LiDAR. Each is
+answered by a specific chapter, at the reach the evidence actually supports; a pair of diagnostic findings about the
+detection front-end, which the investigation produced along the way, follows the two answers.
 
 \paragraph{RQ1 --- evaluating completion on real LiDAR.}
 The measurement question is answered in Section~\ref{sec:donor-validation}. Reference-based Chamfer distance against
 an accumulated pseudo-ground-truth is \emph{invalid} on real cars: because the accumulated
 reference is itself occluded on the same side as the input, the raw partial cloud scores
 best on that metric, so a lower Chamfer distance rewards under-completion rather than
-reconstruction (Finding~\#26). The thesis instead defines a donor-frame occluded-side
+reconstruction. The thesis instead defines a donor-frame occluded-side
 coverage metric: it completes a car from one frame's pipeline cluster and scores how much
 of the surface seen only in \emph{other} frames of the same static car the completion
 recovers, paired with a hallucination guard against surface invented outside the car's
 amodal box. The metric passes a four-item validation gate, and the per-band form of that
 guard exposed a failure the original pooled statistic was blind to --- a metric-design
-lesson about band-blind gates, not an erratum to the direction it validated
-(Findings~\#32/\#37). This is a validated way to score completion quality on
+lesson about band-blind gates, not an erratum to the direction it validated. This is a validated way to score completion quality on
 real LiDAR in this setting.
 
 \paragraph{RQ2 --- does completion recover unseen surface, and does the benefit hold out?}
@@ -495,68 +488,64 @@ symmetry-mirror baseline (occluded-side coverage at \SI{0.1}{\metre} rising from
 \num{0.000} for the raw partial and \num{0.043} for the mirror baseline to \num{0.304} for
 the completion, per-car medians), rather than merely redistributing the points it was
 given, and the completed cloud improves downstream amodal bounding boxes on static,
-gate-passed cars in the compact and normal length bands (Findings~\#29/\#32). Under a
-pre-registered test on the held-out sequence~00, the benefit \textsc{partially holds}
-(Finding~\#42): the two primary metrics replicate on the held-out data
+gate-passed cars in the compact and normal length bands. Under a
+pre-registered test on the held-out sequence~00, the benefit \textsc{partially holds}: the two primary metrics replicate on the held-out data
 (BEV IoU \num{0.739}~$\rightarrow$~\num{0.766}, $p=\num{1.6e-3}$; donor coverage
 \num{0.000}~$\rightarrow$~\num{0.413}), but a coverage gap prevents a full \textsc{holds} ---
 the long length band was empty on sequence~00 (no car of at least \SI{4.6}{\metre} survived
 the static-car construction), so long-band behaviour was untestable off the tuning sequence.
 The compact-band hallucination guard also fails here, as it does on sequence~08. Moving cars
-are covered by a plausibility check only, never an accuracy claim (Finding~\#44); that
+are covered by a plausibility check only, never an accuracy claim; that
 plausibility scoping is stated in Section~\ref{sec:results-movers} and the held-out verdict in Section~\ref{sec:results-heldout}, and
 neither is softened here.
 
-\paragraph{RQ3 --- what limits recall, and is synthetic pretraining necessary?}
-The first half is answered in Section~\ref{sec:recall-analysis}, the second in Chapter~\ref{ch:evaluation}. Recall is limited not by
+\paragraph{Along the way --- what limits recall, and whether synthetic pretraining is needed.}
+These are diagnostic findings the investigation produced rather than questions posed at the outset; the first is developed
+in Section~\ref{sec:recall-analysis}, the second in Chapter~\ref{ch:evaluation}. Recall is limited not by
 the classifier but by the clustering stage: HDBSCAN splits single cars into multiple
-fragments, with \SIrange{31}{37}{\percent} of ground-truth cars split (Finding~\#23), and
+fragments, with \SIrange{31}{37}{\percent} of ground-truth cars split, and
 the classifier's role is to buy precision, which it does at a cost to recall that the track
 filter then partly recovers (geometric-only recall \num{0.775}, classifier \num{0.677},
-track filter \num{0.730}; Findings~\#47/\#49). A search of repair strategies --- larger
+track filter \num{0.730}). A search of repair strategies --- larger
 minimum cluster size, fragment merging, adaptive clustering, BEV clustering, temporal accumulation,
 threshold lowering --- fails to generalise, each for a structural reason, and is reported
-as a chain of negative findings (Findings~\#21/\#24). The one lever that helped was the
+as a chain of negative findings. The one lever that helped was the
 clustering resolution itself, which lifted recall from \num{0.699} to \num{0.730} and
-showed the earlier ``hard limit'' was partly a resolution artifact (Finding~\#34); a
+showed the earlier ``hard limit'' was partly a resolution artifact; a
 residual limit remains because density clustering has no notion of objectness. Recall is
 stated throughout against the car-only $\geq\!10$-surviving-point denominator of
 Section~\ref{sec:eval-protocol}; against all annotated cars the effective figure is lower (approximately
-\num{0.54}, Finding~\#48). On the second half, synthetic pretraining is \emph{redundant}: a
+\num{0.54}). On the second half, synthetic pretraining is \emph{redundant}: a
 from-scratch classifier matches a synthetically pretrained one once real training clusters
 are plentiful (of order \num{420000} mined clusters), and a cross-domain matrix shows the
 sim-to-real gap is total and symmetric --- car $F_1$ collapses to \num{0.000} in every
-off-diagonal cell (Findings~\#25/\#30). This replaces the two-stage-training contribution
-promised in the proposal with a negative result.
+off-diagonal cell.
 
 \section{Contributions}
 \label{sec:conclusion-contributions}
 
 Restated compactly, and pointing back to the answers above rather than re-arguing them, the
-thesis makes three claimed contributions --- all methodological or diagnostic rather than
-architectural, and none a claim of novelty for the pipeline itself.
+thesis makes a single scientific contribution, methodological rather than architectural:
+\textbf{a validated metric for completion quality on real LiDAR} --- the
+demonstration that accumulated-pseudo-ground-truth Chamfer is invalid on real cars, and the
+donor-frame occluded-side coverage metric that replaces it, with its hallucination guard and
+validation gate --- through which completion is shown to recover genuinely occluded surface
+and improve amodal boxes on static, gate-passed cars, a benefit that partially holds on a
+pre-registered held-out sequence (Section~\ref{sec:donor-validation}).
 
+Two diagnostic findings sit alongside it:
 \begin{enumerate}
-  \item \textbf{A validated metric for completion quality on real LiDAR:} the
-  demonstration that accumulated-pseudo-ground-truth Chamfer is invalid on real cars, and the
-  donor-frame occluded-side coverage metric that replaces it, with its hallucination guard and
-  validation gate --- through which completion is shown to recover genuinely occluded surface
-  and improve amodal boxes on static, gate-passed cars, a benefit that partially holds on a
-  pre-registered held-out sequence (Findings~\#26/\#29/\#32/\#37/\#42; Section~\ref{sec:donor-validation}).
-  This is the completion half's central contribution.
   \item \textbf{A root-cause account of the recall bottleneck:} recall is clustering-bound,
   not classifier-bound, and the accompanying chain of negative repair results is reported as
-  findings in their own right (Findings~\#21/\#23/\#24/\#34; Section~\ref{sec:recall-analysis}).
+  findings in their own right (Section~\ref{sec:recall-analysis}).
   \item \textbf{Evidence that synthetic pretraining is redundant for the classifier at
-  scale,} which directly replaces a contribution promised in the proposal
-  (Findings~\#25/\#30; Chapter~\ref{ch:evaluation}).
+  scale} (Chapter~\ref{ch:evaluation}).
 \end{enumerate}
 
-Alongside these, the thesis carries engineering contributions that it does not claim as
-scientific results --- the modular pipeline and its runtime characterisation, the amodal
+Alongside these, the thesis carries engineering contributions --- the modular pipeline
+and its runtime characterisation, the amodal
 ground-truth box builder, and the reproducibility infrastructure --- and a set of documented
-negative-result lines (architecture swaps and real-data fine-tuning for completion,
-Findings~\#16/\#17/\#19/\#28; a sparse-fallback length model, Finding~\#40).
+negative-result lines (architecture swaps and real-data fine-tuning for completion; a sparse-fallback length model).
 
 \section{Future work}
 \label{sec:conclusion-future}
@@ -566,17 +555,17 @@ steps, each already scoped by a finding rather than left open.
 
 \paragraph{A real-time variant.} The pipeline runs offline at roughly
 \SI{623.5}{\milli\second} per scan (\num{1.6}~frames/s; Section~\ref{sec:results-runtime}), dominated by the
-classical CPU stages. The runtime work that was done (Findings~\#33/\#34) established that
+classical CPU stages. The runtime work that was done established that
 the $\leq\SI{400}{\milli\second}$ target is not reachable through the authorised
 exact-output and voxel-resolution tiers, because the post-ground object cloud is
-intrinsically sparse. It is worth separating an implementation floor from an algorithmic
-one here. The residual $\sim$\SI{185}{\milli\second} attributed to clustering
+intrinsically sparse. An implementation floor must be distinguished from an algorithmic
+one here: the residual $\sim$\SI{185}{\milli\second} attributed to clustering
 (Section~\ref{sec:results-runtime}) is the cost of the \emph{Python} HDBSCAN, not of the
 HDBSCAN \emph{algorithm}: a native (C++) or GPU-accelerated HDBSCAN implementation would
 attack that floor mechanically, without changing what is computed, and is the most direct
 speed path. The tempting shortcut --- swapping HDBSCAN for a faster GPU density clusterer
 such as \texttt{cuML} DBSCAN --- is \emph{not} a free substitution, and this thesis has
-the measurement to say so: the clustering benchmark (Finding~\#43) showed that no
+the measurement to say so: the clustering benchmark showed that no
 fixed-radius density clusterer, DBSCAN included, reaches HDBSCAN's recall at any tested
 radius, because it is HDBSCAN's density-adaptive linkage that recovers cars a single global
 radius cannot. A real-time variant must therefore preserve the HDBSCAN algorithm (via a
@@ -587,9 +576,9 @@ future work, not a claim of this thesis.
 \paragraph{Real-data fine-tuning for completion.} The completion model was trained on
 synthetic KITTI-like partials only, which is at once the source of the donor metric's
 validity and a ceiling on real-data crispness: on the sparsest, most one-sided inputs the
-completions stay flat, which Finding~\#26 attributes to the remaining synthetic-to-real
+completions stay flat, which traces to the remaining synthetic-to-real
 domain gap. Closing it would call for real-data fine-tuning, which is itself a documented
-negative-result line in this project (Findings~\#16/\#17/\#19); it is a contingency
+negative-result line in this project; it is a contingency
 direction, to be attempted only with the leakage controls that make real-data supervision
 safe.
 
@@ -605,10 +594,9 @@ task, not a change to the method.
 \section{Closing remarks}
 \label{sec:conclusion-closing}
 
-The thesis draws a deliberately narrow boundary and defends it. On the completion side it
-contributes a validated real-data metric and pre-registered, partially
-replicated evidence that learned completion adds genuinely unseen surface and improves
-amodal boxes on static cars. On the detection side it contributes a root-caused account of
+On the completion side the thesis contributes a validated real-data metric and
+pre-registered, partially replicated evidence that learned completion adds genuinely
+unseen surface and improves amodal boxes on static cars. On the detection side it contributes a root-caused account of
 why a training-free clustering detector is recall-limited, a chain of negative repair
 results reported as findings, and the demonstration that synthetic pretraining is redundant
 at scale. None of these rests on an additional point of metric improvement; each is defended

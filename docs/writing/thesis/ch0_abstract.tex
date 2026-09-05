@@ -40,15 +40,10 @@ The central contribution of this thesis is a valid metric: a donor-frame coverag
 for how much of the surface seen only in \emph{other} frames of the same static car a
 completion recovers, guarded against out-of-box hallucination and compared to a
 parameter-free symmetry-mirror baseline, and passing a four-part validation battery. On
-real sequence-08 cars a PCN network recovers genuinely unseen surface well above the
+real LiDAR cars a PCN network recovers genuinely unseen surface well above the
 mirror and tightens amodal boxes on static, gate-passed cars --- a benefit that
-partially replicates on a pre-registered held-out sequence.
-
-The metric lives in an interpretable, near-annotation-free pipeline of classical
-geometry and small learned models. Characterising it yields two diagnostic findings:
-detection is high-precision (\num{0.905}) but structurally recall-limited (\num{0.730}
-at a point-IoU of \num{0.3}, on cars with enough returns to be scorable; cross-validated
-across all eleven labelled sequences), root-caused to clustering fragmenting single
-vehicles rather than the classifier; and synthetic pretraining is redundant once real
-clusters are plentiful. The contributions are methodological and diagnostic, not
-architectural.
+partially replicates on a pre-registered held-out sequence. Along the way, the detection
+front-end is found to be recall-limited by clustering rather than the classifier, and
+synthetic pretraining redundant once real training clusters are plentiful. The thesis
+thus makes a quantity that could not be measured on real LiDAR measurable, giving a way
+to test whether completion helps rather than assume it.

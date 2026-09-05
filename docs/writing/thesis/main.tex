@@ -14,6 +14,7 @@
 
 % --- Base packages (union of every fragment + the FPT template) ---
 \usepackage[english]{babel}
+\usepackage{indentfirst}  % indent the first paragraph after every heading too
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
@@ -54,7 +55,6 @@
 \fancyhf{}
 \lhead{FPT School of Business \& Technology}
 \cfoot{\thepage}
-\rfoot{MSE13205}
 \renewcommand{\headrulewidth}{0.5pt}
 \renewcommand{\footrulewidth}{0.5pt}
 
@@ -104,7 +104,38 @@
 % --- Front matter (roman page numbers) ---
 \pagenumbering{roman}
 
+% --- Keywords ---
+\chapter*{Keywords}
+\begin{itemize}\setlength{\itemsep}{2pt}
+  \item Autonomous driving perception
+  \item Automotive LiDAR
+  \item Point cloud segmentation
+  \item Vehicle detection
+  \item Point cloud completion
+  \item Occluded-vehicle completion
+  \item Donor-frame coverage metric
+  \item Reference-free evaluation
+  \item Amodal bounding box
+  \item SemanticKITTI
+\end{itemize}
+\clearpage
+
 \input{ch0_abstract}
+
+% --- Declaration ---
+\chapter*{Declaration}
+I, Ngo Vi Viet Anh, declare that this thesis, \emph{A Donor-Frame Coverage Metric for
+Evaluating Occluded-Vehicle Completion in Automotive LiDAR}, is my own work, that it has
+not been submitted for any degree or examination at any other university, and that all
+the sources I have used or quoted have been indicated and acknowledged by complete
+references.
+
+\vspace{2cm}
+\noindent Signed: \rule{6cm}{0.4pt}\hfill Date: \rule{3.5cm}{0.4pt}
+
+\vspace{0.6cm}
+\noindent Ngo Vi Viet Anh
+\clearpage
 
 \tableofcontents
 \listoffigures

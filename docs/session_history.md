@@ -2974,3 +2974,57 @@ Build clean throughout (latexmk exit 0, 0 undefined refs/citations, 85 pp).
 ## Next
 - Optional: front-matter acknowledgments/declaration.
 - Ch1 prose + abstract NOT advisor-reviewed.
+
+---
+# Session — 2026-09-05 (Metric-first restructure: single contribution, findings-# purge, front matter, editorial trims)
+
+## What was done
+
+### RQ3 demoted; three contributions -> one
+- Ch1 Sec 1.2 now poses **two** research questions (both completion-measurement); RQ3 removed. Recall root-cause + synthetic-pretraining redundancy reframed as "two diagnostic findings", not RQs and not contributions.
+- **Single scientific contribution = the donor-frame coverage metric**, applied consistently across Ch1/Ch2/Ch4/Ch5 and the abstract; former contributions 2 and 3 demoted to findings everywhere (aligns with the 2026-09-04 settled decision). Ch5 "Established results" reworded ("two threads ... belonging to the metric contribution"); downstream "contribution" references reworded (Ch4/Ch5).
+
+### Novelty-disclaimer + honest-hedge rewording
+- Removed "does not claim novelty" / "not a claim of pipeline novelty" / "none a claim of novelty" (Ch1/Ch2/Ch5) and the "engineering contributions ... not claimed as scientific results" construction.
+- Reworded three "do not claim" hedges to positive form: Ch1 "works a different axis"; Ch5 guard-fails-on-compacts; Ch5 amodal-GT-not-error-free.
+
+### Findings-number purge (whole rendered thesis)
+- Removed all internal `Finding~\#NN` / `Findings~\#..` citations (~150) from body text, captions, and the recall-repair strategies-table "Src" column. Method: reviewed regex script `scratchpad/strip_findings.py` (parenthetical + `;`/`:`/`,`-bundled cases, comment lines skipped) plus ~20 manual inline rewrites where the finding was a grammatical constituent. Co-located internal labels (`task~B6`, `T13`) and internal audit dates ("original 2026-06-24 verdict", "Correction of 2026-07-24") removed too. `%` comment lines still contain finding numbers (not rendered).
+
+### Proposal-drift / original-intent purge
+- Deleted Ch1 Sec 1.2 "narrower than the original proposal in three ways" subsection + the finding-2 proposal cross-ref; reworded Ch4 (Stage-A ablation "project proposal had assumed" -> "a natural alternative"; "intended default, seq 05" -> plain) and Ch5 ("promised in the proposal" x2). Updated the Ch1 header comment.
+
+### Meta / editorializing removal (two passes)
+- Removed: "The thesis is deliberately narrow", "The one observation worth making here is", "here we note only that", "Interestingly,", "Crucially", "It is worth separating ..." (x2), "The organising principle is deliberate:", "and it is worth grading them", "The thesis draws a deliberately narrow boundary and defends it". Kept factual "deliberate design" uses and standard chapter/section signposts.
+
+### Section 1.1 / 1.2 trims (informed by a web survey of ~20 theses + writing guides)
+- Sec 1.1 restructured to a 4-paragraph funnel (context -> two costs of mainstream deep seg -> modular annotation-free angle with the pipeline compressed to one sentence -> the measurement gap). The two caveats (tracker=filter-only; completion trained without real labels) moved into Sec 1.2 scope boundaries.
+- Sec 1.2 diagnostic findings collapsed from an enumerate to one sentence; engineering-contributions + scope-boundaries paragraphs tightened.
+- **Central-claim statement sharpened**: Sec 1.2 now leads with a bold "a validated metric for evaluating occluded-vehicle completion on real LiDAR"; the redundant `\paragraph` heading dropped. Consistent with title + abstract.
+
+### Abstract (metric-first)
+- Dropped detection numbers (P 0.905 / R 0.730 at IoU 0.3) and the seq-08 mention; trimmed to two paragraphs; added a bookend closer ("makes a quantity that could not be measured on real LiDAR measurable, giving a way to test whether completion helps rather than assume it"); then added a one-line detection-findings nod for balance (per BAKBOOK "reflect the balance"). ~204 words (cap 500).
+
+### Front matter + formatting
+- Added `\usepackage{indentfirst}` (first paragraph after every heading now indented).
+- Footer: removed `\rfoot{MSE13205}` (student ID off every running page; centered page number remains; ID stays on the title page). Convention confirmed against sibling FPT templates (peer used a group-course code; approved_version left it empty).
+- Added **Keywords** page (10 keywords) and **Declaration** page (own-work statement + signature/date line); front-matter order Title -> Keywords -> Abstract -> Declaration -> Contents -> LoF -> LoT.
+- Added closing summary + next-chapter signpost to **Ch2 (->Ch3)** and **Ch3 (->Ch4)**; Ch4 already signposts Ch5, Ch1 ends on the outline, Ch5 is the conclusion.
+
+### Reference material consulted
+- `docs/writing/BAKBOOK-thesis.doc` (UWC Thesis Guide, Prof Nelleke Bak) read via `antiword`; used to validate 5-chapter structure, chapter format, abstract rules, and length. Body text ~28,400 words (approx, excl. comments/math/refs) -> within BAKBOOK's Master's full-thesis band (20,000-45,000). Thesis is **single-spaced** (no `setspace`) -> flagged for 1.5 spacing if FPT requires (NOT applied).
+- Web survey of ~20 theses/guides informed the Sec 1.1 trim; several repositories (DiVA/Lund/UCL) unreachable from this environment.
+
+### Build
+- `latexmk -pdf main.tex` clean after every change (exit 0, 0 undefined refs/citations, 0 overfull >20pt). Final PDF **78 pp** (76 body + Keywords/Declaration front-matter pages).
+
+## Files changed
+- Modified: `docs/writing/thesis/{ch0_abstract,ch1_introduction,ch2_background,ch3_methodology,ch4_evaluation,ch5_discussion_conclusion,main}.tex`
+- New (untracked, left out of the commit): `docs/writing/BAKBOOK-thesis.doc` (third-party reference guide)
+
+## Next
+- Optional: switch to 1.5 line spacing if FPT mandates it (also raises page count into the conventional band).
+- Optional: acknowledgements page.
+- Confirm FPT's mandated Declaration wording (current text is conventional, not FPT-specific).
+- Advisor review still pending; defense-deck build (Phase 8, plan Section B) still open.
+- Manuscript NOT advisor-reviewed.

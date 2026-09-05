@@ -230,8 +230,7 @@ axis, and no two cells in that column are the same metric unless their headers s
     classifier uses only automatically mined, weakly labelled clusters. The table
     compares \emph{requirements and paradigm}; on raw accuracy the supervised networks
     are stronger by design. Published figures are the test-set numbers reported by the
-    cited papers; this work's row is the frozen sequence~08 headline (Chapter~\ref{ch:evaluation},
-    Finding~\#34). RangeNet++ appears in two rows: as a standalone semantic backbone
+    cited papers; this work's row is the frozen sequence~08 headline (Chapter~\ref{ch:evaluation}). RangeNet++ appears in two rows: as a standalone semantic backbone
     (mIoU 52.2) and as the semantic half of the semantics-plus-detector panoptic
     baseline of~\cite{behley2021panoptic} (PQ 37.1).}
   \label{tab:positioning}
@@ -282,19 +281,20 @@ therefore the metric that matches the actual output, and the choice of IoU thres
 recall denominator that make that measurement precise --- together with its sensitivity
 to those choices --- is examined directly in Section~\ref{sec:eval-protocol}.
 
-This framing also sets the boundary of the thesis's contribution, which is not a claim
-of pipeline novelty. Classical ground-removal-plus-clustering detection --- including recent
+This framing also sets the boundary of the thesis's contribution. Classical
+ground-removal-plus-clustering detection --- including recent
 clustering-plus-classifier detectors for LiDAR vehicles~\cite{lim2025longrange} ---
 a lightweight multi-object tracking stage used only to filter transient detections
 across frames (in the tradition of 3D multi-object trackers such as
 AB3DMOT~\cite{weng2020ab3dmot}, and not a contribution of this work), and PCN-style
-completion are established building blocks, reimplemented and tuned here. The
-contributions this work does claim are methodological and diagnostic: a validated
+completion are established building blocks, reimplemented and tuned here; the
+contribution is methodological: a validated
 metric for completion quality on real LiDAR where reference-based Chamfer distance is
-invalid (Section~\ref{sec:donor-validation}), the root-cause analysis of the recall bottleneck together with the
+invalid (Section~\ref{sec:donor-validation}). Two diagnostic findings sit alongside it: the root-cause
+analysis of the recall bottleneck together with the
 chain of negative repair results (Section~\ref{sec:recall-analysis}), and the finding that synthetic
 pretraining is redundant for the classifier at scale (Chapter~\ref{ch:evaluation}). The positioning table
-is the backdrop against which those contributions are argued: this is an interpretable,
+is the backdrop against which the contribution is argued: this is an interpretable,
 annotation-light system whose value is in what it explains and measures, not in topping a
 benchmark it was never designed to win.
 
@@ -418,3 +418,10 @@ reaches,
 By construction the raw partial covers none of $\mathcal{V}$; the full construction, its
 mirrored baseline, and its per-band hallucination guard are developed in
 Section~\ref{sec:donor-validation}.
+
+This chapter has positioned the thesis between supervised deep segmentation --- accurate
+but paid for in dense annotation and opacity --- and object completion, whose
+reference-based metrics break down on real LiDAR, and has fixed the notation and standard
+operators the later chapters build on. Chapter~\ref{ch:pipeline} turns those operators
+into the detection pipeline and the completion method, and develops the donor-frame
+coverage metric sketched here in full.

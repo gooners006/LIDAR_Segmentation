@@ -1,27 +1,16 @@
 % Chapter 1 -- Introduction (\input by main.tex)
-% Frames the problem, the modular approach, the three research questions, the claimed
-% contributions, the scope, and the thesis outline. Its load-bearing job is to OWN the
-% proposal drift: three promises in docs/report/thesis_proposal.tex were narrowed or
-% dropped during the research, and this chapter states each as a deliberate,
-% evidence-backed decision rather than letting a committee surface it first.
-% Internal experiment records are cited as plain text "Finding~\#NN" (entries in
-% docs/findings.md), the convention used by the method/results/discussion chapters;
-% published literature uses BibTeX \cite{}.
+% Frames the problem, the modular approach, the two research questions, the
+% contribution, the scope, and the thesis outline.
+% Published literature uses BibTeX \cite{}.
 %
 % CONSISTENCY CONSTRAINTS (checked at draft time):
 %   - Every claim here is a subset of the claims map (C1--C11).
 %     Nothing is stated beyond the PARTIALLY-HOLDS scope of the held-out completion
-%     result (C9). The three claimed contributions match Chapter 2's Sec 2.5
-%     exactly (donor metric / recall root-cause / synthetic-pretraining redundancy);
+%     result (C9). The single scientific contribution (the donor metric) matches
+%     Chapter 2's Sec 2.5; the two diagnostic findings (recall root-cause /
+%     synthetic-pretraining redundancy) are reported as findings, not contributions;
 %     the pipeline, runtime characterisation, and amodal-GT builder are named as
-%     ENGINEERING contributions, not scientific claims, and tracking is explicitly
-%     not a contribution (as Sec 2.5 states outright).
-%   - Proposal-drift citations: multi-class->car-only cites Finding~\#20 (classifier
-%     only); CD+EMD->CD-only cites the domain-gap bundle (#15--19 + the input-
-%     distribution diagnosis + the KITTI-like fix #26), NOT #20; two-stage-training
-%     "reduces annotation" is reframed as the #25/#30 negative finding.
-%   - "offline" is a SCOPE statement, not a walk-back: the proposal is silent on
-%     runtime, so it is not presented as a dropped promise.
+%     ENGINEERING contributions, and tracking is explicitly not a contribution.
 %
 % Honesty-phrasing rules applied (personal_agenda P1):
 %   - recall is stated against its car-only, >=10-surviving-points denominator
@@ -37,94 +26,54 @@
 
 Autonomous driving depends on a perception system that can recover, several times a
 second, the three-dimensional layout of the scene around the vehicle: where the other
-road users are, how large they are, and which way they face. Among the sensors
-available for this task, LiDAR occupies a central place. It measures range directly
-rather than inferring it, returning an unordered cloud of over a hundred thousand
-three-dimensional points per scan that is largely invariant to lighting and supplies
-the metric depth that distance estimation and motion planning depend on. That
-directness is why the benchmarks that opened modern autonomous-driving research were
-built around it: the KITTI suite~\cite{geiger2012we} paired a scanning LiDAR with
-calibrated cameras and posed the field's motivating question --- whether the available
-perception was good enough to drive on --- and its point-wise successor
-SemanticKITTI~\cite{Behley_2019_ICCV} turned the same driving sequences into the dense
-semantic-segmentation benchmark much of the field is now measured against. Turning a
-raw scan into a list of objects is the first step in almost every downstream driving
-task.
+road users are, how large they are, and which way they face. LiDAR is central to this
+task. It measures range directly, returning an unordered cloud of over a hundred
+thousand points per scan, largely invariant to lighting and carrying the metric depth
+that motion planning needs. The benchmarks that opened the field were built around it:
+the KITTI suite~\cite{geiger2012we} paired a scanning LiDAR with calibrated cameras,
+and its point-wise successor SemanticKITTI~\cite{Behley_2019_ICCV} turned the same
+sequences into the dense segmentation benchmark much of the field is now measured
+against.
 
-The interest LiDAR has attracted is visible in the methods built on it. The dominant
-paradigm is to train a deep network end to end on annotated scans: point-based
-segmentation networks that consume the raw cloud directly~\cite{Qi_2017_CVPR,NIPS2017_d8bf84be,Hu_2020_CVPR},
-projection- and voxel-based models designed for large-scale driving scans~\cite{10.1109/ICRA.2018.8462926,milioto2019rangenet++,zhu2021cylindrical},
-object detectors that localise road users in a single pass~\cite{lang2019pointpillars,yin2021centerpoint},
-and panoptic models that segment and separate object instances jointly~\cite{zhou2021panopticpolarnet,hong2021dsnet}.
-These methods define the state of the art in accuracy, and this thesis does not set out
-to compete with them on that axis. What they share is a pair of costs the accuracy is
-paid in. The first is supervision: the results rest on dense, point-wise semantic
-labels, and the annotation effort behind a benchmark like SemanticKITTI --- a class
-assigned to every one of billions of points --- is far out of reach for most groups and
-most new datasets. The second is opacity: a network trained end to end distributes each
-decision across millions of weights, so when it misses a car the failure has no single
-stage that can be inspected or repaired.
+The dominant paradigm is to train a deep network end to end on annotated scans:
+point-based segmentation networks~\cite{Qi_2017_CVPR,NIPS2017_d8bf84be,Hu_2020_CVPR},
+projection- and voxel-based models~\cite{10.1109/ICRA.2018.8462926,milioto2019rangenet++,zhu2021cylindrical},
+single-pass object detectors~\cite{lang2019pointpillars,yin2021centerpoint}, and
+panoptic models~\cite{zhou2021panopticpolarnet,hong2021dsnet}. These define the state
+of the art in accuracy, which is paid for in two costs. The first is supervision: the
+results rest on dense, point-wise labels, and the annotation behind a benchmark like
+SemanticKITTI --- a class on every one of billions of points --- is out of reach for
+most groups and most new datasets. The second is opacity: an end-to-end network spreads
+each decision across millions of weights, so when it misses a car there is no single
+stage to inspect or repair.
 
-This thesis takes the opposite starting point. It asks how far a \emph{modular},
-largely annotation-free pipeline can go using classical geometry for the parts that
-geometry solves well and small learned models only where discrimination genuinely
-needs them --- an approach to LiDAR vehicle detection that has itself drawn renewed
-interest~\cite{lim2025longrange}. Every stage is separately
-observable and separately debuggable, and the only learned components --- the
-classifier and the completion network --- are trained without any point-wise
-semantic labels. The price of this transparency, and the limits it runs into, are as
-much the subject of this thesis as its successes.
+This thesis takes the opposite starting point, asking how far a \emph{modular},
+largely annotation-free pipeline can go: classical geometry for the parts geometry
+solves well, and small learned models only where discrimination needs them --- an
+approach to LiDAR vehicle detection that has drawn renewed interest~\cite{lim2025longrange}.
+Clustering proposes candidate objects, a small binary \emph{car}/\emph{not-car}
+classifier keeps the vehicles, and each detected car is completed by a PCN network;
+every stage is separately inspectable, and the learned components are trained without
+point-wise labels. Chapter~\ref{ch:pipeline} gives the full pipeline
+(Figure~\ref{fig:pipeline}).
 
-The system is a modular hybrid. A raw scan is filtered and downsampled, the ground
-plane is removed by a relative-height RANSAC fit, and the remaining points are
-grouped into candidate objects by HDBSCAN density clustering. A geometric filter
-discards clusters that cannot be cars on size grounds, a dual-branch PointNet-style
-binary classifier labels each surviving cluster as \emph{car} or \emph{not-car}, and
-a centroid tracker links detections across frames so that transient, one-frame
-clusters can be voted away. Each detected car is then passed to a PCN completion
-network that predicts a filled point cloud for the whole vehicle from the single
-partial view. The design commitment is deliberate: classical geometry does the
-spatial decomposition it is reliable at, while the learned models are kept small and
-are asked only to discriminate and to reconstruct. The full architecture, the
-per-stage parameters, and the classifier's training procedure are the subject of
-Chapter~\ref{ch:pipeline}, whose pipeline diagram (Figure~\ref{fig:pipeline}) shows the stages and their measured
-per-stage cost; this chapter states only the shape of the approach.
-
-Two points about the approach are worth making early, because they shape what the
-thesis can and cannot claim. First, the tracker is used purely as a temporal filter
---- it removes flicker detections and does nothing to interpolate or recover missed
-cars --- so it is not counted among the contributions. Second, the completion
-network is trained only on synthetic partial renders made to imitate LiDAR
-sampling; it never sees a labelled real car. This is what makes the pipeline
-near-annotation-free, and it is also the source of the sim-to-real questions that
-Chapter~\ref{ch:evaluation} takes up.
-
-It is the second half of this pipeline that carries the thesis's central
-contribution, and it begins with a measurement problem. Completing a partially
-observed car --- recovering the far side that the sensor cannot reach --- is
-attractive for downstream box estimation, and point-completion networks such as
-PCN~\cite{yuan2019pcnpointcompletionnetwork} are well studied on synthetic
-benchmarks. Applying them to real LiDAR raises a problem that turns out to be
-central: there is no clean ground-truth complete shape to measure against, and the
-obvious substitute --- accumulating the same static car across many frames to build
-a pseudo-ground-truth --- is itself one-sided and, as this thesis shows, invalid as
-a reference, because the raw partial input scores \emph{best} against it. Before
-completion can be claimed to help, it must be possible to measure at all. The
-central contribution of this thesis is a metric that does so: a validated
-donor-frame coverage metric that scores how much genuinely occluded
-surface a completion recovers, and which, applied to real cars, shows that learned
-completion recovers such surface well above a parameter-free baseline. The detection
-pipeline above is, in this light, the front-end that supplies the metric its inputs;
-what limits that front-end is itself diagnosed and reported, but the measurement is
-the spine the thesis is built around.
+It is the second half of this pipeline that raises the problem the thesis is built
+around. Completing a partially observed car --- recovering the far side the sensor
+cannot reach --- is attractive for downstream box estimation, and networks such as
+PCN~\cite{yuan2019pcnpointcompletionnetwork} are well studied on synthetic benchmarks.
+On real LiDAR they cannot be evaluated: there is no clean ground-truth complete shape,
+and the obvious substitute --- accumulating the same static car across many frames ---
+is itself one-sided and, as this thesis shows, invalid as a reference, because the raw
+partial input scores \emph{best} against it. Before completion can be claimed to help,
+it must be possible to measure at all.
 
 \section{Contributions and scope}
 \label{sec:intro-contributions}
 
-The work is organised around three research questions; the contributions that follow
-answer them in turn, and the scope stated at the end of the section bounds where those
-answers hold.
+The work is organised around two research questions about measuring and validating
+completion on real LiDAR; the central contribution answers them, and two further
+findings --- reported below in their own right --- record what the investigation
+revealed about the detection front-end along the way.
 
 \begin{description}
   \item[RQ1.] How can the quality of point-cloud completion be evaluated on
@@ -136,106 +85,46 @@ answers hold.
     improve downstream amodal bounding boxes on real LiDAR cars? And does any such
     benefit survive on a held-out sequence under a pre-registered test? This is
     answered in Section~\ref{sec:donor-validation}, with the held-out outcome reported exactly as it fell.
-  \item[RQ3.] What limits the recall of a training-free clustering-plus-classifier
-    detector, and is synthetic pretraining actually necessary for the classifier?
-    The first half is answered in Section~\ref{sec:recall-analysis}, the second in Chapter~\ref{ch:evaluation}.
 \end{description}
 
-The thesis makes three claimed contributions, all methodological or diagnostic
-rather than architectural. It does not claim novelty for the pipeline itself: the
-clustering, classification, tracking, and completion stages are established building
-blocks, reimplemented and tuned here.
+The thesis makes a single scientific contribution: \textbf{a validated metric for
+evaluating occluded-vehicle completion on real LiDAR}, methodological rather than
+architectural. The detection and completion stages are established building blocks,
+reimplemented and tuned here; the contribution is the measurement built on top of them.
+Chamfer distance against an accumulated pseudo-ground-truth is invalid on real cars, so
+the thesis instead defines a donor-frame occluded-side coverage metric: it scores how
+much of the surface seen only in \emph{other} frames of the same static car a completion
+recovers, with a hallucination guard against surface invented outside the car's box, and
+is validated against a four-item gate. Applied to real sequence-08 cars, it shows that
+PCN recovers occluded surface several times above the symmetry-mirror baseline and
+improves amodal boxes on static, gate-passed cars, and that the benefit partially holds
+on a pre-registered held-out sequence (Section~\ref{sec:donor-validation}).
 
-\begin{enumerate}
-  \item \textbf{A validated metric for completion quality on real LiDAR.} The
-    thesis first shows that reference-based Chamfer distance against an accumulated
-    pseudo-ground-truth is invalid on real cars --- the raw partial input scores
-    \emph{best} on that metric, because the reference is itself occluded on the same
-    side (Finding~\#26). It then defines a donor-frame occluded-side coverage
-    metric that scores how much of the surface seen only in \emph{other} frames of
-    the same static car a completion recovers, with a hallucination guard against
-    surface invented outside the car's box, and validates it against a four-item
-    gate (Findings~\#32/\#37). Applied to real sequence-08 cars, the metric shows
-    that PCN recovers occluded surface several times above the symmetry-mirror
-    baseline and improves amodal boxes on static, gate-passed cars, and that the
-    benefit partially holds on a pre-registered held-out sequence
-    (Findings~\#29/\#42). This is the completion half's central contribution and is
-    developed in Section~\ref{sec:donor-validation}.
-  \item \textbf{A root-cause account of the recall bottleneck, with a chain of
-    negative repair results.} Recall is limited not by the classifier but by
-    density clustering splitting single cars into fragments (Finding~\#23). A
-    search of repair strategies --- larger minimum cluster size, fragment merging,
-    adaptive and BEV clustering, temporal accumulation --- fails to generalise,
-    each for a structural reason (Findings~\#21/\#24); the one lever that helped
-    was the clustering resolution itself (Finding~\#34). The negative results are reported as findings in their
-    own right in Section~\ref{sec:recall-analysis}.
-  \item \textbf{Evidence that synthetic pretraining is redundant for the classifier
-    at scale.} A from-scratch classifier matches a synthetically pretrained one once
-    real training clusters are plentiful, and a cross-domain matrix shows the
-    sim-to-real gap is total and symmetric (Findings~\#25/\#30). This directly
-    replaces a contribution promised in the proposal, as reconciled at the end of
-    this section, and is presented in Chapter~\ref{ch:evaluation}.
-\end{enumerate}
+Along the way the investigation produced two diagnostic findings: that recall is
+limited by density clustering splitting single cars into fragments rather than by the
+classifier, with a chain of repair strategies that fail to generalise
+(Section~\ref{sec:recall-analysis}); and that synthetic pretraining is redundant for
+the classifier once real training clusters are plentiful (Chapter~\ref{ch:evaluation}).
 
-Alongside these, the thesis delivers several \emph{engineering} contributions that
-are not claimed as scientific results: the modular pipeline and its runtime
-characterisation, an amodal ground-truth box builder for the completion evaluation,
-and the reproducibility infrastructure (deterministic evaluation, invariant tests)
-that the frozen results rest on. A number of directions that did not work ---
-architecture swaps and real-data fine-tuning for completion (Findings~\#16/\#17/\#19/\#28),
-and a sparse-fallback length model (Finding~\#40) --- are reported as negative
-findings rather than omitted.
+Alongside these, the thesis delivers several \emph{engineering} contributions --- the
+modular pipeline and its runtime characterisation, an amodal ground-truth box builder,
+and the reproducibility infrastructure the frozen results rest on --- and reports the
+directions that did not work (architecture swaps, real-data completion fine-tuning, a
+sparse-fallback length model) as negative findings rather than omitting them.
 
-The thesis is deliberately narrow, and the boundaries are worth stating plainly
-rather than leaving to be inferred. \textbf{The detector is car-only:} the
-classifier is binary (car / not-car), and no other class is detected. \textbf{The
-system is offline:} it runs at about \SI{623.5}{\milli\second} per frame
-(\num{1.6}~frames per second) on the reference hardware, and reducing this to
-real-time is out of scope; the runtime is characterised (Section~\ref{sec:results-runtime},
-Findings~\#33/\#34), not optimised further. \textbf{The detector is reported at one
-operating point but cross-validated across all eleven labelled sequences:}
-sequence~08 (\num{4071} scans) is the operating point at which the ablations,
-recall root-cause, and completion analysis are decomposed, while sequence~00 is the
-pre-registered held-out completion check; a leave-one-sequence-out cross-validation
-(Section~\ref{sec:eval-loso}) scores every sequence with a classifier that never saw
-it, which both bounds the model-selection exposure to about two precision points and
-supplies the per-sequence recall spread.
-Throughout, ``recall'' is reported against its car-only, at-least-ten-surviving-points
-denominator, and the two distinct ten-point rules this involves are disambiguated
-in Section~\ref{sec:eval-protocol}.
-
-This scope is narrower than the original proposal in three specific ways, each the
-result of an experiment rather than a change of ambition.
-
-\emph{From multi-class to car-only.} The proposal described a pipeline supporting
-car, bus, and motorcycle. Run on real data, the four-class classifier produced false
-motorcycle detections --- sequence~08 contains no motorcycles at all --- and its car
-recall was poor, so it was replaced by the binary car / not-car classifier used
-throughout (Finding~\#20). The rare classes had too few real examples to learn from;
-narrowing to cars matches the class distribution of the data.
-
-\emph{From a CD+EMD completion loss to CD only.} The proposal planned to combine
-Chamfer distance with an Earth Mover's distance term to counter the point-clustering
-artefacts that Chamfer-only training can produce. That artefact was never the
-operative failure mode: the completion outputs were failing as diffuse blobs on real
-input because of a domain gap in the input \emph{partiality pattern} --- synthetic
-pinhole renders differ from real scan-line LiDAR --- not because of point
-non-uniformity (Findings~\#15--\#19). Once that gap was closed with a KITTI-like
-partial generator and an inference-normalisation fix (Finding~\#26), Chamfer-only
-training was sufficient, and the EMD term (documented but never implemented) was not
-needed.
-
-\emph{The two-stage-training contribution is withdrawn and reframed.} The proposal
-listed a two-stage synthetic-pretraining-then-fine-tuning strategy as a contribution
-that would ``dramatically reduce annotation requirements.'' The evidence does not
-support that claim: a from-scratch classifier matches the pretrained one, and the
-sim-to-real gap is total in both directions, so the synthetic stage is redundant
-once real clusters are plentiful rather than annotation-saving (Findings~\#25/\#30).
-This is reported as the negative finding it is (contribution~3 above), and the
-two-stage training survives only as an ablation.
-
-Finally, the offline framing above is a scope statement, not a walked-back promise:
-the proposal was silent on runtime.
+\textbf{The detector is car-only:} the classifier is binary (car / not-car). \textbf{The tracker is a filter only:} it removes flicker
+detections and is not counted among the contributions. \textbf{Completion is trained
+without real labels:} the network sees only synthetic partial renders, never a labelled
+real car --- what makes the pipeline near-annotation-free, and the source of the
+sim-to-real questions Chapter~\ref{ch:evaluation} takes up. \textbf{The system is
+offline:} it runs at about \SI{623.5}{\milli\second} per frame (\num{1.6}~fps), and
+real-time is out of scope (Section~\ref{sec:results-runtime}). \textbf{Detection is
+reported at one operating point but cross-validated:} sequence~08 (\num{4071} scans) is
+where the ablations, recall root-cause, and completion analysis are decomposed, and a
+leave-one-sequence-out cross-validation (Section~\ref{sec:eval-loso}) bounds the
+model-selection exposure to about two precision points. Throughout, ``recall'' is
+reported against its car-only, at-least-ten-surviving-points denominator
+(Section~\ref{sec:eval-protocol}).
 
 \section{Thesis outline}
 \label{sec:intro-outline}
