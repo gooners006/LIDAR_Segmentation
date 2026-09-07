@@ -11,19 +11,39 @@
 %   - every number traceable to a finding / output artifact.
 %   - "the classifier's job is precision" claim deferred to the Ch-4 ablation.
 %
-\chapter{Methodology}
+\chapter{Proposed Methodology}
 \label{ch:pipeline}
 
-This chapter describes the method in the order a scan flows through it: a modular,
-classical car-detection pipeline (Section~\ref{sec:meth-detection}) that segments
-and classifies car clusters, an object-completion stage
-(Section~\ref{ch:completion-method}) that reconstructs each detected car's full
-surface from the one-sided partial a single frame observes, and the
-donor metric (Section~\ref{sec:donor-metric}) that makes that completion measurable
-on real data. The completion is evaluated with this metric in
-Section~\ref{sec:donor-validation}.
+This chapter presents the proposed method: a modular detection-and-completion system
+for automotive LiDAR, and the donor-frame metric that makes its completion measurable
+on real data. Section~\ref{sec:meth-architecture} gives the overall architecture; the
+sections that follow describe each stage in the order a scan flows through it, and the
+completion is evaluated with the donor metric in Section~\ref{sec:donor-validation}.
 
-\section{Detection pipeline}
+\section{System Architecture}
+\label{sec:meth-architecture}
+
+The method is a single system that turns a raw LiDAR scan into completed,
+box-estimated cars together with a quality measurement for each completion. It is
+organised as three stages in sequence, each the subject of one section below. The
+\emph{detection} stage (Section~\ref{sec:meth-detection}) segments and classifies car
+clusters from the raw scan, emitting an oriented bounding box and a stable track
+identity per car. The \emph{completion} stage (Section~\ref{ch:completion-method})
+reconstructs each detected car's full surface from the one-sided partial a single
+frame observes. The \emph{measurement} stage --- the donor-frame coverage metric
+(Section~\ref{sec:donor-metric}) --- makes that completion quantifiable on real data,
+where no clean ground-truth complete shape exists. Figure~\ref{fig:pipeline} shows the
+detection chain that produces every input the later two stages consume, annotated with
+the measured per-stage cost.
+
+The design is deliberately modular and classical: classical geometry does the work
+geometry solves well, and small learned models are used only where discrimination
+needs them, so every stage is separately inspectable and its cost separately
+measurable. This architecture is what lets the evaluation
+(Chapter~\ref{ch:evaluation}) attribute the recall limit to a single stage rather than
+to an opaque network.
+
+\section{Detection Pipeline}
 \label{sec:meth-detection}
 
 This section describes the car-detection pipeline that produces every detection
@@ -45,7 +65,7 @@ parameter lives in a single dictionary, \texttt{PIPELINE\_CONFIG} in
 values are collected in Table~\ref{tab:pipeline-config}. Figure~\ref{fig:pipeline}
 gives the full chain with the measured per-stage cost.
 
-\subsection{Overview}
+\subsection{Overview of the Modular Detection Pipeline}
 \label{sec:pipeline-overview}
 
 \begin{figure}[H]
@@ -55,23 +75,25 @@ gives the full chain with the measured per-stage cost.
       node distance=6mm,
       stage/.style={
         draw, rounded corners, align=center,
-        minimum width=32mm, minimum height=11mm,
+        minimum width=34mm, minimum height=11mm,
         fill=blue!5, thick},
       learned/.style={stage, fill=orange!12},
       io/.style={draw, ellipse, align=center, fill=black!5,
-        minimum width=26mm, minimum height=9mm},
+        minimum width=28mm, minimum height=9mm},
       ms/.style={font=\footnotesize\itshape, text=black!60},
       arr/.style={-{Stealth[length=2.2mm]}, thick},
+      grp/.style={draw=black!45, dashed, rounded corners, inner sep=3mm},
+      grplab/.style={font=\footnotesize\bfseries, text=black!65},
     ]
     \node[io] (raw) {Raw LiDAR scan\\$\sim$120k points};
     \node[stage, below=of raw] (pre) {Preprocess\\{\footnotesize $z$-filter $\to$ voxel $\to$ denoise}};
     \node[stage, below=of pre] (ground) {Ground removal\\{\footnotesize RANSAC plane}};
     \node[stage, below=of ground] (cluster) {Clustering\\{\footnotesize HDBSCAN @ \SI{0.10}{\meter}}};
-    \node[stage, below=of cluster] (geo) {Geometric filter\\{\footnotesize OBB gates}};
+    \node[stage, below=12mm of cluster] (geo) {Geometric filter\\{\footnotesize OBB gates}};
     \node[learned, below=of geo] (clf) {Classifier\\{\footnotesize PointNet, car/not-car}};
     \node[stage, below=of clf] (track) {Tracker\\{\footnotesize centroid + track vote}};
     \node[io, below=of track] (out) {Car detections\\{\footnotesize boxes + track ids}};
-    \node[learned, right=18mm of track] (comp) {Completion\\{\footnotesize PCN (Ch.~6)}};
+    \node[learned, right=24mm of out] (comp) {Completion\\{\footnotesize PCN (\S\ref{ch:completion-method})}};
 
     \draw[arr] (raw) -- (pre);
     \draw[arr] (pre) -- (ground);
@@ -80,19 +102,31 @@ gives the full chain with the measured per-stage cost.
     \draw[arr] (geo) -- (clf);
     \draw[arr] (clf) -- (track);
     \draw[arr] (track) -- (out);
-    \draw[arr] (track) -- (comp);
+    \draw[arr] (out) -- (comp);
 
-    % per-stage timing annotations (right of each stage)
-    \node[ms, right=2mm of pre]     {\SI{126}{\milli\second} (20\%)};
-    \node[ms, right=2mm of ground]  {\SI{56}{\milli\second} (9\%)};
-    \node[ms, right=2mm of cluster] {\SI{370}{\milli\second} (59\%)};
-    \node[ms, right=2mm of geo]     {\SI{36}{\milli\second} (6\%)};
-    \node[ms, below=0.5mm of comp.south, text width=34mm, align=center]
+    % dashed phase blocks (segmentation: points -> clusters; detection: clusters -> cars)
+    \begin{scope}[on background layer]
+      \node[grp, fit=(pre)(ground)(cluster)] (segbox) {};
+      \node[grp, fit=(geo)(clf)(track)] (detbox) {};
+    \end{scope}
+    \node[grplab, rotate=90] at ([xshift=-4mm]segbox.west) {Segmentation};
+    \node[grplab, rotate=90] at ([xshift=-4mm]detbox.west) {Detection};
+
+    % per-stage timing in one column, anchored to the phase-block right edge (uniform gap)
+    \node[ms, anchor=west] at ([xshift=6mm]segbox.east|-pre)     {\SI{126}{\milli\second} (20\%)};
+    \node[ms, anchor=west] at ([xshift=6mm]segbox.east|-ground)  {\SI{56}{\milli\second} (9\%)};
+    \node[ms, anchor=west] at ([xshift=6mm]segbox.east|-cluster) {\SI{370}{\milli\second} (59\%)};
+    \node[ms, anchor=west] at ([xshift=6mm]detbox.east|-geo)     {\SI{36}{\milli\second} (6\%)};
+    \node[ms, anchor=west] at ([xshift=6mm]detbox.east|-clf)     {\SI{34}{\milli\second} (5\%)};
+    \node[ms, anchor=west] at ([xshift=6mm]detbox.east|-track)   {\SI{0.3}{\milli\second}};
+    \node[ms, below=1mm of comp.south, text width=34mm, align=center]
       {\footnotesize\itshape +\SI{13}{\milli\second} per completed car};
-    \node[ms, left=2mm of clf]      {\SI{34}{\milli\second} (5\%)};
-    \node[ms, left=2mm of track]    {\SI{0.3}{\milli\second}};
   \end{tikzpicture}
-  \caption[The detection pipeline]{The detection pipeline. Learned stages are shaded; all others are
+  \caption[Detection pipeline]{The detection pipeline, grouped into two phases (dashed): a
+    \emph{segmentation} phase that turns a raw scan into clusters (preprocess, ground removal,
+    clustering) and a \emph{detection} phase that turns clusters into tracked car boxes
+    (geometric filter, classifier, tracker); the optional completion stage (right) runs off the
+    tracked detections. Learned stages are shaded; all others are
     classical. Per-stage figures are mean wall-clock time on the full
     sequence~08 under the final (promoted) configuration
     (\num{4068} frames, AMD Ryzen 7 7800X3D + RTX 3070~Ti;
@@ -116,7 +150,7 @@ clustering alone is \SI{59}{\percent} of the frame budget, and the only learned
 per-frame stage, the classifier, is just \SI{5}{\percent}. The expensive parts of this pipeline are
 classical, not neural.
 
-\subsection{Preprocessing}
+\subsection{Preprocessing: Filtering, Downsampling, and Denoising}
 \label{sec:pipeline-preprocess}
 
 Each raw scan (roughly \num{120000} points) passes through three cleaning steps
@@ -148,7 +182,7 @@ Preprocessing costs \SI{126}{\milli\second\per\frame} in total, split across the
 $z$-filter (\SI{58}{\milli\second}), denoising (\SI{50}{\milli\second}), and
 downsampling (\SI{18}{\milli\second}).
 
-\subsection{Ground removal}
+\subsection{Ground-Plane Removal by RANSAC}
 \label{sec:pipeline-ground}
 
 The dominant remaining structure after preprocessing is the ground plane, which
@@ -172,7 +206,7 @@ data; the fit uses a fixed seed (\texttt{np.random.default\_rng(42)}) so ground
 removal, and therefore the whole pipeline, is deterministic across runs. Ground
 removal costs \SI{56}{\milli\second\per\frame} (\SI{9}{\percent} of the frame).
 
-\subsection{Clustering}
+\subsection{Object-Candidate Clustering with HDBSCAN}
 \label{sec:pipeline-cluster}
 
 Non-ground points are grouped into object candidates with HDBSCAN, a
@@ -191,14 +225,59 @@ HDBSCAN is run there, and the labels are propagated back to the full-resolution
 points by nearest neighbour. This was adopted because the coarser
 grid closes intra-car density gaps that otherwise cause a single car to split
 into several clusters --- the central mechanism of the recall bottleneck analysed
-in Section~\ref{sec:recall-analysis} --- and it added \num{1655} true positives on the full sequence~08.
+in Section~\ref{sec:recall-analysis} (Figure~\ref{fig:clustering}) --- and it added \num{1655} true positives on the full sequence~08.
 Second, HDBSCAN is by far the most expensive stage at
 \SI{370}{\milli\second\per\frame} (\SI{59}{\percent} of the budget), because it is
 superlinear in the point count; the coarse-grid trick is as much a speed measure
 as an accuracy one. The clustering stage produces on average \num{45} candidate
 clusters per frame.
 
-\subsection{Geometric filtering}
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[
+      font=\footnotesize, node distance=5mm and 7mm,
+      blk/.style={draw, rounded corners, align=center, fill=blue!5, thick,
+        minimum height=9mm, inner sep=3pt},
+      io/.style={draw, ellipse, align=center, fill=black!5, inner sep=2pt},
+      arr/.style={-{Stealth[length=2mm]}, thick},
+      note/.style={font=\scriptsize\itshape, text=black!60, align=center},
+    ]
+    % --- top: the clustering flow ---
+    \node[io] (in) {non-ground\\points};
+    \node[blk, right=of in] (vox) {re-voxel\\\SI{0.10}{\meter}};
+    \node[blk, right=of vox] (hdb) {HDBSCAN\\{\scriptsize min\_size \num{10}, min\_samples \num{5}}};
+    \node[blk, right=of hdb] (prop) {propagate labels\\{\scriptsize NN $\to$ full-res}};
+    \node[io, right=of prop] (out) {$\sim$\num{45}\\clusters};
+    \draw[arr] (in)--(vox); \draw[arr] (vox)--(hdb);
+    \draw[arr] (hdb)--(prop); \draw[arr] (prop)--(out);
+
+    % --- bottom: why the coarser grid (split vs whole) ---
+    \node[note] (why) at ($(hdb.south)+(0,-6mm)$)
+      {\textbf{Why re-voxel coarser?} closing intra-car density gaps ($+\num{1655}$ TP on seq~08)};
+    \begin{scope}[shift={($(vox.south)+(0,-17mm)$)}]
+      \draw[rounded corners, black!45] (-1.15,-0.42) rectangle (1.15,0.42);
+      \fill[blue!30] (-0.62,0) ellipse (0.42 and 0.30);
+      \fill[red!30]  (0.62,0)  ellipse (0.42 and 0.30);
+      \node[note] at (0,-0.85) {\SI{0.05}{\meter} grid:\\car splits (2 clusters) {\textcolor{red!75!black}{$\times$}}};
+    \end{scope}
+    \begin{scope}[shift={($(prop.south)+(0,-17mm)$)}]
+      \draw[rounded corners, black!45] (-1.15,-0.42) rectangle (1.15,0.42);
+      \fill[green!40] (0,0) ellipse (1.0 and 0.30);
+      \node[note] at (0,-0.85) {\SI{0.10}{\meter} grid:\\one cluster {\textcolor{green!55!black}{$\surd$}}};
+    \end{scope}
+  \end{tikzpicture}
+  \caption[Clustering stage]{The clustering stage. Non-ground points are re-voxelised to a coarser
+    \SI{0.10}{\meter} grid, clustered with HDBSCAN (density-adaptive, so a single car stays whole at
+    both near and far range without a hand-tuned radius), and the cluster labels are propagated back to
+    the full-resolution points by nearest neighbour. The coarser grid is load-bearing (bottom): on the
+    \SI{0.05}{\meter} preprocessing grid intra-car density gaps split one car into several clusters,
+    whereas the \SI{0.10}{\meter} grid closes them and keeps the car a single cluster --- worth
+    \num{1655} true positives on sequence~08. HDBSCAN is the pipeline's most expensive stage at
+    \SI{370}{\milli\second\per\frame} (\SI{59}{\percent}), so the coarse grid is also a speed measure.}
+  \label{fig:clustering}
+\end{figure}
+
+\subsection{Geometric Filtering of Non-Car Clusters}
 \label{sec:pipeline-geometric}
 
 Most clusters are not cars: they are trees, poles, building facades, and
@@ -227,7 +306,7 @@ being perfectly level. The filter costs \SI{36}{\milli\second\per\frame}
 high-recall and low-precision by construction, and the
 classifier is what turns its survivors into precise detections.
 
-\subsection{Classifier}
+\subsection{The Car / Not-Car Point Classifier}
 \label{sec:pipeline-classifier}
 
 Each surviving cluster is classified as \emph{car} or \emph{not-car} by a small
@@ -290,7 +369,7 @@ consistent sensor frame.
     \draw[arr] (head) -- (out);
   \end{tikzpicture}%
   }
-  \caption[The dual-branch classifier]{The dual-branch classifier (\texttt{src/classifier.py}), applied to one
+  \caption[Dual-branch classifier]{The dual-branch classifier (\texttt{src/classifier.py}), applied to one
     cluster. The \emph{point branch} takes \num{512} unit-sphere-normalised points
     through shared per-point MLPs and a max-pool to a \num{256}-d shape descriptor;
     the \emph{bounding-box branch} takes \num{8} metric shape features --- the
@@ -330,7 +409,18 @@ symmetric, is presented as a negative result rather than as a
 contribution. The classifier costs \SI{34}{\milli\second\per\frame} (about
 \SI{0.75}{\milli\second} per cluster over the \num{45} clusters in a frame).
 
-\subsection{Tracking and track-level filtering}
+\paragraph{Training.} The from-scratch checkpoint is trained for \num{15} epochs
+with Adam (learning rate \num{e-4}, weight decay \num{e-5}) and a step schedule
+that halves the rate every \num{10} epochs, at batch size \num{64}. The loss is
+cross-entropy weighted by inverse square-root class frequency (normalised to unit
+mean), which offsets the intrinsic $\approx$21\,\%/79\,\% car/not-car imbalance
+without resampling. Training clusters are augmented online with a random rotation
+about the vertical axis and Gaussian jitter ($\sigma = \SI{0.005}{\meter}$); the
+input is the \num{512}-point cluster of the architecture above. Runs are seeded
+and the reported checkpoint is the epoch with the best validation macro-$F_1$
+(\num{0.9285} on the sequence-08 validation clusters).
+
+\subsection{Multi-Frame Tracking and Track-Level Filtering}
 \label{sec:pipeline-tracker}
 
 Detections are linked across frames by a centroid tracker
@@ -342,7 +432,8 @@ frames is retired. This is an offline, centroid-only tracker --- no motion model
 no appearance --- which is adequate here because detection, not association, is
 the bottleneck; an IoU-based (SORT-style) tracker is listed as future work.
 
-The tracker also enables a \emph{track-level filter} that improves precision.
+The tracker also enables a \emph{track-level filter} that improves precision
+(Figure~\ref{fig:tracker}).
 Each detection carries the classifier's per-frame label; a track is accepted as a
 car only if, across its lifetime, it collected at least \num{2} non-rejected
 votes, those known votes are a majority of its votes
@@ -354,7 +445,53 @@ the offline scope of the system; its contribution is isolated as an ablation row
 in Chapter~\ref{ch:evaluation}. The tracker itself is effectively free at
 \SI{0.3}{\milli\second\per\frame}.
 
-\subsection{Frozen configuration}
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[
+      font=\footnotesize, node distance=6mm and 14mm,
+      det/.style={draw, rounded corners, align=center, fill=blue!5, thick,
+        minimum height=10mm, minimum width=20mm, inner sep=3pt},
+      dec/.style={draw, rounded corners, align=center, fill=orange!10, thick, inner sep=5pt},
+      res/.style={draw, ellipse, align=center, inner sep=3pt, minimum width=22mm},
+      arr/.style={-{Stealth[length=2mm]}, thick},
+      lbl/.style={font=\scriptsize\itshape, text=black!60, align=center},
+    ]
+    % one track's per-frame detections, linked by centroid association
+    \node[det] (d1) {det @ $t$\\[1pt]{\scriptsize\bfseries car}};
+    \node[det, right=of d1] (d2) {det @ $t{+}1$\\[1pt]{\scriptsize\bfseries car}};
+    \node[det, right=of d2] (d3) {det @ $t{+}2$\\[1pt]{\scriptsize not-car}};
+    \draw[arr] (d1)--(d2);
+    \draw[arr] (d2)--(d3);
+    \node[lbl, above=1mm of d2] {Hungarian assignment, centroid $\le$\,\SI{2}{\meter}};
+    \node[lbl, right=6mm of d3, text width=24mm] (ret)
+      {unmatched $>\num{5}$ frames\\$\Rightarrow$ track retired};
+
+    % track-level filter over the whole vote sequence
+    \node[dec, below=12mm of d2, text width=70mm] (filt)
+      {\textbf{Track-level filter} (whole track, offline)\\[2pt]
+       $\ge \num{2}$ known votes \;\, $\wedge$ \;\, known-vote majority $\ge \num{0.5}$
+       \;\, $\wedge$ \;\, single agreed class};
+    \draw[arr] (d1) -- (filt.north west);
+    \draw[arr] (d2) -- (filt.north);
+    \draw[arr] (d3) -- (filt.north east);
+
+    \node[res, fill=green!15, below left=9mm and 3mm of filt] (acc) {accept:\\car track};
+    \node[res, fill=black!5, below right=9mm and 3mm of filt] (rej) {reject};
+    \draw[arr] (filt.south) -- (acc);
+    \draw[arr] (filt.south) -- (rej);
+  \end{tikzpicture}
+  \caption[Tracker and track-level filter]{The tracker and track-level filter. Per-frame detections
+    are linked into tracks by Hungarian assignment on centroid distance (matches beyond \SI{2}{\meter}
+    rejected; a track unmatched for more than \num{5} frames retired). The track-level filter then
+    resolves each track over its \emph{whole} vote sequence rather than per frame: a track is accepted as
+    a car only with at least \num{2} known votes, a known-vote majority of at least \num{0.5}, and
+    agreement on a single class. In the worked example the votes \{car, car, not-car\} clear all three
+    gates, so a classifier flicker in one frame is overruled by temporal majority. Both steps are
+    offline; the tracker costs \SI{0.3}{\milli\second\per\frame}.}
+  \label{fig:tracker}
+\end{figure}
+
+\subsection{The Frozen Pipeline Configuration}
 \label{sec:pipeline-config}
 
 Table~\ref{tab:pipeline-config} lists the frozen parameter values that produce
@@ -409,7 +546,8 @@ the detections themselves is Chapter~\ref{ch:evaluation}.
 
 %% ===== merged from sec_6_completion_method.tex ===== %%
 
-% Point-Cloud Completion: Method and Debugging Story (folds under Chapter 3).
+% Point-Cloud Completion: Method (clean-method-first; false starts gathered in a
+% closing "Negative results and lessons" subsection). Folds under Chapter 3.
 %
 % Scope: this section is the completion METHOD and the debugging narrative that
 % produced it. The completion RESULTS (donor metric, box metric, held-out
@@ -432,22 +570,27 @@ the detections themselves is Chapter~\ref{ch:evaluation}.
 %   Fig 6.3 viz_completion.py           -> completion_shape_08.png (final output, output/08)
 % Floats set [htbp]. Draft-grade renders; may get a cosmetic restyle in the figure pass.
 %
-\section{Object completion}
+\section{Object Completion}
 \label{ch:completion-method}
 
 This part of the method takes each detected car and \emph{completes} it:
 from the one-sided, partial cluster a single LiDAR frame observes, it predicts
-the full car surface. This section describes the completion method. It is written
-as the debugging story that actually produced it, because the useful scientific
-content here is not the network --- a standard Point Completion Network (PCN)
-taken off the shelf --- but the sequence of failures and fixes needed to make a
-completion model trained on synthetic CAD data work on real LiDAR. Several of
-those steps are negative results, and they are reported as findings rather than
-smoothed over. The evaluation of the finished method --- whether it adds
-genuinely unseen surface, and whether that generalises --- is the subject of
-Section~\ref{sec:donor-validation}; here we state each fix's headline effect and defer the rest.
+the full car surface. The section presents the finished method in the order a
+cluster passes through it --- the network, its training data, the inference-time
+normalisation, the input gate, and the length geometry --- and then, separately,
+gathers the negative results and lessons that shaped it
+(Section~\ref{sec:completion-lessons}). Those false starts are of independent value
+--- one is the motivating case for a project-wide rule --- so they are reported as
+findings rather than smoothed over, but they are kept out of the method description
+so that reads as what the pipeline does, not as how it was arrived at. The scientific
+content here is not the network, a standard Point Completion Network (PCN) used off the
+shelf, but the data it is trained on and the geometry by which a real partial is
+presented to it. The evaluation of the finished method --- whether it adds genuinely
+unseen surface, and whether that generalises --- is the subject of
+Section~\ref{sec:donor-validation}; here we state each step's headline effect and defer
+the rest.
 
-\subsection{Completion targets}
+\subsection{Completion Targets: Single-Frame Car Clusters}
 \label{sec:completion-what}
 
 Completion runs on the tracked car detections of Section~\ref{sec:meth-detection}. The input is a
@@ -459,7 +602,7 @@ observation. The value proposition --- that completing this partial improves the
 car's amodal box and recovers surface the frame never saw --- is what Section~\ref{sec:donor-validation}
 measures; this section is how the completion is produced.
 
-\subsection{The completion network}
+\subsection{The Completion Network (PCN)}
 \label{sec:completion-pcn}
 
 We use PCN (Yuan et al., 2018), an encoder--decoder for point clouds
@@ -501,7 +644,7 @@ encoder.
     \node[lbl, above=1mm of mp1] {encoder (stacked PointNet)};
     \node[lbl, below=1mm of coarse] {decoder (coarse-to-fine)};
   \end{tikzpicture}
-  \caption[The completion network (PCN)]{The completion network (PCN, \texttt{src/pcn.py}). A stacked-PointNet
+  \caption[Completion network (PCN)]{The completion network (PCN, \texttt{src/pcn.py}). A stacked-PointNet
     encoder maps the \num{256}-point partial to a \num{1024}-d global shape code;
     a coarse-to-fine decoder predicts \num{1024} seed points and folds a small 2D
     grid patch onto each to produce the dense \num{4096}-point car. Every block is
@@ -509,40 +652,28 @@ encoder.
   \label{fig:pcn}
 \end{figure}
 
-The architecture is not a contribution and was not modified: a controlled
-benchmark against PoinTr found PoinTr's synthetic edge small
-(Chamfer \SI{0.161}{}$\to$\SI{0.153}{\meter}) and its real-data behaviour
-equivalent, so PCN was kept and architecture changes were ruled out. Everything
-that follows is about the \emph{data} PCN is trained on and the \emph{geometry}
-of how a real partial is presented to it --- which is where all the difficulty
-turned out to live.
+The architecture is not a contribution and was not modified; the controlled comparison
+against PoinTr that justifies keeping PCN --- a small synthetic edge and equivalent
+real-data behaviour --- is reported with the completion ablations
+(Section~\ref{sec:abl-completion}). What makes PCN
+work on real cars is not the weights but the two subsections that follow: the
+distribution of partials it is trained on, and the frame a real partial is normalised
+into at inference.
 
-\subsection{Domain-gap failures (a negative result)}
-\label{sec:completion-domaingap}
-
-The first several attempts to run PCN on real cars all produced ``blobs'' ---
-rounded, car-sized point clouds with no recognisable car structure. At the time this was attributed to the training data being
-synthetic, and the response was a series of sim-to-real remedies: LiDAR-noise
-augmentation of the synthetic partials, and real-data fine-tuning. None of them
-fixed the blobs, and the fine-tuning attempts are recorded as a
-negative result: on this data, fine-tuning PCN on mined real pairs did not
-recover real-car geometry. The reason it could not is the subject of the next two
-subsections --- the problem was in two places at once, and neither was the network
-weights.
-
-\subsection{Synthesising KITTI-like partials}
+\subsection{Training Data: KITTI-Like Partials}
 \label{sec:completion-kittilike}
 
-The first real cause was that the synthetic \emph{partials} PCN trained on were
-structurally out-of-distribution from the real clusters it met at inference. A
-derisk study comparing candidate partial generators against real seq-08 clusters
-(\texttt{scratchpad/derisk\_synth\_vs\_real.py}) isolated three mismatches: the
-old generator sampled a dense pinhole depth render, skipped the
-\SI{0.05}{\meter} voxelisation and ground removal the real input has been
-through, and added range-proportional noise (up to \SI{0.15}{\meter} at
-\SI{30}{\meter}) that washed out the scan-ring banding real Velodyne data shows.
+PCN is trained on synthetic partials, and those partials must match the distribution
+of the real clusters it meets at inference or the network sees a different input at
+test time than it was trained on. A derisk study comparing candidate partial
+generators against real seq-08 clusters
+(\texttt{scratchpad/derisk\_synth\_vs\_real.py}) isolated three properties a naive
+generator gets wrong: it sampled a dense pinhole depth render, skipped the
+\SI{0.05}{\meter} voxelisation and ground removal the real input has been through, and
+added range-proportional noise (up to \SI{0.15}{\meter} at \SI{30}{\meter}) that
+washed out the scan-ring banding real Velodyne data shows.
 
-The fix (\texttt{\_render\_kitti\_like} in \texttt{src/train\_pcn.py}) makes the synthetic partial match the real one: it orients the
+The generator used (\texttt{\_render\_kitti\_like} in \texttt{src/train\_pcn.py}) makes the synthetic partial match the real one: it orients the
 ShapeNet car to gravity, casts a single HDL-64E viewpoint (64 elevation beams,
 \SI{0.09}{\degree} horizontal resolution) from a sensor at \SI{1.73}{\meter} and
 a sampled range of \SIrange{8}{30}{\meter}, adds small \emph{absolute} noise
@@ -555,45 +686,46 @@ blobs (Chamfer \SI{0.16}{\meter}, F-score@\SI{0.1}{\meter} \num{0.76}).
 Figure~\ref{fig:kitti-like-partial} contrasts the naive and KITTI-like partials
 for the same ShapeNet car.
 
+\paragraph{Training.} PCN is trained on the KITTI-like synthetic partials (input
+\num{256} points, target the dense mesh sample) for \num{100} epochs with Adam
+(learning rate \num{e-4}, weight decay \num{e-6}) and a step schedule that halves
+the rate every \num{40} epochs, at batch size \num{8}, minimising the two-term
+Chamfer loss above. No real cars enter training; the reported checkpoint
+(\texttt{pcn\_kitti\_best.pth}) is the best-validation-loss epoch (\num{0.1246}).
+The subsequent geometry work is all inference-time and does not retrain the
+network.
+
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{fig61_partials/partials_2668f2d9b8a2daad95551e0d9e50cb0d.png}
-  \caption[The training-input distribution fix]{The training-input distribution fix: one ShapeNet car in
+  \caption[Training-input distribution]{The training-input distribution: one ShapeNet car in
     three views, with its complete-surface target (left, grey) and two candidate
     training \emph{inputs}. The naive pinhole partial (centre, orange) is dense and
     uniform; the KITTI-like partial (right, blue) reproduces what real LiDAR
     delivers --- scan-ring banding, single-viewpoint coverage, \SI{0.05}{\meter}
     voxelisation, and the ground cut. Neither is a completion output; ``better''
-    here means closer to deployment, not more complete. Training on the KITTI-like
-    distribution is what removes the blobs on real data.}
+    here means closer to the real input distribution, not more complete. Training on
+    the KITTI-like distribution is what keeps the network in-distribution on real data.}
   \label{fig:kitti-like-partial}
 \end{figure}
 
-\subsection{Correcting the inference-normalisation error}
-\label{sec:completion-inferencebug}
+\subsection{Inference-Time Partial Normalisation}
+\label{sec:completion-normalisation}
 
-Retraining alone did not de-blob \emph{real} clusters, and this is the more
-important lesson. The residual failure was not in the model but in the
-\emph{inference code} that normalised a real partial before handing it to the
-model. PCN is trained on shapes expressed in a fixed canonical car
-frame, centred on the true car centre and scaled by the true car radius. The
-original \texttt{complete()} instead aligned each real partial with a 3D PCA
-frame and normalised it by the \emph{partial's} own centroid and radius --- a
-normalisation the model had never seen. This mismatch alone produced blobs, and
-it did so for \emph{every} checkpoint, including in-distribution ones (it worsened
-Chamfer by roughly \num{3.5}$\times$ even on synthetic data where the model is
-otherwise clean). The train/inference semantics had silently diverged; this
-incident is the motivating example for the project's rule that any external
-integration gets a written semantics map first.
-
-The corrected inference path (\texttt{estimate\_canonical\_frame}) reconstructs
-the training normalisation from a one-sided partial:
+PCN is trained on shapes expressed in a fixed canonical car frame, centred on the
+true car centre and scaled by the true car radius, so at inference a real partial
+must be mapped into that \emph{same} frame before it is completed --- anything else
+hands the network a normalisation it never saw during training. Reconstructing that
+frame from a one-sided partial is non-trivial, because a partial reveals neither the
+true centre nor the true radius directly. The inference path
+(\texttt{estimate\_canonical\_frame}) reconstructs it in three steps:
 
 \begin{itemize}
   \item \textbf{Reorientation.} The sensor frame is rotated into the canonical
     car frame (X${}={}$width, Y${}={}$up, Z${}={}$length): gravity maps to the
-    up axis, and the horizontal heading axis maps to length. There is
-    \emph{no} PCA --- the 3D PCA alignment was part of the bug.
+    up axis, and the horizontal heading axis maps to length. Heading comes from the
+    L-shape footprint fit (Section~\ref{sec:completion-lshape}), not a principal-axis
+    alignment.
   \item \textbf{Full-car centre estimate.} A one-sided partial's bounding-box
     centre is not the car centre, so the centre is corrected on each axis: shift
     \emph{down} to undo the upward bias from the ground cut (the dominant
@@ -605,11 +737,10 @@ the training normalisation from a one-sided partial:
     one-sided partial radius and the true car radius.
 \end{itemize}
 
-With this path the same real seq-08 clusters recover the correct pose and scale
-(Figure~\ref{fig:deblob}): the box fitted to the old completion is mis-oriented
-and mis-scaled off the amodal ground-truth box, while the box fitted to the
-corrected completion aligns with it, lifting BEV box IoU at every input density
-(for example \num{0.47}$\to$\num{0.85} on the dense car shown). Viewed in the
+With this path the same real seq-08 clusters recover the correct pose and scale; the
+ablation isolating this normalisation against a naive partial-frame alternative, and the
+box-overlap gains it produces, is reported with the completion ablations
+(Section~\ref{sec:abl-completion}). Viewed in the
 canonical car frame, the corrected completions are recognisably car-shaped: they
 recover the car footprint in bird's-eye view and a rough side silhouette
 (roofline included) even from very sparse input --- a clean car footprint from a
@@ -619,32 +750,13 @@ well-observed cars, blobbier on the sparsest), and a completion is a filled
 \num{4096}-point cloud rather than a CAD-clean surface. The sharpest completions
 are the \emph{in-distribution synthetic} ones of
 Section~\ref{sec:completion-kittilike} (Chamfer \SI{0.16}{\meter}); on real data
-the fix's value is corrected geometry --- pose, scale, and the surface-coverage
-gains quantified in Section~\ref{sec:donor-validation}. A calibration study on
+the normalisation's value is corrected geometry --- pose, scale, and the
+surface-coverage gains quantified in Section~\ref{sec:donor-validation}. A calibration study on
 synthetic cars further identified the residual dominant error as
 \emph{centre estimation}, not scale --- which is what motivates the geometry work
 in the rest of this section.
 
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\linewidth]{fig62_deblob/box_overlay_deblob_08.png}
-  \caption[The inference-normalisation fix]{The inference-normalisation fix in bird's-eye view at
-    three input densities; \emph{same checkpoint}, only the normalisation differs.
-    Each panel fits an oriented box to the completed cloud and compares it to the
-    amodal ground-truth box (black) over the raw points (grey). The old PCA +
-    partial-radius box (red) is mis-oriented and mis-scaled --- the 3D PCA picks an
-    arbitrary principal axis rather than gravity --- while the corrected
-    canonical-frame box (green) aligns with the GT, lifting BEV box IoU at every
-    density: \num{0.32}$\to$\num{0.73} (sparse), \num{0.25}$\to$\num{0.74} (mid),
-    \num{0.47}$\to$\num{0.85} (dense) --- per-panel values from the reconstruction
-    render (\texttt{fig62\_box\_overlay.py}), not an aggregate finding. The figure
-    measures \emph{pose and scale}
-    via the box; the completed cloud is car-shaped in the canonical frame but
-    filled rather than crisp (Section~\ref{sec:donor-validation} quantifies real-data surface coverage).}
-  \label{fig:deblob}
-\end{figure}
-
-\subsection{L-shape input gating}
+\subsection{L-Shape Gating of Completion Inputs}
 \label{sec:completion-lshape}
 
 Even with correct normalisation, some clusters cannot complete into a plausible
@@ -657,15 +769,14 @@ degenerates. The fitted footprint gives an input-quality gate: a
 cluster is rejected as a fragment if its fitted length is below \SI{2.7}{\meter},
 or as a merge if its fitted width exceeds \SI{2.3}{\meter}.
 
-The gate was validated on seq-08 (\texttt{scratchpad/ab\_heading.py}): of \num{47}
-completed car tracks, \emph{every} implausible completion originated from a
-fragment or merge input, and gating them raised completion precision from
-\num{18}/\num{47} (\SI{38}{\percent}) to \num{18}/\num{26} (\SI{69}{\percent}).
-An honest secondary finding from the same study: the L-shape heading itself is
-neutral against plain PCA on real data --- the fit earns its place by
-\emph{detecting bad inputs}, not by giving a better heading.
+On seq-08 (\texttt{scratchpad/ab\_heading.py}) \emph{every} implausible completion
+originated from a fragment or merge input, so the gate's effect on completion quality
+is a clean ablation, reported in Section~\ref{sec:abl-completion}. An honest secondary
+finding from the same study: the L-shape heading itself is neutral against plain PCA on
+real data --- the fit earns its place by \emph{detecting bad inputs}, not by giving a
+better heading.
 
-\subsection{Per-car length estimation}
+\subsection{Per-Car Length Estimation}
 \label{sec:completion-length}
 
 The canonical-frame centre estimate re-centres the occluded lateral side and the
@@ -705,25 +816,7 @@ regenerated seq-08 output, \num{119} of \num{518} completed tracks
 gate-passed frames. This is above a comfortable threshold and is stated as a live
 limitation, not a solved problem; it is revisited in the discussion.
 
-\subsection{The second under-extension mechanism}
-\label{sec:completion-step1c}
-
-Targeting each car's \emph{true} length still leaves completions short on normal
-and long cars, which pointed to a second under-extension mechanism inside the
-completion itself: PCN under-fills its normalised frame, and because the centre
-push also drives the normalisation radius, the length prior doubles as an output
-rescale. This was investigated under pre-registration with
-two decoupled knobs: separating the radius from the length push, and a
-length-axis fill factor calibrated on synthetic true GT. The change fixed the
-target --- normal-car box $|\Delta L|$ \num{0.329}$\to$\num{0.232} --- but
-over-extended compacts and failed the pre-registered compact non-regression guard
-on both test sequences. The verdict was \textbf{not to adopt it}: the compensation is
-irreducibly length-dependent, which is out of scope. The knobs remain in the code
-defaulted off, and the production completion is unchanged. This negative result is
-reported because it bounds the method: the residual far-end shortfall on long cars
-is a known, characterised limit, not an oversight.
-
-\subsection{The final completion path}
+\subsection{The End-to-End Completion Path}
 \label{sec:completion-summary}
 
 To summarise, a single-frame car cluster is completed by: fitting its footprint
@@ -751,7 +844,7 @@ pre-registered held-out replication --- being what Section~\ref{sec:donor-valida
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{completion_shape_08.png}
-  \caption[Final completions on real seq-08 cars]{What the final completion path produces on real seq-08 cars, four
+  \caption[Completions on real seq-08 cars]{What the final completion path produces on real seq-08 cars, four
     tracks spanning the input-density range (\num{4679} down to \num{64} input
     points), each in the canonical car frame: bird's-eye view (left of each pair)
     and side elevation (right). Blue is the single-frame partial input, green the
@@ -763,7 +856,45 @@ pre-registered held-out replication --- being what Section~\ref{sec:donor-valida
   \label{fig:completion-shape}
 \end{figure}
 
-\section{The donor-frame completion metric}
+\subsection{Negative Results and Lessons}
+\label{sec:completion-lessons}
+
+The method above was not reached in one step. Two false starts shaped it, and each
+carries a lesson worth stating in its own right rather than smoothing over. They are
+gathered here so that the method description reads as what the pipeline does. A third
+intervention that was tried and rejected --- a length-dependent far-end
+compensation --- is reported as a completion ablation
+(Section~\ref{sec:abl-completion}).
+
+\paragraph{The blobs were not a synthetic-data problem.}
+\label{sec:completion-domaingap}
+The first attempts to run PCN on real cars all produced ``blobs'' --- rounded,
+car-sized clouds with no recognisable car structure. This was initially attributed to
+the training data being synthetic, and the response was a series of sim-to-real
+remedies: LiDAR-noise augmentation of the synthetic partials, and real-data
+fine-tuning. None of them fixed the blobs, and the fine-tuning attempt is recorded as
+a negative result --- on this data, fine-tuning PCN on mined real pairs did not recover
+real-car geometry. The blobs had two causes, and neither was the network weights: the
+training-input distribution (Section~\ref{sec:completion-kittilike}) and the inference
+normalisation (Section~\ref{sec:completion-normalisation}), the two method steps above.
+The lesson is to suspect the data and the input pipeline before the model.
+
+\paragraph{Train and inference semantics must match.}
+\label{sec:completion-inferencebug}
+Even after retraining on KITTI-like partials, real clusters still blobbed, and the
+cause is the sharper lesson. An earlier inference path normalised each real partial by
+a 3D PCA frame and the \emph{partial's} own centroid and radius --- a normalisation the
+model had never seen, since it was trained in the canonical car frame of
+Section~\ref{sec:completion-normalisation}. This silent train/inference mismatch alone
+produced blobs, and it did so for \emph{every} checkpoint, including in-distribution
+synthetic ones (it worsened Chamfer by roughly \num{3.5}$\times$ even where the model
+is otherwise clean). Because the two frames each looked internally reasonable, the
+divergence was invisible until measured. This incident is the motivating example for
+the project's rule that any external integration or reuse gets a written semantics map
+--- coordinate frame, centring, and scale conventions --- reconciled before code is
+run.
+
+\section{The Donor-Frame Completion Metric}
 \label{sec:donor-metric}
 
 Evaluating the completion output requires a metric, and on real LiDAR there is no
@@ -774,7 +905,7 @@ validated and applied to the completion output in Section~\ref{sec:donor-validat
 it is defined on static cars by construction, with moving cars treated separately in
 Section~\ref{sec:results-movers}.
 
-\subsection{The invalidity of Chamfer distance on real cars}
+\subsection{The Invalidity of Chamfer Distance on Real Cars}
 \label{sec:chamfer-invalid}
 
 The natural way to score a completed car is Chamfer distance (CD) against a
@@ -811,7 +942,7 @@ synthetic CD of Section~\ref{ch:completion-method} (\SI{0.16}{\meter}) measures 
 cars but says nothing about a real cluster. The next subsection turns the very
 one-sidedness that breaks Chamfer into the basis of a metric that works.
 
-\subsection{The donor-frame occluded-side principle}
+\subsection{The Donor-Frame Occluded-Side Principle}
 \label{sec:donor-principle}
 
 The idea turns the one-sidedness of LiDAR from a problem into the measurement.
@@ -835,7 +966,7 @@ test of completion:
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.86\linewidth]{donor_principle.png}
-  \caption[The donor-frame occluded-side principle]{The donor-frame occluded-side principle (schematic; a car seen from
+  \caption[Donor-frame occluded-side principle]{The donor-frame occluded-side principle (schematic; a car seen from
     above, the road below). The input frame observes the near flank (blue); as the
     ego drives past, the \emph{donor} frames additionally observe the two ends
     (amber), which together form the \emph{novel set} --- the surface the metric
@@ -867,7 +998,7 @@ guard of Section~\ref{sec:donor-guard-lesson} are what make the metric measure
 occluded-surface recovery specifically, rather than overall resemblance to an accumulated
 cloud.
 
-\subsection{Definition}
+\subsection{Definition of the Donor-Frame Coverage Metric}
 \label{sec:donor-definition}
 
 For each (frame, instance) true-positive pair on the well-observed static cars,
@@ -926,9 +1057,43 @@ parked car are autocorrelated, we reduce each car to its per-car median and test
 across cars with the Wilcoxon signed-rank test --- the same paired, per-car design
 used for the box evaluation.
 
+\subsection{Summary and Methodological Limitations}
+\label{sec:meth-limitations}
+
 This chapter has set out the full method: the modular detection pipeline that turns a
 raw scan into car detections, the single-frame completion path with its input gate and
-length prior, and the definition of the donor-frame coverage metric. Chapter~\ref{ch:evaluation}
-puts each to the test --- the detection operating point and its ablations, the recall
-root-cause, and the donor metric's validation and completion results.
+length prior, and the definition of the donor-frame coverage metric. Several limitations
+are built into these choices and are flagged here so the evaluation is read with them in
+view; each is taken up in full in the discussion of Chapter~\ref{ch:conclusion}.
+
+\begin{itemize}
+  \item \textbf{Ground model.} A single global RANSAC plane assumes near-planar
+    ground; it holds on the flat urban sequences used here but would degrade on
+    strong slopes, where a grid-based model (future work) would be needed
+    (Section~\ref{sec:pipeline-ground}).
+  \item \textbf{Offline by design.} The tracker and track-level filter consult the
+    whole sequence, and at $\approx$\SI{1.6}{\fps} the pipeline is far below sensor
+    rate; real-time operation is out of scope (Section~\ref{sec:pipeline-overview}).
+  \item \textbf{Single-frame, static-car completion.} Completion runs on one frame's
+    cluster, and the donor metric is defined on static cars; moving cars are treated
+    separately and are not scored for completion accuracy
+    (Section~\ref{sec:completion-what}).
+  \item \textbf{Length-prior fallback.} The per-car length estimate falls back to the
+    fixed \SI{4.14}{\meter} prior on \SI{23}{\percent} of tracks (those with fewer
+    than five gate-passed frames), and a residual far-end under-extension on long cars
+    is a characterised, not eliminated, limit (Sections~\ref{sec:completion-length}
+    and~\ref{sec:completion-step1c}).
+  \item \textbf{Synthetic-only completion training.} PCN sees only synthetic
+    KITTI-like partials; real-data fine-tuning was a negative result, so a sim-to-real
+    residual remains (Section~\ref{sec:completion-domaingap}).
+  \item \textbf{Metric admissibility.} The donor metric requires a single well-formed
+    object cluster and multi-frame donor observations, so it does not score fragments,
+    merges, or movers (Section~\ref{sec:donor-definition}).
+\end{itemize}
+
+With these caveats stated, Chapter~\ref{ch:evaluation} puts each component to the test
+--- the detection operating point and its ablations, the recall root-cause, and the
+donor metric's validation and completion results --- and Chapter~\ref{ch:conclusion}
+returns to the limitations above alongside the evaluation-validity questions the results
+raise.
 

@@ -26,7 +26,7 @@
 %     seq 08; Chapter~\ref{ch:evaluation}, Finding~#34) with the point-IoU>=0.3 protocol named
 %   - "recall" is stated against its car-only, >=10-surviving-points denominator where used
 %
-\chapter{Background and Related Work}
+\chapter{Literature Review \& Theoretical Background}
 \label{ch:background}
 
 This chapter places the thesis in its research context. It reviews the two bodies of
@@ -45,10 +45,23 @@ pipeline-specific architectures, configurations, and design choices of each comp
 deferred to the method chapter (Section~\ref{ch:pipeline} for detection,
 Section~\ref{ch:completion-method} for completion).
 
+\textbf{Scope of the review.} The field around automotive-LiDAR perception is far larger
+than any one chapter can survey, so the review is bounded by relevance to the thesis's own
+design and evaluation. Included are the deep and classical LiDAR-segmentation paradigms the
+detection front-end is built from and positioned against (Sections~\ref{sec:bg-deep}
+and~\ref{sec:bg-classical}), and object-level point-cloud completion together with its
+evaluation metrics --- the setting of the thesis's contribution (Section~\ref{sec:bg-completion}).
+Left deliberately outside are camera--LiDAR fusion and SLAM or map optimisation, both
+orthogonal to a single-scan, LiDAR-only object pipeline, and full 3D object-detection
+benchmarks scored by bounding-box average precision, which measure a different output than the
+point-level clusters this pipeline emits --- an exclusion argued in full where it naturally
+arises (Section~\ref{sec:bg-positioning}). The conceptual grounding and notation needed to
+read this related work, but no more, are gathered in Section~\ref{sec:bg-theory}.
+
 \section{Literature Review}
 \label{sec:bg-litreview}
 
-\subsection{LiDAR point clouds and the SemanticKITTI benchmark}
+\subsection{LiDAR Point Clouds and the SemanticKITTI Benchmark}
 \label{sec:bg-dataset}
 
 A rotating LiDAR sensor returns, for each scan, an unordered set of 3D points sampled
@@ -84,7 +97,7 @@ segmentation stage requires no labelled point clouds at all, and its classifier 
 trained on clusters mined and weakly labelled automatically from the pipeline's own
 output (Chapter~\ref{ch:pipeline}).
 
-\subsection{Deep segmentation of LiDAR point clouds}
+\subsection{Deep Segmentation of LiDAR Point Clouds}
 \label{sec:bg-deep}
 
 The current benchmark leaders are deep networks trained end-to-end on the dense labels.
@@ -120,7 +133,7 @@ which its car/not-car classifier is built (Chapter~\ref{ch:pipeline}). The class
 small binary network applied to already-segmented clusters, not a full-scene
 segmentation model, and it is trained without any hand-drawn labels.
 
-\subsection{Classical geometric segmentation}
+\subsection{Classical Geometric Segmentation}
 \label{sec:bg-classical}
 
 Before end-to-end learning dominated the benchmarks, LiDAR objects were extracted by
@@ -153,7 +166,7 @@ fragmentation --- not classification error --- is the dominant recall limiter
 interpretability and near-zero annotation of the classical route are bought at a
 measurable recall cost relative to the supervised networks.
 
-\subsection{Object-level point-cloud completion}
+\subsection{Object-Level Point-Cloud Completion}
 \label{sec:bg-completion}
 
 The second phase of the pipeline reconstructs a denser shape from the sparse, single-view
@@ -183,14 +196,23 @@ fills a whole voxelised scene from a single scan; the present work completes ind
 segmented objects, a different and narrower task.
 
 Because real automotive LiDAR offers no complete target, a small toolkit of
-completion metrics has grown up around the KITTI cars.
-PCN~\cite{yuan2019pcnpointcompletionnetwork} itself scores its KITTI completions by
+completion metrics has grown up around the KITTI cars. The established quantitative
+measures are the \emph{unidirectional} Chamfer and Hausdorff distances (UCD and UHD),
+which score a completion by how closely it reproduces the points of its own partial
+input: Chen et al.~\cite{chen2020unpaired} apply UHD directly to KITTI cars, and
+P2C~\cite{cui2023p2c} uses UCD together with a region-aware variant (RCD) that localises
+the comparison around observed skeleton points but still anchors it to seen geometry.
+PCN~\cite{yuan2019pcnpointcompletionnetwork} instead scores its KITTI completions by
 \emph{Fidelity} (how well the input is preserved in the output), \emph{Minimal Matching
 Distance} (Chamfer distance to the nearest complete car in a synthetic reference set), and
 \emph{Consistency} (agreement between the completions of one instance across consecutive
 frames). Each of these references something other than the real occluded surface --- the
-input, a synthetic prior, or the model's own outputs --- so none directly measures how much
-genuinely unobserved surface a completion recovers. Closest to the present work, Ren
+observed input (UCD, UHD, RCD, Fidelity), a synthetic prior (MMD), or the model's own
+outputs (Consistency) --- so none directly measures how much genuinely unobserved surface a
+completion recovers. Indeed, because a completion that merely copies its input is scored
+best by an input-referenced measure, these metrics are used in the unpaired-completion
+literature alongside a separate plausibility or adversarial term rather than as a standalone
+ranking of recovered surface. Closest to the present work, Ren
 et al.~\cite{ren2022selfsupervised} complete vehicles in real traffic scenes and build a
 pseudo ground truth by accumulating each tracked instance across consecutive frames, then
 score the completed cloud against that accumulation with Chamfer-based distances. That
@@ -202,7 +224,7 @@ same multi-frame idea but restricts scoring to the surface the input frame did \
 see, and adds an explicit hallucination guard, precisely so that reproducing the input
 earns nothing.
 
-\subsection{Positioning of this work}
+\subsection{Positioning of This Work}
 \label{sec:bg-positioning}
 
 The pipeline studied here is a car-only instance detector built from training-free
@@ -309,7 +331,7 @@ its source; the pipeline's own architectures and parameter choices are given in 
 chapters. A single LiDAR scan is written as a finite point set
 $P = \{\mathbf{x}_i \in \mathbb{R}^3\}_{i=1}^{N}$.
 
-\subsection{Ground-plane removal by RANSAC}
+\subsection{Ground-Plane Removal by RANSAC}
 \label{sec:th-ransac}
 A plane is a pair $(\mathbf{n}, d)$ with unit normal $\mathbf{n}\in\mathbb{R}^3$,
 $\lVert\mathbf{n}\rVert = 1$, and offset $d$; a point lies on it when
@@ -330,7 +352,7 @@ points per sample, the required number of iterations is
   T = \left\lceil \frac{\log(1-p)}{\log\!\bigl(1 - w^{s}\bigr)} \right\rceil .
 \end{equation}
 
-\subsection{Voxel-grid downsampling}
+\subsection{Voxel-Grid Downsampling}
 \label{sec:th-voxel}
 To reduce the range-dependent density bias before clustering, the non-ground points are
 downsampled on a regular grid of side $v$. Each point maps to an integer cell index
@@ -343,7 +365,7 @@ the points that fall in it,
   \bar{\mathbf{x}}_c = \frac{1}{\lvert P_c\rvert} \sum_{\mathbf{x}\in P_c} \mathbf{x} .
 \end{equation}
 
-\subsection{Density-based clustering: DBSCAN and HDBSCAN}
+\subsection{Density-Based Clustering: DBSCAN and HDBSCAN}
 \label{sec:th-clustering}
 The non-ground points are grouped into objects by density. DBSCAN~\cite{ester1996dbscan}
 uses a fixed radius $\varepsilon$ and a minimum count $m$: with the
@@ -372,7 +394,7 @@ Stability-based extraction is what lets one setting cluster both near and far ca
 also, as Section~\ref{sec:recall-analysis} shows, what splits a single car when an internal
 density gap makes two sub-clusters individually more stable than the whole.
 
-\subsection{Permutation-invariant point classification}
+\subsection{Permutation-Invariant Point Classification}
 \label{sec:th-pointnet}
 The car/not-car classifier is built on PointNet~\cite{Qi_2017_CVPR}, whose defining property
 is invariance to the ordering of its input points. A function of a point set is made
@@ -386,7 +408,7 @@ is symmetric, $f$ is independent of the order of the points; $h$ and $g$ are mul
 perceptrons learned end-to-end. Chapter~\ref{ch:pipeline} applies this design to a single
 cluster.
 
-\subsection{Point-set distances: Chamfer, IoU, and donor coverage}
+\subsection{Point-Set Distances: Chamfer, IoU, and Donor Coverage}
 \label{sec:th-distances}
 Completion and its evaluation are expressed through distances between point sets. The
 \emph{Chamfer distance} between sets $A$ and $B$ averages, in each direction, the squared
@@ -419,9 +441,18 @@ By construction the raw partial covers none of $\mathcal{V}$; the full construct
 mirrored baseline, and its per-band hallucination guard are developed in
 Section~\ref{sec:donor-validation}.
 
-This chapter has positioned the thesis between supervised deep segmentation --- accurate
-but paid for in dense annotation and opacity --- and object completion, whose
-reference-based metrics break down on real LiDAR, and has fixed the notation and standard
-operators the later chapters build on. Chapter~\ref{ch:pipeline} turns those operators
-into the detection pipeline and the completion method, and develops the donor-frame
-coverage metric sketched here in full.
+Three points emerge from this review and set up the rest of the thesis. First, the accuracy
+of mainstream LiDAR segmentation is inseparable from a dense per-point annotation budget,
+which motivates the interpretable, near-annotation-free clustering-plus-classifier route
+taken here --- and whose recall cost the later chapters measure and root-cause. Second, that
+route's stage-level transparency is what makes such root-causing possible at all, where an
+end-to-end network offers no stage to inspect. Third, and most consequentially for the
+contribution, completion on real LiDAR has no valid reference-based score: every established
+metric is anchored to the observed input, a synthetic prior, or a one-sided accumulation, so
+none measures recovered unseen surface. These three points are the basis on which the thesis
+is built --- the last is the gap its two research questions address
+(Chapter~\ref{ch:introduction}), by defining and validating a donor-frame coverage metric and
+using it to test whether completion adds genuine unseen surface and improves downstream boxes.
+The chapter has also fixed the notation and standard operators the later chapters build on.
+Chapter~\ref{ch:pipeline} turns those operators into the detection pipeline and the completion
+method, and develops the donor-frame coverage metric sketched here in full.

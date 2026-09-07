@@ -2087,3 +2087,44 @@ caption; sec_8 "validation-as-test" paragraph rewritten to "cross-validated, sel
 exposure bounded to precision" + breadth caveat resolved + "what generalises" updated;
 abstract + intro one-line LOSO mentions. `PIPELINE_CONFIG` and shipped headline numbers
 unchanged. Reviewer reply not drafted (user declined).
+
+## 52. Standard Reference-Free Metrics (UCD/UHD) Cannot Rank Unseen-Surface Recovery (2026-09-05)
+
+**Context:** A prior-art audit found the donor metric was positioned only against
+PCN's Fidelity/MMD/Consistency and Ren et al. 2022, omitting the field's standard
+reference-free completion metrics — Unidirectional Chamfer Distance (UCD) and
+Unidirectional Hausdorff Distance (UHD). Chen et al. (ICLR 2020, `chen2020unpaired`)
+apply UHD to **KITTI cars**; P2C (ICCV 2023, `cui2023p2c`) uses UCD + a region-aware
+RCD. Verified from the P2C text: all three anchor to the *observed input*, none scores
+genuinely unseen surface. This finding measures UCD/UHD on our own seq-08 completions to
+show empirically that they cannot credit unseen-surface recovery. Complements #26
+(raw scores best under bidirectional Chamfer vs the accumulation).
+
+**Finding:** Freeze-safe, read-only. `scratchpad/ucd_uhd_compare.py` reuses the cached
+donor pairs and cloud reconstruction of `donor_metric_step2.py` (no pipeline re-run;
+~10 s). Distances in metres, direction input→method (Chen/P2C convention), per-car
+medians over the same 39 seq-08 cars as the donor headline (join cross-checked
+byte-identical to `donor_metric_summary_08.json`).
+
+| Cloud | UCD_fwd (m) ↓ | UHD_max (m) ↓ | UHD_p95 (m) ↓ | donor cov@0.1 ↑ |
+|---|---|---|---|---|
+| raw partial | 0.000 | 0.000 | 0.000 | 0.000 |
+| mirrored | 0.000 | 0.000 | 0.000 | 0.043 |
+| completed | 0.090 | 0.286 | 0.183 | **0.304** |
+
+UCD/UHD (lower = better fidelity) rank the raw partial and mirror as trivial optima —
+any cloud containing the input scores a perfect 0 — and score the completion *worst*,
+penalising every added point (raw vs completed fwd-UCD Wilcoxon across cars
+p=3.6e-12). Yet the completion is the only cloud that recovers unseen surface (donor
+cov 0.304). Pre-registered expectation confirmed; falsification (UCD/UHD ranking
+completed best) did not occur. The reverse direction (method→input) *penalises* added
+surface (completed UCD_rev 0.548), the perverse behaviour that motivates a novel-set
+metric. Artifacts: `output/experiments/ucd_uhd_compare/ucd_uhd_08.json`.
+
+**Decision:** Cite and distinguish UCD/UHD/RCD rather than ignore them — the comparison
+strengthens the contribution (the standard metrics are input-fidelity measures and are
+structurally blind to unseen recovery, so a novel-set restriction is required not
+optional). Thesis edits landed (build clean, 78 pp): `references.bib`
++`chen2020unpaired`/`cui2023p2c`; Ch2 §2.4 reference-free paragraph extended; Ch4 new
+§"Comparison with reference-free completion metrics" (Tab `tab:reffree-compare`); Ch5
+one sentence. Nothing frozen touched.
