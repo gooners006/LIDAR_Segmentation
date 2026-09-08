@@ -22,6 +22,7 @@ scratchpad/*
 *.fdb_latexmk
 *.fls
 *.pdf
+!docs/writing/thesis/main.pdf
 
 # Peer reference deck (not our work; kept locally only)
 docs/LVTN.pptx
