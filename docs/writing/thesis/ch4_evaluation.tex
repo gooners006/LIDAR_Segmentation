@@ -33,7 +33,7 @@ cleanliness for completion --- the link between the chapter's two halves.
 
 We evaluate on the eleven labelled SemanticKITTI odometry sequences
 (\numrange{00}{10}), whose per-point semantic and instance labels serve as
-ground truth. The official test sequences \numrange{11}{21} carry \emph{no}
+ground truth. The official test sequences \numrange{11}{21} carry no
 public labels, so no ground-truth detection metric can be computed on them; this
 is a property of the dataset, not a choice, and it is why no labelled sequence
 can be reserved as a conventional held-out test set.
@@ -43,7 +43,7 @@ Rather than report detection on the sequence the classifier was tuned against, w
 evaluate the binary classifier under \emph{leave-one-sequence-out} (LOSO)
 cross-validation over all eleven sequences. For each held-out sequence~$K$ a
 classifier is trained on the other ten sequences and then run on the full
-sequence~$K$; the held-out sequence contributes \emph{zero} clusters to that
+sequence~$K$; the held-out sequence contributes zero clusters to that
 fold's training data and is never used to select the checkpoint. Checkpoint
 selection is removed entirely: every fold trains for a fixed \num{15}-epoch
 budget and the last-epoch checkpoint is used (historically the best epoch was
@@ -62,7 +62,7 @@ are a re-partition of the existing mined data and require no re-mining.
     the recall root-cause analysis (Section~\ref{sec:recall-analysis}), the
     IoU-threshold sensitivity below, and the completion evaluation
     (Section~\ref{sec:donor-validation}) are all computed on the sequence-08 output
-    of the \emph{final} classifier. Sequence~08 was never used to tune the
+    of the final classifier. Sequence~08 was never used to tune the
     classical stages. The final classifier was historically selected on
     sequence~08, so its sequence-08 numbers could in principle be optimistic; the
     LOSO fold-08 classifier (trained on \numrange{00}{07},\,\numrange{09}{10},
@@ -88,8 +88,8 @@ car-bearing SemanticKITTI classes as valid ground-truth objects:
 set as \emph{supported-vehicles}. A ground-truth car \emph{instance} is a
 maximal set of points sharing one instance id within these classes.
 
-An instance is counted in the evaluation only if at least \textbf{10 of its
-points survive preprocessing} --- the $z$-filter, voxel downsampling, statistical
+An instance is counted in the evaluation only if at least 10 of its
+points survive preprocessing --- the $z$-filter, voxel downsampling, statistical
 denoising, and ground removal that every scan passes through before clustering.
 This is the recall denominator: \emph{recall is computed against ground-truth car
 instances with $\geq 10$ points surviving preprocessing}, not against every
@@ -100,15 +100,15 @@ it would measure sensor sparsity rather than the pipeline.
 This choice narrows the denominator, and honesty requires quantifying by how
 much. On a stride-20 sample of sequence~08 (204 of \num{4071} frames, drawn
 uniformly across the drive), of all annotated car instances
-(\num{2332} pooled), \textbf{25.5\% are excluded} by the surviving-points rule;
-measured instead against instances that have $\geq 10$ points in the \emph{raw}
-scan (\num{2033} pooled), \textbf{14.6\% are excluded} by preprocessing.\footnote{%
-These are two distinct $\geq 10$-point rules: one thresholds \emph{raw} label
+(\num{2332} pooled), 25.5\% are excluded by the surviving-points rule;
+measured instead against instances that have $\geq 10$ points in the raw
+scan (\num{2033} pooled), 14.6\% are excluded by preprocessing.\footnote{%
+These are two distinct $\geq 10$-point rules: one thresholds raw label
 points (a distinct-car count), the other thresholds points \emph{surviving
 preprocessing} (the eval denominator). They are not interchangeable.}
 Because an excluded instance can never be matched, the sequence-08 operating-point
 recall of \num{0.730} against the eligible denominator corresponds, by inference, to a
-recall of \emph{approximately} \num{0.54} against \emph{all} annotated cars
+recall of approximately \num{0.54} against all annotated cars
 (the eligible-to-annotated survival ratio on this sample is
 $\num{1737}/\num{2332}=\num{0.745}$; the ratio is a stride-20 estimate, so this
 figure is inferred, not separately measured). We report the eligible-denominator
@@ -118,7 +118,7 @@ recall as the headline and disclose the all-annotated figure alongside it.
 \label{sec:eval-protocol}
 
 Every quantitative claim about detection in this thesis is produced by a single
-evaluation script (\texttt{src/evaluate.py}) under one fixed protocol. Because
+evaluation script under one fixed protocol. Because
 the results, ablation, and recall-analysis sections all report numbers from this
 protocol, we state it in full here and refer back to it rather than restating it
 per table. The protocol was frozen before the write-up began; no configuration,
@@ -237,8 +237,8 @@ finding rather than tuned away}; it was not sensitive.
 \label{sec:eval-pipeline}
 
 The system under evaluation is the frozen detection-and-completion pipeline of
-Chapter~\ref{ch:pipeline}, run unmodified by a single script
-(\texttt{src/evaluate.py}): ground removal, HDBSCAN clustering, the geometric
+Chapter~\ref{ch:pipeline}, run unmodified by a single script:
+ground removal, HDBSCAN clustering, the geometric
 filter, the binary classifier, and the centroid tracker with its track-level
 filter for detection; and, for each detected car, the KITTI-like-trained PCN
 behind the L-shape input gate for completion. Every number below uses the
@@ -268,21 +268,22 @@ cross-validation that confirms it follows in Section~\ref{sec:eval-loso}.
 
 \begin{table}[H]
   \centering
-  \caption[Reported detection operating point]{Reported detection operating point under the frozen protocol, using
-    the final classifier. Sequence~08 is the largest labelled sequence and was
-    never used to tune the classical stages; sequence~00 is a completion held-out
-    reference whose classifier saw seq-00 clusters in training (so its detection
-    recall reads optimistically). Mean IoU is the mean over matched detections
-    only. Section~\ref{sec:eval-loso} re-scores every sequence with a classifier
-    that never saw it.}
+  \caption[Reported detection operating point]{Reported detection operating point on the
+    full sequence~08 (frozen protocol, final classifier), with its leave-one-sequence-out
+    held-out counterpart --- fold-08, a classifier that never saw sequence~08
+    (Section~\ref{sec:eval-loso}). The two agree on recall (the held-out row is marginally
+    higher) and differ by about two precision points, so selecting the classifier on
+    sequence~08 did not inflate the reported recall. Sequence~08 is the largest labelled
+    sequence and was never used to tune the classical stages; mean IoU is over matched
+    detections only.}
   \label{tab:headline}
   \setlength{\tabcolsep}{5pt}
   \begin{tabular}{lccccc}
     \toprule
-    Sequence & Precision & Recall & $F_1$ & Mean IoU & TP / FP / FN \\
+    Classifier (seq~08) & Precision & Recall & $F_1$ & Mean IoU & TP / FP / FN \\
     \midrule
-    08 (full, \num{4071} fr.) & 0.905 & 0.730 & 0.808 & 0.912 & \num{25478} / \num{2676} / \num{9444} \\
-    00 (100 fr., reference)   & 0.967 & 0.777 & 0.862 & 0.962 & \num{1296} / \num{44} / \num{371} \\
+    Reported (final)        & 0.905 & 0.730 & 0.808 & 0.912 & \num{25478} / \num{2676} / \num{9444} \\
+    Held-out (LOSO fold-08) & 0.881 & 0.737 & 0.803 & 0.912 & \num{25733} / \num{3477} / \num{9189} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -295,7 +296,7 @@ root-causes the recall shortfall.
 
 \subsection{Per-Frame Detection Results}
 
-The headline operating point is the sequence~08 row of Table~\ref{tab:headline}
+The headline operating point is the reported row of Table~\ref{tab:headline}
 (Section~\ref{sec:eval-protocol}): precision \num{0.905}, recall \num{0.730}, $F_1$ \num{0.808}, and
 a mean IoU of matched detections of \num{0.912}, over
 \num{25478}~/~\num{2676}~/~\num{9444} TP~/~FP~/~FN. Two properties of this
@@ -390,8 +391,8 @@ operating-point number), and the macro mean~$\pm$~standard deviation across fold
   \end{tabular}
 \end{table}
 
-Three things follow. First, \textbf{model selection did not inflate the reported
-recall}. The fold-08 classifier, blind to sequence~08, reaches recall \num{0.737} against
+Three things follow. First, model selection did not inflate the reported
+recall. The fold-08 classifier, blind to sequence~08, reaches recall \num{0.737} against
 the sequence-08 operating point's \num{0.730} --- if anything marginally higher,
 not lower --- so the recall headline is not a product of having selected the
 classifier on the reporting sequence. The model-selection optimism that does
@@ -414,11 +415,11 @@ trains on \SI{95}{\percent} of the final model's clusters (a \num{5}-percent
 monitoring slice is set aside) --- but that confound removes training data from
 the fold-08 model, which would depress its recall, not inflate it, so it only
 strengthens the ``recall was not inflated'' reading. Second, the
-\textbf{pooled cross-validated operating point} over all eleven sequences ---
+pooled cross-validated operating point over all eleven sequences ---
 precision \num{0.874}, recall \num{0.719}, $F_1$~\num{0.789}, mean IoU
 \num{0.919} --- sits within roughly one point of the sequence-08 operating point
 on every metric, so the reported numbers are representative of the labelled set
-and not specific to sequence~08. Third, the \textbf{per-sequence spread} is now
+and not specific to sequence~08. Third, the per-sequence spread is now
 explicit: recall ranges from \num{0.336} on sequence~01 (a sparse highway drive)
 to \num{0.761} on sequence~00 (dense urban), with a macro mean of
 \num{0.633}~$\pm$~\num{0.121}; precision is far steadier
@@ -440,7 +441,7 @@ detection by the range of each cluster's centroid from the ego sensor, on a
 stride-20 sample of sequence~08 under the frozen configuration.
 \textbf{Deviation:} like the clustering benchmark, this table is
 \emph{per-frame with the track filter off} (striding breaks the tracker), so its
-pooled recall (\num{0.671}) is a per-frame figure and does \emph{not} restate the
+pooled recall (\num{0.671}) is a per-frame figure and does not restate the
 track-filtered headline \num{0.730}; read the table as a range \emph{trend}, not
 as a re-derivation of the headline.
 
@@ -469,15 +470,15 @@ as a re-derivation of the headline.
   \end{tabular}
 \end{table}
 
-The counter-intuitive result is the \textbf{nearest-bin recall dip}: recall at
-\SIrange{0}{10}{\metre} (\num{0.787}) is \emph{lower} than at
+The counter-intuitive result is the nearest-bin recall dip: recall at
+\SIrange{0}{10}{\metre} (\num{0.787}) is lower than at
 \SIrange{10}{20}{\metre} (\num{0.862}), even though near cars carry far more
 points. This is not sparsity --- it is over-segmentation. The split-rate analysis shows
 that HDBSCAN splits the majority of the very-near cars (a split rate of
 \SI{66}{\percent} at \SIrange{0}{10}{\metre}, falling to \SI{4}{\percent} at
 \SIrange{30}{50}{\metre}): a large, close car dissolves into several clusters,
 none of which matches the whole instance, so it is counted as a miss. The nearest bin
-also has the \emph{lowest} mean IoU of matched detections (\num{0.902}),
+also has the lowest mean IoU of matched detections (\num{0.902}),
 consistent with fragments eroding the overlap even on the cars that do match. We
 develop this splitting mechanism, and why post-hoc fragment-merging fails to
 recover it, in Section~\ref{sec:recall-analysis}.
@@ -486,7 +487,7 @@ Beyond the peak the decline is ordinary sparsity: recall falls from \num{0.862}
 at \SIrange{10}{20}{\metre} to \num{0.549} at \SIrange{20}{40}{\metre} and
 \num{0.196} past \SI{40}{\metre}, as cars thin to too few surviving points to
 cluster or to clear the \num{10}-point eligibility rule (Section~\ref{sec:eval-protocol}).
-Mean IoU of matched detections \emph{rises} with range
+Mean IoU of matched detections rises with range
 (\num{0.902}~$\rightarrow$~\num{0.943}): the far cars that are detected at all are
 compact, single-cluster instances, so their overlap is clean even as their number
 collapses. The earlier precision-only, seq-00, pre-promotion range analysis is superseded by this on-frozen-config sequence-08 table and is
@@ -543,7 +544,7 @@ RANSAC iteration count and coarsening the clustering voxel to \SI{0.10}{\metre}
 cut the per-frame total by roughly a third, from a pre-optimisation
 \SI{921.3}{\milli\second} to \SI{623.5}{\milli\second} on the full sequence
 (\SI{650.6}{\milli\second} on the stride-20 sample), and the coarser voxel also
-\emph{improved} detection --- it is the promoted configuration used throughout
+improved detection --- it is the promoted configuration used throughout
 this chapter. A sub-\SI{400}{\milli\second} target was shown to be unreachable
 through the authorised optimisation tiers --- the post-ground object cloud is
 intrinsically sparse, so coarser voxelisation compresses it little and the Python
@@ -586,7 +587,7 @@ Before using it we required the metric to pass four pre-stated checks
   \centering
   \caption[Four donor-metric validation checks]{The four validation checks for the donor metric, and the observed
     outcome (seq~08, per-car medians, $n=39$; the metric's original acceptance
-    run, on the production path as it stood \emph{before} the
+    run, on the production path as it stood before the
     Section~\ref{ch:completion-method} length prior). Coverage figures are the car-median
     \texttt{cov@0.1}; the guard figures are car-median out-of-box fractions.}
   \label{tab:donor-gate}
@@ -594,7 +595,7 @@ Before using it we required the metric to pass four pre-stated checks
     \toprule
     Check & Outcome \\
     \midrule
-    (a) The raw partial must rank \emph{last} on coverage (it covers no novel
+    (a) The raw partial must rank last on coverage (it covers no novel
       surface by construction). & Passes at every $\tau$: raw \num{0.000}
       $<$ mirrored \num{0.043} $<$ completed \num{0.304}. \\
     (b) Per-car scores must be stable enough for a per-car median to mean
@@ -627,7 +628,7 @@ now re-run on the promoted configuration, whose well-observed static set is
 $n=40$ ($8+27+5$ across the compact/normal/long bands) --- the
 pooled out-of-box fraction stayed comfortably low (\num{0.0020}) and the change
 appeared safe. Splitting the same guard by car length told a different story
-(Table~\ref{tab:d2}): on the \emph{compact} band the length prior over-extended
+(Table~\ref{tab:d2}): on the compact band the length prior over-extended
 cars to \num{0.0433} out-of-box --- about \num{100}$\times$ that band's own
 mirrored baseline --- while \num{32} of \num{40} cars sitting near \num{0.0015}
 kept the pooled median quiet.
@@ -654,7 +655,7 @@ computed \emph{per length band against that band's own mirrored baseline}, not
 as a pooled median; a change is only accepted if it clears the guard in every
 band. Second, on the compact band the mirrored baseline is itself near zero
 (\num{0.0004}): reflecting an already-short car barely leaves its box, so the
-bar there is effectively ``do not leave the box at all,'' which \emph{no}
+bar there is effectively ``do not leave the box at all,'' which no
 configuration clears. We therefore report the guard as a \emph{ratio} to the
 band baseline rather than a pass/fail bit, because the ratio (for example, a
 \num{16}$\times$ band violation reduced from an incumbent \num{100}$\times$ ---
@@ -715,7 +716,7 @@ never observed. Table~\ref{tab:donor-coverage} reports the donor metric on \num{
 three clouds --- the raw partial, its symmetry mirror, and the completion ---
 against each car's
 donor-only novel set. This is the metric's acceptance run, taken
-on the production path \emph{before} the Section~\ref{ch:completion-method} length prior; the length
+on the production path before the Section~\ref{ch:completion-method} length prior; the length
 geometry is evaluated in Section~\ref{sec:results-box}.
 
 \begin{table}[H]
@@ -777,8 +778,7 @@ saw least.
     completion itself (green). The upper panels close the occluded far side almost
     entirely; the last isolates the residual failure modes --- far-end
     under-completion and heading/centre error on diagonal or sparse views --- that
-    Section~\ref{sec:results-box} and Section~\ref{ch:completion-method} address.
-    Rendered by \texttt{scratchpad/donor\_metric\_viz.py}.}
+    Section~\ref{sec:results-box} and Section~\ref{ch:completion-method} address.}
   \label{fig:donor-coverage}
 \end{figure}
 
@@ -792,7 +792,7 @@ a completion by how closely it reproduces its own partial \emph{input}. Computed
 the same \num{39} cars (per-car medians, input\,$\rightarrow$\,cloud direction), they
 invert the ranking the task calls for (Table~\ref{tab:reffree-compare}): the raw
 partial and its mirror score a perfect \num{0} --- any cloud that contains the input
-points is an optimum --- while the completion scores \emph{worst}, penalised for every
+points is an optimum --- while the completion scores worst, penalised for every
 point it adds. The gap is not marginal: the raw partial's median forward UCD is
 \SI{0}{\meter} against the completion's \SI{0.090}{\meter} ($p<10^{-11}$, Wilcoxon
 across cars). Yet the completion is the only cloud that recovers unseen surface, as the
@@ -809,7 +809,7 @@ why a metric restricted to the never-observed surface is needed here.
     closer reproduction of the input), so the raw partial and mirror --- which contain
     the input --- are their trivial optima and the completion is scored worst. Donor
     \texttt{cov@0.1} (higher is better) is the only column that credits recovered
-    unseen surface. Computed by \texttt{scratchpad/ucd\_uhd\_compare.py}.}
+    unseen surface.}
   \label{tab:reffree-compare}
   \begin{tabular}{lcccc}
     \toprule
@@ -826,9 +826,9 @@ why a metric restricted to the never-observed surface is needed here.
 \label{sec:results-box}
 
 Surface coverage shows the completion is geometrically faithful; the box
-evaluation shows it is \emph{useful}. For each true-positive (frame, car) pair on
+evaluation shows it is useful. For each true-positive (frame, car) pair on
 the well-observed static cars we fit an oriented box to the raw partial and to the
-completion with the \emph{same} fitter used to build the amodal ground-truth
+completion with the same fitter used to build the amodal ground-truth
 boxes (so fitter bias cancels), and compare each against the GT box. This is the
 pre-registered ``completion adds value'' test.
 Table~\ref{tab:box-quality} reports it.
@@ -874,7 +874,7 @@ and for the other \num{26} (\num{0.167}$\to$\num{0.118}).
 \paragraph{Length: a regression the geometry corrected.} In
 Table~\ref{tab:box-quality} length is neutral, which was too generous a reading of an
 untreated defect: a partial truncated at the occluded far end completes short, so it
-\emph{under}-extends length. The completion's length geometry
+under-extends length. The completion's length geometry
 (Section~\ref{ch:completion-method}) corrects this --- on the promoted configuration the
 final completed box reaches median BEV IoU \num{0.771} against the raw partial's
 \num{0.725}, with $|\Delta L|$ improved to \num{0.304} and centre error to \num{0.184}.
@@ -890,8 +890,7 @@ ablations (Section~\ref{sec:abl-completion}).
     the box on the occluded width and far end and centres it better; the one
     strong regression panel is a heading error on a sparse (\num{109}-point)
     input, a diagonal-view failure mode also visible in
-    Figure~\ref{fig:donor-coverage}. Rendered by
-    \texttt{scratchpad/completion\_box\_eval\_viz.py}.}
+    Figure~\ref{fig:donor-coverage}.}
   \label{fig:box-overlays}
 \end{figure}
 
@@ -937,7 +936,7 @@ near-identical median dimensions, and every motion bucket clusters at
 the single-frame input predicts. One honest caveat about the absolute level, not
 the comparison: the plausibility recipe uses axis-aligned dimensions, which
 overestimate width and length for cars oriented diagonally to the world axes, so
-the \raisebox{0pt}[0pt][0pt]{$\sim$}\SI{54}{\percent} rate \emph{understates}
+the \raisebox{0pt}[0pt][0pt]{$\sim$}\SI{54}{\percent} rate understates
 completion quality (most failures are inflated width on genuine car-shaped
 footprints). Since both groups use the identical recipe, the static-vs-moving
 conclusion is unaffected. The value of the check is that the statics-only design
@@ -949,8 +948,7 @@ of the earlier sections does not hide a mover failure mode.
   \caption[Completions of moving-car tracks on seq~08]{Bird's-eye completions of moving-car tracks on seq~08 (blue partial
     input, green completion). Most form recognisable car footprints; the failures
     are width inflation on diagonally-oriented cars, an artefact of the
-    axis-aligned plausibility measure rather than of motion. Rendered by
-    \texttt{scratchpad/t11\_mover\_plausibility.py}.}
+    axis-aligned plausibility measure rather than of motion.}
   \label{fig:movers}
 \end{figure}
 
@@ -959,12 +957,12 @@ of the earlier sections does not hide a mover failure mode.
 
 The completion constants --- the width and length priors, the scale correction,
 the gate thresholds --- were all developed on seq~08. A fair test of whether the
-method \emph{generalises} therefore has to run on a sequence that took no part in
+method generalises therefore has to run on a sequence that took no part in
 that development, under a protocol fixed in advance so the outcome cannot be
 reinterpreted after the fact. We pre-registered one (\texttt{preregistration\_heldout.md},
 committed with an immutable timestamp before any held-out run). The held-out
 sequence is seq~00 (seq~05 had too few well-observed
-static cars to test); the two \emph{primary} metrics were fixed as BEV box IoU
+static cars to test); the two primary metrics were fixed as BEV box IoU
 (Section~\ref{sec:results-box}) and donor \texttt{cov@0.1}
 (Section~\ref{sec:results-coverage}), each requiring the completion to beat the
 raw partial with $p<0.05$; three refutation rules (fails to generalise / seq-08
@@ -973,7 +971,7 @@ taxonomy were registered alongside. Nothing was retuned for seq~00.
 
 One confound is logged rather than hidden: seq~00 is in the classifier's training
 split, so its \emph{detection} recall reads optimistically. This does not touch
-the completion claim, which is a \emph{paired} raw-vs-completed comparison on
+the completion claim, which is a paired raw-vs-completed comparison on
 identical true-positive inputs, and PCN was trained only on synthetic data and
 never saw seq~00. Table~\ref{tab:heldout} gives the outcome on the \num{45}
 well-observed static cars.
@@ -1004,7 +1002,7 @@ $p\approx0$), with the secondary width and height errors improving as they did o
 seq~08. Applying the pre-registered rules verbatim, the arbitration verdict was
 \textbf{partially holds}: neither generalisation rule triggered ---
 both primaries won and no testable length band regressed against its seq-08 level
---- but seq~00's well-observed set contains \emph{no} long cars
+--- but seq~00's well-observed set contains no long cars
 (${\geq}\SI{4.6}{\meter}$), so the long-band predictions and the long-band
 hallucination guard are simply untestable on it. The downgrade from ``holds'' to
 ``partially holds'' is therefore a \emph{coverage gap in the held-out data, not a
@@ -1028,7 +1026,7 @@ protocol of Section~\ref{sec:eval-protocol} unless a deviation is stated explici
 
 Table~\ref{tab:ablation-stage} isolates the two filtering stages that sit on top
 of geometric clustering. The geometric-only row uses clustering plus the
-geometric size/shape filters with \emph{no} learned classifier and \emph{no}
+geometric size/shape filters with no learned classifier and no
 track filter (like-for-like under the promoted
 configuration); the full row is the headline.
 
@@ -1064,7 +1062,7 @@ classifier removes about \num{149000} of them across the sequence
 borderline true clusters too, so recall falls from \num{0.775} to \num{0.677}.
 The \textbf{track filter then recovers that recall while improving precision
 again}: linking detections across frames and accepting only consistent tracks
-lifts precision to \num{0.905} \emph{and} recall to \num{0.730} (TP
+lifts precision to \num{0.905} and recall to \num{0.730} (TP
 \num{23629}~$\rightarrow$~\num{25478}), because a car seen across many frames is
 kept even where a single frame classified it as unknown, while transient
 false positives fail the track-length test. The net of both stages is still a
@@ -1101,7 +1099,7 @@ The reason the synthetic prior is redundant --- and cannot simply be added for
 safety --- is a total, symmetric domain gap between synthetic and real point
 clusters. Table~\ref{tab:cross-domain} gives the cross-domain
 transfer matrix: a model trained on one domain and evaluated on the other scores
-a car-class $F_1$ of \num{0.000} in \emph{both} off-diagonal directions, and
+a car-class $F_1$ of \num{0.000} in both off-diagonal directions, and
 fine-tuning on real data erases whatever the synthetic pretraining had learned.
 Given \num{420000} real training clusters, the real data does essentially all the
 work; the synthetic prior neither helps nor, once fine-tuned, survives.
@@ -1136,7 +1134,7 @@ The clustering stage is HDBSCAN. Because it is by far the most expensive stage
 density/connectivity clusterers --- DBSCAN and Euclidean-tolerance clustering ---
 at the same voxel resolution and under an identical pipeline
 (Table~\ref{tab:clustering}). \textbf{Deviation:} this benchmark is
-per-frame with the track filter \emph{off}, because it strides across the
+per-frame with the track filter off, because it strides across the
 sequence and the tracker requires contiguous frames; the numbers are therefore
 comparable to each other but not to the track-filtered headline.
 
@@ -1188,7 +1186,7 @@ completion network itself unchanged.
 partial must be mapped into that frame before completion
 (Section~\ref{sec:completion-normalisation}). Ablating that step against a naive
 alternative --- aligning the partial with a 3D PCA frame and normalising by its own
-centroid and radius --- isolates its effect on the \emph{same} checkpoint
+centroid and radius --- isolates its effect on the same checkpoint
 (Figure~\ref{fig:deblob}): the canonical-frame normalisation lifts the fitted box's BEV
 IoU at every input density (\num{0.32}$\to$\num{0.73} sparse, \num{0.25}$\to$\num{0.74}
 mid, \num{0.47}$\to$\num{0.85} dense), while the naive frame leaves the box mis-oriented
@@ -1205,9 +1203,8 @@ and mis-scaled off the ground-truth box.
     arbitrary principal axis rather than gravity --- while the
     canonical-frame box (green) aligns with the GT, lifting BEV box IoU at every
     density: \num{0.32}$\to$\num{0.73} (sparse), \num{0.25}$\to$\num{0.74} (mid),
-    \num{0.47}$\to$\num{0.85} (dense) --- per-panel values from the reconstruction
-    render (\texttt{fig62\_box\_overlay.py}), not an aggregate finding. The figure
-    measures \emph{pose and scale}
+    \num{0.47}$\to$\num{0.85} (dense) --- per-panel values, not an aggregate
+    finding. The figure measures pose and scale
     via the box; the completed cloud is car-shaped in the canonical frame but
     filled rather than crisp (Section~\ref{sec:donor-validation} quantifies real-data surface coverage).}
   \label{fig:deblob}
@@ -1223,7 +1220,7 @@ rather than hidden: it drops \SI{15.5}{\percent} of otherwise-plausible cars (\n
 pooled) as false rejections. On the same clean-gated tracks the completion precision rises
 from \num{18}/\num{47} (\SI{38}{\percent}) to \num{18}/\num{26} (\SI{69}{\percent}).
 
-\paragraph{Length geometry.} Completion \emph{under}-extends the occluded far end
+\paragraph{Length geometry.} Completion under-extends the occluded far end
 --- the one box dimension the raw-versus-completed test of
 Section~\ref{sec:results-box} rated neutral. Table~\ref{tab:length-geometry} ablates
 the longitudinal centre push on the promoted configuration ($n=40$): the completion
@@ -1256,10 +1253,10 @@ per-car estimate, each against the raw partial.
 Two things are visible here, and both are stated as the honest picture rather
 than the flattering one. First, Table~\ref{tab:box-quality}'s neutral
 $|\Delta L|$ averages over- and under-completion and so hides a real regression:
-the \emph{signed} length shows the completion systematically \emph{under}-extends
+the \emph{signed} length shows the completion systematically under-extends
 the occluded far end (normal cars $-0.485\to-0.545$). On the
 promoted configuration this surfaces even in the absolute $|\Delta L|$, where
-completion \emph{without} a length prior makes box length \emph{worse} than the
+completion without a length prior makes box length worse than the
 raw partial (\num{0.428}$\to$\num{0.476}, $p=0.027$), which the far-end truncation
 causes. The fixed prior
 reverses it (\num{0.354}) and the per-car estimate improves it further
@@ -1276,7 +1273,7 @@ falls \num{0.403}$\to$\num{0.364} and far-end coverage \num{0.346}$\to$\num{0.31
 relative to the fixed prior. Per band it is better on compact and
 long cars and worse on normal ones. The two metrics genuinely disagree here, and
 a control run settled which reading is right: deliberately over-extending
-(\nth{90} percentile $+\SI{0.45}{\meter}$) improved \emph{both} coverage and the
+(\nth{90} percentile $+\SI{0.45}{\meter}$) improved both coverage and the
 box on normal and long cars, which means those completions are still honestly too
 short rather than the metric being fooled. In other words the per-car estimate
 trades a little pooled coverage --- driven by the normal band it slightly
@@ -1284,7 +1281,7 @@ shortens --- for a correctly-sized box across all bands, and the residual
 shortfall is a real limitation, addressed next.
 
 \paragraph{A bounded negative on the residual shortfall.}\label{sec:completion-step1c} Targeting each car's
-\emph{true} length still leaves completions short on normal and long cars, which
+true length still leaves completions short on normal and long cars, which
 pointed to a second under-extension mechanism inside the completion itself (PCN
 under-fills its normalised frame, and the centre push doubles as an output
 rescale). It was investigated under pre-registration (the
@@ -1293,7 +1290,7 @@ calibrated fill factor did fix the target (normal-car $|\Delta L|$
 \num{0.329}$\to$\num{0.232}) but over-extended compacts and failed the
 pre-registered compact non-regression guard on both test sequences. The verdict
 was to reject it; the knobs stay in the code defaulted off. It is reported here
-because it \emph{bounds} the result: the residual far-end shortfall on long cars
+because it bounds the result: the residual far-end shortfall on long cars
 is a characterised, length-dependent limit, not an oversight.
 
 \paragraph{Completion architecture (PCN vs.\ PoinTr).} Swapping the completion network
@@ -1311,7 +1308,7 @@ choice of network.
 The detection operating point above established two facts: the pipeline is
 precision-saturated (false positives are low and flat, about \num{0.7} per frame),
 and it is recall-limited, missing roughly one car in four
-($R=\num{0.730}$ on sequence~08). This section explains \emph{why} the recall is
+($R=\num{0.730}$ on sequence~08). This section explains why the recall is
 limited, and it also underpins the completion results reported earlier
 (Section~\ref{sec:results-completion}): the same clustering step that caps recall
 is the one that decides whether a detected car reaches completion as a clean
@@ -1334,14 +1331,13 @@ car instances with at least \num{10} points surviving preprocessing.
 
 The recall ceiling is upstream of the learned classifier. The stage decomposition
 of Section~\ref{sec:results-ablations} makes this direct: geometric clustering with the
-size/shape filters but \emph{no} learned classifier and \emph{no} track filter
-already reaches recall \num{0.775}, which is \emph{higher} than the full pipeline's
+size/shape filters but no learned classifier and no track filter
+already reaches recall \num{0.775}, which is higher than the full pipeline's
 \num{0.730}. Every learned stage that follows can only hold or reduce that recall:
 the classifier discards clusters, and the centroid tracker only re-labels and
 filters clusters that geometric clustering has already produced --- it emits a
 detection in a frame only where a cluster exists in that frame, and never
-interpolates a detection across a gap (\texttt{src/tracker.py};
-\texttt{src/evaluate.py}), so neither stage can invent a detection where clustering
+interpolates a detection across a gap, so neither stage can invent a detection where clustering
 found nothing. Across the full sequence the two stages together trade roughly
 \num{1600} true positives (\num{27051} geometric-only versus \num{25478} full) for the removal of $\sim$\num{152000} false positives; this is a
 distinct trade from the $+\num{1655}$ true positives that the resolution change of
@@ -1356,14 +1352,14 @@ pass the filters, and \num{1827} of the rejected clusters do overlap a ground-tr
 car --- dominated by \texttt{min\_volume} (\SI{67.9}{\percent} of the GT-matching
 rejections) and \texttt{min\_points} (\SI{26.4}{\percent}); sequence~08 shows the
 same pattern (\SI{66.5}{\percent} / \SI{28.0}{\percent}). The dominant gates are
-\texttt{min\_volume} and \texttt{min\_points} --- the two that reject \emph{small}
+\texttt{min\_volume} and \texttt{min\_points} --- the two that reject small
 clusters. This is consistent with the rejected clusters being the smaller
 sub-fragments of cars that HDBSCAN has already split (the dominant fragment passing
 while the splinters fail the size gates), which the split analysis of
 Section~\ref{sec:split-analysis} then confirms is the prevailing failure mode. We
 state this as an inference rather than a direct measurement: the ablation records
-only that a rejected cluster overlaps \emph{some} ground-truth car
-(\texttt{src/analyze\_clustering.py}), not whether that same car also retains a
+only that a rejected cluster overlaps some ground-truth car,
+not whether that same car also retains a
 surviving cluster, so it establishes that the rejections are dominated by small
 fragments, not that every one belongs to an otherwise-detected car. Either way the
 diagnosis points one stage further upstream, at the clustering itself.
@@ -1374,11 +1370,11 @@ diagnosis points one stage further upstream, at the clustering itself.
 To quantify how clustering caps recall we measured, for every eligible ground-truth
 car, how its points distribute across HDBSCAN clusters. Each car is
 assigned to exactly one of four states that partition the population: \emph{ok} (one
-dominant cluster, under \SI{30}{\percent} noise), \emph{split} (points spread over
-two or more clusters), \emph{noisy} (one cluster but at or above \SI{30}{\percent}
-noise), or \emph{all-noise}. A separate, cross-cutting flag marks \emph{merged} cars
+dominant cluster, under \SI{30}{\percent} noise), split (points spread over
+two or more clusters), noisy (one cluster but at or above \SI{30}{\percent}
+noise), or \emph{all-noise}. A separate, cross-cutting flag marks merged cars
 (a car whose dominant cluster is shared with another car); a merged car still has a
-dominant cluster, so it is \emph{not} a fifth partition class and is reported below
+dominant cluster, so it is not a fifth partition class and is reported below
 as a memo count rather than a table row that would be summed.
 Table~\ref{tab:split} gives the result on both sequences.
 
@@ -1387,7 +1383,7 @@ Table~\ref{tab:split} gives the result on both sequences.
   \caption[Ground-truth cars across HDBSCAN clusters]{Distribution of ground-truth cars across HDBSCAN clusters
     (pre-promotion configuration; sequence~00, \num{100} frames;
     sequence~08, held-out sample). The four states partition the population and sum
-    to the denominator; \emph{split} is the dominant failure mode and \emph{merging}
+    to the denominator; split is the dominant failure mode and merging
     (the cross-cutting memo row, not summed) is negligible. Split cars are uneven ---
     the largest fragment holds a median \num{0.92} of the points on sequence~00 and
     \num{0.77} on sequence~08 --- but a large point-fraction does not guarantee a
@@ -1421,19 +1417,19 @@ cars are largest and nearest}: the split rate falls monotonically with range ---
 HDBSCAN finds internal density variations within that dense return --- the roof line
 against the body, the near side against the far side --- and cuts the car along
 them. This is the mechanism behind the counter-intuitive near-range recall dip
-reported in Section~\ref{sec:results-distance}: the nearest bin has \emph{lower} recall than
+reported in Section~\ref{sec:results-distance}: the nearest bin has lower recall than
 the \SIrange{10}{20}{\metre} bin despite carrying far more points, because a close
 car dissolves into fragments that no longer match the whole instance. Third,
 \textbf{the cleanly-clustered fraction tracks recall, and splitting usually loses
 the car}. The fraction of cars that form one dominant cluster
 (\SI{68.5}{\percent} on sequence~00, \SI{62.8}{\percent} on sequence~08) sits just
-\emph{below} the recall the pipeline achieves on the same configuration
+below the recall the pipeline achieves on the same configuration
 (\num{0.739} and \num{0.699} respectively). Two things follow. The pipeline recovers
 essentially every cleanly-clustered car, so that fraction is close to a floor on
 recall --- not a ceiling; recall exceeds it only by the few split cars whose dominant
 fragment happens to survive matching and filtering. And because recall
 (\num{0.699}) barely exceeds the clean fraction (\SI{62.8}{\percent}) while
-\SI{37.1}{\percent} of cars split, the great majority of split cars are \emph{not}
+\SI{37.1}{\percent} of cars split, the great majority of split cars are not
 recovered: a large dominant point-fraction (median \num{0.77}--\num{0.92}) does not
 translate into a match, because matching depends on spatial overlap and on the
 fragment clearing the size filters, not on point count. Splitting is therefore the
@@ -1468,7 +1464,7 @@ mid- and far-range cars (green) are detected as single clusters.
 Given that splitting caps recall, the obvious responses fall into two families:
 change how clusters \emph{form} (a larger minimum cluster size, a different
 clusterer, distance-adaptive parameters, or pre-clustering point accumulation) or
-\emph{reassemble} fragments after HDBSCAN has split them. We tried six in total;
+reassemble fragments after HDBSCAN has split them. We tried six in total;
 Table~\ref{tab:strategies} collects the four with a reproducible quantitative
 outcome, and two further strategies (temporal accumulation and threshold lowering)
 are discussed in prose below. All were evaluated against the same pre-promotion
@@ -1511,10 +1507,10 @@ diagnosis of Section~\ref{sec:split-analysis}:
 
 \begin{itemize}
   \item \textbf{Higher minimum cluster size (MCS \num{20})} is the most instructive.
-    It is the only variant to \emph{improve} $F_1$ on sequence~00
+    It is the only variant to improve $F_1$ on sequence~00
     (\num{0.844}~$\rightarrow$~\num{0.852}), by discouraging the small splinter
     clusters. But it does not generalise: on the held-out sequence~08 it drops to
-    $F_1$~\num{0.801}, \emph{below} the \num{0.829} baseline, because a larger
+    $F_1$~\num{0.801}, below the \num{0.829} baseline, because a larger
     minimum also erases genuinely sparse distant cars. The sequence-00 gain was
     over-fitting.
   \item \textbf{Post-clustering fragment merge} (join clusters within
@@ -1568,14 +1564,14 @@ intra-car gaps before it starts closing inter-car ones. This is why the earlier
 project conclusion --- that recall was fixed at a hard ceiling of about \num{0.74}
 --- was reasonable given only the evidence
 in Table~\ref{tab:strategies}, and also, as the next section shows, wrong: it read a
-limit on \emph{these} repairs as a limit on the approach.
+limit on these repairs as a limit on the approach.
 
 \subsection{Clustering Resolution and the Corrected Ceiling}
 \label{sec:resolution-fix}
 
 The intervention that helped was not a repair at all but a change to the clustering
 \emph{resolution}: re-voxelising the object cloud to a \SI{0.10}{\metre} grid
-\emph{before} running HDBSCAN, rather than clustering the full-resolution
+before running HDBSCAN, rather than clustering the full-resolution
 \SI{0.05}{\metre} cloud (adopted in the runtime optimisation of
 Section~\ref{sec:results-runtime}). A coarser grid closes the small intra-car density gaps that HDBSCAN was
 cutting along, so fewer splits form in the first place. It is a formation change like
@@ -1603,7 +1599,7 @@ enough not to fuse neighbouring cars.
 \end{table}
 
 Table~\ref{tab:splitrate} shows the split rate falling by \num{7.8} points
-(\SI{37.7}{\percent}~$\rightarrow$~\SI{29.9}{\percent}) with \emph{zero} new
+(\SI{37.7}{\percent}~$\rightarrow$~\SI{29.9}{\percent}) with zero new
 merges.\footnote{The full-resolution counts here (\num{810} cars, split
 \SI{37.7}{\percent}) and those in Table~\ref{tab:split} (\num{811}
 cars, split \SI{37.1}{\percent}) are separate runs of the same analysis on the same

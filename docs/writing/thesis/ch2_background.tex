@@ -1,7 +1,8 @@
 % Chapter 2 -- Background and Related Work (\input by main.tex)
 % Positions this thesis's classical-clustering + binary-classifier + PCN-completion
 % pipeline against the deep-learning LiDAR-segmentation and point-completion
-% literature, and carries the B3 mandatory literature-positioning table (Table 2.1)
+% literature, and carries the B3 mandatory literature-positioning table (tab:positioning;
+% now Table 2.2, since the completion-metric tab:completion-metrics in 2.1.4 precedes it)
 % that defends examiner Q2 ("why F1 0.808 / R 0.73 vs SOTA?") and Q10 ("what is yours
 % vs. reimplementation?").
 %
@@ -17,13 +18,18 @@
 % related work and the positioning table.
 %
 % Honesty-phrasing rules applied (personal_agenda P1):
-%   - the positioning table (Table 2.1) presents NO protocol-mismatched number as
-%     head-to-head: each cell is labelled with its own metric, requirements columns lead,
-%     and the caption states the metric/protocol/scope mismatch explicitly
+%   - the positioning table (tab:positioning, Table 2.2) is REQUIREMENT-ONLY (approach / segmentation
+%     supervision / output type); it deliberately carries NO accuracy column, because
+%     mixing mIoU, per-class car IoU, PQ (and its variants), and this work's point-level
+%     car F1 in one column invites a comparison those metrics do not support
+%     (advisor feedback, 2026-09-07). The accuracy gap is stated in the prose below the
+%     table instead.
 %   - every quantitative claim about a published method traces to a cited primary source;
-%     all Table 2.1 numbers are SemanticKITTI test-set figures verified against the paper
-%   - this work's own row uses the frozen headline numbers (F1 0.808 / R 0.730 / P 0.905,
-%     seq 08; Chapter~\ref{ch:evaluation}, Finding~#34) with the point-IoU>=0.3 protocol named
+%     the mIoU / PQ ranges quoted in the post-table prose are SemanticKITTI test-set
+%     figures verified against the paper
+%   - this work's headline numbers (F1 0.808 / R 0.730 / P 0.905, seq 08;
+%     Chapter~\ref{ch:evaluation}, Finding~#34) appear in the post-table prose with the
+%     point-IoU>=0.3 protocol named, NOT in the table
 %   - "recall" is stated against its car-only, >=10-surviving-points denominator where used
 %
 \chapter{Literature Review \& Theoretical Background}
@@ -216,13 +222,51 @@ ranking of recovered surface. Closest to the present work, Ren
 et al.~\cite{ren2022selfsupervised} complete vehicles in real traffic scenes and build a
 pseudo ground truth by accumulating each tracked instance across consecutive frames, then
 score the completed cloud against that accumulation with Chamfer-based distances. That
-accumulation is scored \emph{as a whole}, however: it mixes the near surface the input
-already observed with the little new surface the other views add, so a completion is not
-penalised for merely reproducing its input, and no baseline or bounding-box test guards
-against surface hallucinated outside the car. Section~\ref{sec:donor-validation} adopts the
-same multi-frame idea but restricts scoring to the surface the input frame did \emph{not}
+accumulation is scored \emph{as a whole}, however --- indeed one of its three distance
+terms measures input fidelity directly --- so it mixes the near surface the input already
+observed with the little new surface the other views add, a completion is not penalised
+for merely reproducing its input, and no out-of-box hallucination guard flags surface
+invented outside the car. Section~\ref{sec:donor-validation} adopts the
+same multi-frame idea but restricts scoring to the surface the input frame did not
 see, and adds an explicit hallucination guard, precisely so that reproducing the input
 earns nothing.
+
+Table~\ref{tab:completion-metrics} summarises this landscape against the two properties
+the completion claim needs: whether a metric credits genuinely never-observed surface ---
+and how directly --- and whether it guards against hallucination. The existing measures
+range from penalising added surface, through crediting it only indirectly or mixed with
+already-seen surface, to not measuring it at all, and none guards hallucination.
+
+\begin{table}[H]
+  \centering
+  \caption[Completion metrics and recovered occluded surface]{Established real-LiDAR
+    completion metrics, by what each scores a completion against, whether it bounds surface
+    invented outside the car (``guard''), and how it credits recovered never-observed
+    surface (``unseen''): \emph{no} = does not credit it (the input-fidelity measures in
+    fact penalise it); \emph{indirect} = credited only through a proxy such as resemblance
+    to a synthetic car; \emph{partial} = credited, but mixed with already-seen surface;
+    \emph{yes} = scored in isolation. Each measure is valid for its own purpose; none,
+    however, isolates recovered unseen surface or guards hallucination, which is what the
+    donor metric of Section~\ref{sec:donor-validation} adds.}
+  \label{tab:completion-metrics}
+  \small
+  \renewcommand{\arraystretch}{1.2}
+  \setlength{\tabcolsep}{6pt}
+  \begin{tabular}{@{}p{2.6cm}p{4.0cm}cc@{}}
+    \toprule
+    Metric & Scored against & Guard & Unseen \\
+    \midrule
+    UCD~\cite{cui2023p2c}       & observed input & no & no \\
+    UHD~\cite{chen2020unpaired} & observed input & no & no \\
+    Fidelity~\cite{yuan2019pcnpointcompletionnetwork} & observed input & no & no \\
+    MMD~\cite{yuan2019pcnpointcompletionnetwork} & synthetic CAD prior & no & indirect \\
+    Consistency~\cite{yuan2019pcnpointcompletionnetwork} & model's own frames (cross-frame) & no & no \\
+    meanCD~\cite{ren2022selfsupervised} & full multi-frame accumulation & no & partial \\
+    \midrule
+    \textbf{Donor cov.} (ours) & donor-only never-observed surface & yes & yes \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \subsection{Positioning of This Work}
 \label{sec:bg-positioning}
@@ -230,59 +274,56 @@ earns nothing.
 The pipeline studied here is a car-only instance detector built from training-free
 clustering and a binary classifier, followed by object completion. It occupies a
 different point in the design space from the benchmark leaders of
-Section~\ref{sec:bg-deep}, and the honest way to state that is to show the published
-numbers alongside its own while being explicit that they are not the same measurement.
-Table~\ref{tab:positioning} does this. The columns that carry the argument are the
-requirement columns --- approach and supervision --- not the last column: the reported
-figures are shown to be candid about the accuracy gap, not to claim a win on a shared
-axis, and no two cells in that column are the same metric unless their headers say so.
+Section~\ref{sec:bg-deep}. Table~\ref{tab:positioning} sets that position out along the
+axes on which it actually differs --- approach, segmentation supervision, and output type
+--- rather than on an accuracy score. A shared accuracy column is deliberately omitted:
+the published methods are scored by mIoU and panoptic quality across all classes, this
+work by a car-only point-level F$_1$, and placing those figures in one column would invite
+a comparison the metrics do not support. The accuracy gap is real, and is stated plainly
+in the text below the table instead.
 
 \begin{table}[H]
   \centering
-  \caption[Positioning against representative SemanticKITTI methods]{Positioning against representative SemanticKITTI methods. \textbf{The
-    figures in the last column are not comparable across rows and must not be read as a
-    ranking.} They are different metrics (semantic mIoU and per-class IoU; panoptic PQ,
-    PQ$^{\text{Th}}$, PQ$^\dagger$; and this work's point-level car F$_1$), obtained
-    under different protocols (the published rows are official test-set results over
-    sequences 11--21 with the benchmark's own matching; this work is scored on
-    sequence~08 by greedy point-level IoU$\,\ge\,$0.3 one-to-one matching, car class
-    only), and over different scopes (all classes vs.\ car-only; online vs.\ offline).
-    All published rows additionally require GPU training on dense per-point labels;
-    this work's segmentation stage requires no training and no labels, and its
-    classifier uses only automatically mined, weakly labelled clusters. The table
-    compares \emph{requirements and paradigm}; on raw accuracy the supervised networks
-    are stronger by design. Published figures are the test-set numbers reported by the
-    cited papers; this work's row is the frozen sequence~08 headline (Chapter~\ref{ch:evaluation}). RangeNet++ appears in two rows: as a standalone semantic backbone
-    (mIoU 52.2) and as the semantic half of the semantics-plus-detector panoptic
-    baseline of~\cite{behley2021panoptic} (PQ 37.1).}
+  \caption[Positioning against representative SemanticKITTI methods]{Positioning
+    against representative SemanticKITTI methods by approach, segmentation supervision,
+    and output type --- the axes on which this work actually differs. A reported-accuracy
+    column is deliberately omitted: the published methods are scored by mIoU and panoptic
+    quality across all classes and this work by a car-only point-level F$_1$, so no single
+    accuracy column would be comparable across rows. The accuracy gap is stated in the
+    text.}
   \label{tab:positioning}
   \small
   \renewcommand{\arraystretch}{1.25}
   \setlength{\tabcolsep}{5pt}
-  \begin{tabular}{@{}p{2.7cm}p{3.5cm}p{3.0cm}p{4.4cm}@{}}
+  \begin{tabular}{@{}p{2.7cm}p{3.7cm}p{3.5cm}p{3.0cm}@{}}
     \toprule
-    Method & Approach & Supervision & Reported on SemanticKITTI (own metric) \\
+    Method & Approach & Supervision & Output \\
     \midrule
-    RangeNet++~\cite{milioto2019rangenet++} & Range-image CNN, semantic & Dense per-point & mIoU 52.2; car IoU 91.4 \\
-    RandLA-Net~\cite{Hu_2020_CVPR} & Point-based, semantic & Dense per-point & mIoU 53.9; car IoU 94.2 \\
-    Cylinder3D~\cite{zhu2021cylindrical} & Voxel (cylindrical), semantic & Dense per-point & mIoU 67.8; car IoU 97.1 \\
+    RangeNet++~\cite{milioto2019rangenet++} & Range-image CNN, semantic & Dense per-point & Per-point class \\
+    RandLA-Net~\cite{Hu_2020_CVPR} & Point-based, semantic & Dense per-point & Per-point class \\
+    Cylinder3D~\cite{zhu2021cylindrical} & Voxel (cylindrical), semantic & Dense per-point & Per-point class \\
     \addlinespace[2pt]
-    RangeNet++ \& PointPillars~\cite{behley2021panoptic} & Semantic net + detector, panoptic & Dense per-point + boxes & PQ 37.1; PQ$^{\text{Th}}$ 20.2 \\
-    Panoptic-PolarNet~\cite{zhou2021panopticpolarnet} & End-to-end panoptic & Dense per-point + instance & PQ 54.1; PQ$^{\text{Th}}$ 53.3 \\
-    DS-Net~\cite{hong2021dsnet} & End-to-end panoptic & Dense per-point + instance & PQ 55.9; mIoU 61.6 \\
-    EfficientLPS~\cite{sirohi2021efficientlps} & End-to-end panoptic & Dense per-point + instance & PQ 57.4; PQ$^\dagger$ 63.2 \\
+    RangeNet++ \& PointPillars~\cite{behley2021panoptic} & Semantic net + detector, panoptic & Dense per-point + boxes & Per-point class + instance \\
+    Panoptic-PolarNet~\cite{zhou2021panopticpolarnet} & End-to-end panoptic & Dense per-point + instance & Per-point class + instance \\
+    DS-Net~\cite{hong2021dsnet} & End-to-end panoptic & Dense per-point + instance & Per-point class + instance \\
+    EfficientLPS~\cite{sirohi2021efficientlps} & End-to-end panoptic & Dense per-point + instance & Per-point class + instance \\
     \midrule
-    \textbf{This work} & Geometric clustering + binary classifier (+ completion) & None for segmentation; auto-mined weak labels for the classifier & car F$_1$ 0.808 (R 0.730, P 0.905); point-IoU$\,\ge\,$0.3, seq~08 \\
+    \textbf{This work} & Geometric clustering + binary classifier (+ completion) & None for segmentation; auto-mined weak labels for the classifier & Point-level car clusters (+ completion) \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-Read as requirements, the table states the thesis's position plainly. The supervised
-networks reach substantially higher accuracy on their own metrics, and this work does
-not contest that; its car-only recall of \num{0.730} (against the
-$\ge$-10-surviving-points denominator of Chapter~\ref{ch:evaluation}) is well below the accuracy of those
-networks --- a difference of paradigm, not a lower score on a shared axis, since none of
-the published metrics is this work's point-level car F$_1$. What the pipeline offers instead is a different set of properties: it
+Read as requirements, the table states the thesis's position plainly. On their own
+benchmarks the supervised networks reach \numrange{52.2}{67.8} mIoU (semantic) and
+\numrange{37.1}{57.4} PQ (panoptic) over the official test sequences~11--21, scored
+across all classes; this work reports a car-only point-level F$_1$ of \num{0.808}
+(recall \num{0.730} against the $\ge$-10-surviving-points denominator of
+Chapter~\ref{ch:evaluation}, precision \num{0.905}) on sequence~08. These are not the
+same measurement --- none of the published metrics is this work's point-level car F$_1$,
+and the published rows are all-class test-set scores while this work's is a car-only,
+single-sequence one --- so the lower accuracy is a difference of paradigm, not a lower
+score on a shared axis, and this work does not contest the gap. What the pipeline offers
+instead is a different set of properties: it
 segments without any labelled point clouds, it runs on a single consumer GPU without a
 training stage for detection (its runtime is reported in Section~\ref{sec:results-runtime}), and every stage of
 its decision is inspectable, so its

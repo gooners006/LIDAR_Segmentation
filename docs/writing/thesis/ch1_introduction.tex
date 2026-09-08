@@ -67,7 +67,7 @@ PCN~\cite{yuan2019pcnpointcompletionnetwork} are well studied on synthetic bench
 On real LiDAR they cannot be evaluated: there is no clean ground-truth complete shape,
 and the obvious substitute --- accumulating the same static car across many frames ---
 is itself one-sided and, as this thesis shows, invalid as a reference, because the raw
-partial input scores \emph{best} against it. Before completion can be claimed to help,
+partial input scores best against it. Before completion can be claimed to help,
 it must be possible to measure at all. This is where the topic narrowed: an initial aim
 of applying learned completion to real LiDAR ran into the fact that its quality could
 not be measured validly at all, and that gap --- not the completion network itself ---
@@ -107,7 +107,7 @@ architectural, together with the engineering contributions that make it possible
   \item \textbf{A Validated Metric for Occluded-Vehicle Completion on Real LiDAR.}
     Chamfer distance against an accumulated pseudo-ground-truth is invalid on real
     cars, so the thesis defines a donor-frame occluded-side coverage metric: it
-    scores how much of the surface seen only in \emph{other} frames of the same
+    scores how much of the surface seen only in other frames of the same
     static car a completion recovers, with a hallucination guard against surface
     invented outside the car's box, and validates it against a four-item gate.
     Applied to real sequence-08 cars, it shows that PCN recovers occluded surface

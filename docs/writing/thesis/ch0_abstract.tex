@@ -34,10 +34,10 @@ Automotive LiDAR sees every car from one side, and point-cloud completion aims t
 restore the occluded surface --- but on real data it cannot be measured. No clean
 reference shape exists for a car, and Chamfer distance against an accumulated
 multi-frame cloud is invalid: the accumulation is occluded on the same side, so the raw
-partial scores \emph{best}, ranking a network that does nothing above one that completes.
+partial scores best, ranking a network that does nothing above one that completes.
 
 The central contribution of this thesis is a valid metric: a donor-frame coverage score
-for how much of the surface seen only in \emph{other} frames of the same static car a
+for how much of the surface seen only in other frames of the same static car a
 completion recovers, guarded against out-of-box hallucination and compared to a
 parameter-free symmetry-mirror baseline, and passing a four-part validation battery. On
 real LiDAR cars a PCN network recovers genuinely unseen surface well above the
