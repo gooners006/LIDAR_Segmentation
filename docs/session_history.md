@@ -4366,3 +4366,141 @@ fair (same recipe both groups). Finding #44; figure
 6. Replace global RANSAC with grid-based ground removal (Patchwork++)
 7. Tracker upgrade — IOU-based matching (SORT-style)
 8. Recreate `.venv` in place (Python 3.10.11) — fix relocated-venv pip launchers
+
+---
+# Session — 2026-09-09 (Thesis reframe planning: drop donor metric → completion framework; freeze lifted)
+
+## What was done
+Planning-only session (no code or thesis edits). Designed a major thesis reframe and split it
+into two reviewed/approved plan files stored outside the repo at `~/.claude/plans/`.
+
+### Decision: drop the donor-frame coverage metric as the thesis contribution
+- New main contribution: the modular LiDAR **detection-and-completion framework**.
+- Second contribution: near-annotation-free, real-data-grounded approach on **SemanticKITTI**
+  (real LiDAR) + **ShapeNetCore v2** (CAD priors for PCN training).
+- New title: "A Modular Detection and Completion Framework for Occluded Vehicles in Automotive LiDAR."
+- Remove ALL donor-frame mentions (~129 across 7 files: title, keyword, Declaration, RQ1/RQ2,
+  Ch3 sec 890-1084, Ch4 completion spine 577-1010, Ch2 math 452-483, 2 figures, 3 tables).
+
+### Decision: completion evaluation grounded in the cited literature
+Extracted real-data completion protocols from Chen 2020, Mittal 2022, Ren 2022, P2C 2023
+(via pdfminer). Resolved to avoid ALL self-made evaluation instruments:
+- Dropped donor metric, amodal-box utility (home-made accumulated reference), and the old
+  L/W/H "plausibility" box (#27/#44, also home-made). Dropped the "Amodal GT Box Builder"
+  as a contribution.
+- New completion evidence: synthetic CD/F (0.16 / F@0.1 0.76) + Chen-2020 independent-classifier
+  plausibility (NEW experiment) + fidelity UCD/UHD reported with the under-completion caveat (#52).
+- RQ2 reframed to plausibility + fidelity; the donor "recovers unseen surface" claim is removed.
+
+### Decision: research freeze lifted (user)
+The 2026-08-21 write-up freeze is lifted; pipeline may be re-run and models retrained. Ordinary
+data-safety hygiene retained (do not overwrite `output/08` or existing checkpoints without cause).
+
+### New experiment specced (own plan file): independent-classifier plausibility (Chen 2020)
+PointNet++ trained from scratch on ModelNet40 (external; avoids ShapeNet circularity); three-way
+per-car comparison raw partial / PCN-completed / accumulated-static ceiling (ceiling on static
+cars only); all 11 labeled sequences (00-10); report top-1 argmax==car rate + mean car-prob;
+pre-registered completed>raw via McNemar + Wilcoxon; honest-negative contingency if the judge
+rejects most completions.
+
+### Grounding verified this session
+- `scratchpad/amodal_gt.py` confirmed home-made (accumulates sem=10 instance points across frames).
+- Only seq 08 has completed outputs today (518 completed cars); seq 00 has 0 completed saved;
+  01-07, 09, 10 never run. All-labeled scope therefore needs ~10 pipeline runs (~a few hours).
+- All core technologies are citable locally (`docs/references.bib` = 30 keys; `docs/papers/` PDFs
+  present; only RANSAC lacks a local PDF but has a bib entry `fischler1981random`).
+
+## Files changed
+No repo file changes detected (git status clean except the pre-existing untracked
+`docs/writing/BAKBOOK-thesis.doc`). Two plan files created outside the repo:
+- `~/.claude/plans/drop-the-whole-donor-frame-nifty-papert.md` (thesis reframe)
+- `~/.claude/plans/independent-classifier-plausibility.md` (new experiment)
+This session also updated `docs/project_state.md` (freeze lifted; Thesis Status = reframe planned).
+
+## Next
+- Run the plausibility experiment FIRST (it supplies the only favorable real-data completion
+  number), then write Ch4.
+- Execute the reframe file-by-file: task G -> Ch1+main -> Ch2 -> Ch3 -> Ch4 -> Ch5 -> style passes.
+- Open sub-decision at execution: ModelNet40 judge (recommended) vs in-repo ShapeNet judge.
+- Post-execution: update the `donor-metric-novelty` auto-memory (superseded).
+
+---
+# Session — 2026-09-10 (Task G execution: independent-classifier plausibility judge + full-sequence generation)
+
+Continues the 2026-09-09 reframe plan. Executed the first half of task G (the plausibility
+experiment that supplies the only favorable real-data completion number).
+
+## What was done
+
+### External-LLM plan review — hard pushback (2 of 5 points accepted)
+Reviewed a forwarded external-LLM review of the two plan files. Verified against the plan text
+and rejected the two CRITICALs; accepted the two MODERATEs:
+- REJECT (p1, raycast/occlusion-sim onto ModelNet40): the paired raw-vs-completed test cancels a
+  uniform domain gap; completed clouds are denser (gap runs toward completed); the fix converts
+  an established protocol into a self-made instrument and violates the pre-registered honesty clause.
+- REJECT (p3, "Ren-2022 contradiction; keep amodal-box as pseudo-GT"): no contradiction — Ren uses
+  official KITTI GT boxes, not a home-made accumulated box; the pseudo-GT relabel does not fix the
+  self-reference the reframe removed.
+- REJECT (p5, argmax bleeds to truck/bus/van): ModelNet40 has no truck/bus/van (only `airplane`
+  and `car` are vehicle-ish; car == class 7), and the dual metric (car-prob) already mitigates.
+- ACCEPT (p2, lock up-axis with overlay viz) and (p4, lock the min-point gate — anchored to the
+  existing >=10-surviving-points rule, `evaluate.py:242` / #48).
+- Added (missed by both): density-vs-shape confound; the static-accumulation ceiling is the control
+  (H3 = completed->ceiling gap isolates shape from density).
+
+### Pre-registration written — Finding #53
+Locked before any scoring: judge, three-way comparison, both metrics (top-1 acceptance + mean
+car-prob), the >=10-point gate, hypotheses (H1 McNemar / H2 Wilcoxon / H3 ceiling gap), the
+density/ceiling framing, judge sanity gate (>=0.88), and all outcome interpretations incl. the two
+negative branches and the "no raycasting / no ShapeNet fallback" honesty commitment.
+
+### Judge built and trained (Option A — in-repo SSG)
+Chose in-repo PointNet++ SSG over a vendored port after finding `src/pointr.py` already provides
+pure-PyTorch FPS / index_points / square_distance (no new deps, no CUDA build; avoids the
+`/semantics-map` porting gate). Code in `scratchpad/plausibility/` (gitignored):
+`pointnet2_ssg.py` (SSG + ball-query, 1.48M params), `modelnet40.py` (HDF5 loader), `train_judge.py`.
+- Data: canonical `modelnet40_ply_hdf5_2048` (Stanford host dead; pulled from a HuggingFace mirror,
+  435MB, integrity-verified), `dataset/modelnet40/` (gitignored). 9840/2468 split, 40 classes.
+- Trained from scratch, seed 42, 100 epochs, Adam 1e-3 + cosine. Best test top-1 = 0.9214
+  (epoch 93) — gate PASS (>=0.88), in the reference SSG range -> faithful, no fallback needed.
+  Checkpoint `checkpoints/modelnet40_pointnet2.pth` (gitignored), log `..._log.csv`.
+
+### Full-sequence generation (all 11 labeled sequences)
+Ran `src/main.py --seq <s> --frames 5000 --no-gui --save-output
+--out-root output/experiments/plausibility_gen` for seq 00-10, production config (promoted
+PIPELINE_CONFIG, `stage_b_scratch_best.pth`, `pcn_kitti_best.pth`, completion + gate ON), isolated
+from `output/08`. ~3h47m (01:08->04:55; measured ~0.6 s/frame, flat). Batch exit code was a detached-
+process artifact; log ended "ALL SEQUENCES COMPLETE", all 11 `tracks.json` present.
+
+### Output structure mapped + harmonization resolved
+- Per track: `<id>_partial.ply` (raw single-frame PCN input; completed tracks only) and `<id>.ply`
+  (completed cloud, 4096 pts, for completed tracks). `tracks.json.tracks[]` carries
+  `centroid_history` (static/mover), `completed`, `ref_fit_length/width`, `completion_ref_frame`.
+- 2,822 completed tracks total (paired-test N): 00:926 01:96 02:329 03:48 04:59 05:258 06:164
+  07:213 08:518 09:141 10:70.
+- Harmonization (MEASURED, reverses the plan's assumption): completed clouds are y-up/z-length/x-width
+  (median extent x3.14 y1.54 z3.55), and ModelNet40 cars in this HDF5 are ALSO y-up/z-length
+  (median x0.87 y0.58 z1.83). So no up-axis rotation is needed — harmonization = unit-sphere +
+  subsample to 1024; residual is heading sign only (to be confirmed by overlay viz). Retires
+  review point 2 by measurement.
+
+## Files changed
+- Modified (tracked): `docs/findings.md` (+#53 pre-registration incl. measured judge result),
+  `docs/project_state.md`, `docs/session_history.md`.
+- New (gitignored, not committed): `scratchpad/plausibility/{pointnet2_ssg,modelnet40,train_judge}.py`,
+  `checkpoints/modelnet40_pointnet2.pth` (+ `_log.csv`), `dataset/modelnet40/`,
+  `output/experiments/plausibility_gen/` (11 seqs).
+- Untracked, not mine: `docs/writing/BAKBOOK-thesis.doc` (left untracked).
+
+## Results / findings
+- Judge: ModelNet40 test top-1 0.9214 (gate >=0.88 PASS).
+- Generation: 11 sequences, 2,822 completed car tracks for the paired test.
+- Harmonization: no up-axis rotation needed (both y-up/z-length, measured).
+
+## Next
+- Build the scoring harness: raw partial + completed -> unit-sphere + FPS 1024 -> judge -> car-prob +
+  argmax; McNemar (argmax) + Wilcoxon (car-prob) on the 2,822 pairs. Fold in the heading-sign overlay
+  viz sanity check first.
+- Build the static-accumulation ceiling (SemanticKITTI sem=10) for the H3 shape-quality read;
+  split static/mover via `centroid_history`.
+- Record results as a Finding; those numbers feed the Ch4 completion reframe.

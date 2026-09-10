@@ -2128,3 +2128,99 @@ optional). Thesis edits landed (build clean, 78 pp): `references.bib`
 +`chen2020unpaired`/`cui2023p2c`; Ch2 §2.4 reference-free paragraph extended; Ch4 new
 §"Comparison with reference-free completion metrics" (Tab `tab:reffree-compare`); Ch5
 one sentence. Nothing frozen touched.
+
+## 53. PRE-REGISTRATION — Independent-Classifier Plausibility (Chen 2020), Task G (2026-09-09)
+
+**Status: PRE-REGISTERED, NOT YET RUN.** Written before generating any completion
+outputs or scoring, per the CLAUDE.md experiment protocol. Locks the hypotheses, the
+data-filtering gate, and the interpretation of every outcome so nothing can be chosen
+post-hoc. Plan: `~/.claude/plans/independent-classifier-plausibility.md`. This is the
+single favorable *real-data* completion signal the reframe leaves standing (donor,
+amodal-box, and hand-set L/W/H plausibility all dropped as self-made instruments, see
+the reframe plan), so its honesty is load-bearing.
+
+**Judge (independent by construction):** PointNet++ classification model trained from
+scratch on **ModelNet40** (external CAD, disjoint from ShapeNet so no circularity with
+PCN's training source), 40-class, 1024 pts, unit-sphere normalized. **Not** the pipeline
+classifier (`src/classifier.py`) — using that to grade the pipeline's own completions is
+circular, and Finding #30 shows synthetic-trained variants score car F1 = 0.000 on real
+data. **Judge sanity gate (pre-committed):** ModelNet40 test accuracy **≥ 0.88** before
+any completion is scored; below that the judge is too weak to trust and the experiment
+halts rather than reporting plausibility numbers.
+
+**Comparison (three-way, per car):** raw single-frame partial vs PCN-completed vs
+accumulated-static cloud ("ceiling"). The ceiling is defined **only for static cars**
+(sem=10, movers cannot be accumulated); the paired raw-vs-completed test runs on all
+completed cars. Scope: all 11 labeled sequences (00-10), pooled + per-sequence.
+
+**Metrics (both, pre-committed — claim does not hinge on one cutoff):**
+- **Top-1 acceptance rate** (argmax class == car) — Chen 2020's definition.
+- **Mean car-probability** (graded; does not require winning argmax, so it is robust to a
+  completed car losing argmax to a morphologically near class — note ModelNet40 has no
+  truck/bus/van, so the only vehicle class is `car`).
+
+**Min-point gate for raw partials (LOCKED, anchored to an existing pipeline rule):** a
+raw partial is fed to the judge only if it has **≥ 10 points** — the same
+≥10-surviving-points threshold that defines the detection recall denominator
+(`evaluate.py:242`, `m.sum() >= 10`; Finding #48). No new arbitrary cutoff is introduced.
+Partials below the gate are **recorded and skipped**, and the skipped count is reported.
+Completed and ceiling clouds are dense by construction and are never gated.
+
+**Hypotheses (pre-registered):**
+- **H1 (completion helps):** completed acceptance rate > raw, **McNemar** on paired
+  argmax, p < 0.05.
+- **H2 (completion helps, graded):** completed per-car car-probability > raw, **Wilcoxon
+  signed-rank**, p < 0.05.
+- **H3 (shape, not just density — the confound control):** on the static subset, the
+  **completed → ceiling gap** is the shape-quality read. Report where completed lands
+  between raw and ceiling.
+
+**Density/shape confound and how the ceiling controls it (pre-committed reading):** the
+completed cloud is dense and near-uniform (PCN fine output, 16,384 pts → FPS 1024),
+hence *closer to ModelNet40's uniform-CAD distribution* than the sparse raw partial. So a
+naive raw-vs-completed gain could reflect the judge rewarding **density/uniformity**
+rather than **car-shape** — and the RQ2 claim is specifically about plausible *shapes*.
+The static-accumulation ceiling is the control: it is **dense AND a correct real car
+shape**. Therefore:
+- raw → completed (H1/H2) measures "completion helps" — density-confounded, reported as
+  such;
+- completed → ceiling (H3) isolates **shape quality**, because density is held roughly
+  equal and only shape differs.
+Ch4 will state the raw-vs-completed gain *only* alongside the completed-vs-ceiling gap,
+and will caveat that plausibility credits density as part of completion. This confound is
+pre-registered so the ceiling gap cannot be reinterpreted after seeing the numbers.
+
+**Outcome interpretation (pre-committed, all directions):**
+- **H1 & H2 hold, completed near ceiling:** favorable real-data claim supported —
+  completion produces car-plausible shapes, not just denser blobs. Primary reported result.
+- **H1 & H2 hold, completed far below ceiling:** completion helps but recovers density
+  more than correct shape; reported with that scope, not overstated.
+- **H1/H2 fail (completed ≤ raw):** honest negative — completion does not improve
+  plausibility on this judge. Reported as-is; **no** fallback to a ShapeNet judge, **no**
+  preprocessing tuning toward a favorable result (per plan contingency).
+- **Judge rejects even the dense ceiling clouds:** the off-the-shelf ModelNet40 judge is
+  too domain-gapped to assess real LiDAR completion at all — itself a legitimate negative
+  finding consistent with the Finding #30 sim-to-real story, reported as such. **We do not
+  augment the training set (virtual-LiDAR raycasting, occlusion sim) to force acceptance:**
+  that would convert an established, independent instrument into a bespoke self-made one,
+  reintroducing exactly the problem the reframe removed (external-review pushback, this
+  session; the paired test already cancels a uniform domain gap, and completed clouds are
+  denser than raw so the gap runs *toward* completed, not against it).
+
+**Artifacts (planned):** `checkpoints/modelnet40_pointnet2.pth` (new, not overwriting
+existing checkpoints), `output/experiments/plausibility_chen/{per_seq_*.json,
+summary.json}` + per-sequence acceptance bar figure. Determinism: fixed seeds, rerunnable.
+Existing results (`output/08`, existing checkpoints) preserved.
+
+**MEASURED — judge sanity gate (2026-09-09):** the judge is built and trained. In-repo
+PointNet++ SSG (`scratchpad/plausibility/pointnet2_ssg.py`, 1.48 M params, built on the
+`src/pointr.py` FPS/index/distance primitives + a ball-query grouping op — Option A, no new
+deps, no CUDA build), trained from scratch on ModelNet40 (`modelnet40_ply_hdf5_2048`, canonical
+9840/2468 split, 1024 pts, unit-sphere, standard aug; seed 42, 100 epochs, Adam 1e-3 + cosine).
+**Best test top-1 = 0.9214 (epoch 93)**, in the reference SSG range (~0.90-0.92) — the gate
+(>=0.88) **PASSES**, so the from-scratch reimplementation is empirically faithful and no fallback
+to a vendored port is needed. Checkpoint `checkpoints/modelnet40_pointnet2.pth`
+(car == class 7; ModelNet40 has no truck/bus/van, only `airplane` and `car` are vehicle-ish,
+confirming the argmax==car metric is not diluted by near-vehicle classes). Log:
+`checkpoints/modelnet40_pointnet2_log.csv`. Everything else in #53 remains pre-registered and
+unmeasured until the completions are scored.

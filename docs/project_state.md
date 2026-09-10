@@ -1,55 +1,70 @@
 # Project State
 
-Last updated: 2026-09-07
+Last updated: 2026-09-10
 
 > **Full chronological record: `docs/session_history.md`.** This file was compacted on
 > 2026-09-07 — the historical per-session narrative blocks (thesis reframe/polish/review
 > rounds, chapter-by-chapter drafting, delegate-brief T1-T13, completion Directions
 > 1/2/4a, cross-file audits) were removed from here and a complete pre-compaction snapshot
-> was appended to `session_history.md`. This file now holds only current state plus the
-> frozen reference tables. Experiment detail lives in `docs/findings.md`.
+> was appended to `session_history.md`. This file now holds current state only. Experiment
+> detail lives in `docs/findings.md`.
 
-## RESEARCH FREEZE — declared 2026-08-21 (write-up phase)
+## RESEARCH FREEZE — LIFTED 2026-09-09 (was declared 2026-08-21)
 
-Research is complete; the repository is now **evidence, not a lab**. Thesis
-write-up (T14) is the only open task. Plan of record: this document
-(`docs/project_state.md`; the freeze table below is authoritative). `THESIS_PLAN.md`
-was deleted 2026-09-04. Frozen items, all repo-verified 2026-08-21:
+The write-up freeze is **lifted** (user, 2026-09-09): the pipeline may be re-run and models
+retrained. Ordinary data-safety hygiene still applies (do not overwrite `output/08` or existing
+checkpoints without cause; new work to fresh paths). The committed reference configuration
+(`PIPELINE_CONFIG` at `src/pipeline.py:10`; checkpoints `stage_b_scratch_best.pth`,
+`pcn_kitti_best.pth`; eval protocol point-level IoU ≥ 0.3 greedy 1-to-1, supported-vehicles,
+track filter ON, micro-averaged) is documented in the sections below.
 
-| Item | Frozen value | Source |
-|---|---|---|
-| Pipeline config | `PIPELINE_CONFIG` as committed: `voxel_before_denoise=True`, `ransac_iterations=300`, `cluster_voxel_size=0.10`, `clustering_method="hdbscan"` | `src/pipeline.py:10` |
-| Checkpoints | `stage_b_scratch_best.pth` (classifier), `pcn_kitti_best.pth` (completion) | this doc, Checkpoints |
-| Completion constants | per-car length estimate q90 (`COMPLETION_LENGTH_TRACK_QUANTILE=90`) + 0.12 m (`_OFFSET`), fallback 4.14 m below 5 frames; T13 flags (`decouple_radius`, `fill_z`) default OFF | `src/completion.py:206,242-243,303-304` |
-| Eval protocol | point-level IoU ≥ 0.3 greedy 1-to-1, supported-vehicles, track filter ON, micro-averaged | `src/evaluate.py` |
-| Authoritative sequences | **seq 08 = headline** (4,071 frames); seq 00 = tuning/replication (dual role, in classifier train split); seq 05 = fallback-trigger record only | Findings #18, #42; T8 |
-| Closed experiments | recall repairs (#21/#24), Step 1c (#45), OLS fallback (#40), PoinTr (#28), Stage A production use (#31), PCN real fine-tuning (#16/#17/#19), merge-centroid fix (#46) | `docs/findings.md` |
+## Thesis Status (2026-09-09) — REFRAME PLANNED (not yet executed)
 
-**Freeze rule:** no edits to `src/pipeline.py`, `src/completion.py`,
-`src/classifier.py`, checkpoints, or `output/08` until after submission. New work
-goes to `scratchpad/` + new `output/experiments/` subfolders only (house
-data-safety rule). The remaining evidence tasks (B1–B6; see **Evidence Tasks**
-below) are read-only analyses against this frozen config — they do not change it.
+The manuscript is still fully drafted around the **donor-frame coverage metric** in the `.tex`
+files (no thesis edits made this session). A **reviewed, approved reframe plan** now supersedes
+that direction; execution is the next task.
 
-## Thesis Status (2026-09-07)
+- **New direction:** main contribution = the modular detection-and-completion **framework**;
+  second = SemanticKITTI + ShapeNet real-data grounding. New title: *"A Modular Detection and
+  Completion Framework for Occluded Vehicles in Automotive LiDAR."* Donor metric, amodal-box
+  utility, and home-made L/W/H plausibility all **dropped** (all self-made instruments).
+- **New completion evaluation:** synthetic CD/F (0.16 / F@0.1 0.76) + Chen-2020
+  independent-classifier plausibility (new experiment, pending) + fidelity UCD/UHD reported
+  with the under-completion caveat (#52). RQ2 reframed to plausibility + fidelity.
+- **Plans (outside repo):** `~/.claude/plans/drop-the-whole-donor-frame-nifty-papert.md`
+  (reframe) and `~/.claude/plans/independent-classifier-plausibility.md` (new experiment).
+- **Execution order:** run the plausibility experiment FIRST (it supplies the only favorable
+  real-data completion number), then reframe Ch1+main → Ch2 → Ch3 → Ch4 → Ch5 → global style
+  passes (drop em-dashes, colon-not-period on list leads, minimize bold/italic). **Task G is now
+  half-done (judge trained + all-sequence generation complete, 2026-09-10); scoring/stats pending —
+  see "Task G" below.**
 
-Thesis write-up (T14) is the **only open task**; all research is frozen (see the freeze
-section above). The manuscript is **fully drafted and assembled**: metric-first, 5-chapter
-structure built around one contribution — the **donor-frame coverage metric**. The recall
-root-cause and synthetic-pretraining redundancy are framed as **findings, not contributions**.
+## Task G — Independent-Classifier Plausibility (in progress, 2026-09-10)
 
-- **Title:** *A Donor-Frame Coverage Metric for Evaluating Occluded-Vehicle Completion in
-  Automotive LiDAR* (advisor sign-off on the title waived by the user).
-- **Source layout:** six files under `docs/writing/thesis/` — `ch0_abstract`,
+The prerequisite completion experiment (Finding #53 pre-registration; plans
+`~/.claude/plans/independent-classifier-plausibility.md`). Judge and data generation done;
+scoring, ceiling, and stats remain.
+
+- **Judge — DONE.** In-repo PointNet++ SSG (Option A, built on `src/pointr.py` FPS/index/distance
+  primitives + ball query; no new deps, no CUDA). Code `scratchpad/plausibility/{pointnet2_ssg,
+  modelnet40,train_judge}.py` (gitignored). Trained from scratch on `modelnet40_ply_hdf5_2048`
+  (`dataset/modelnet40/`, gitignored), seed 42, 100 epochs. **Best test top-1 = 0.9214** (gate
+  >=0.88 PASS; reference-faithful, no fallback). Checkpoint `checkpoints/modelnet40_pointnet2.pth`.
+- **Generation — DONE.** All 11 labeled sequences (00-10) run at production config to
+  `output/experiments/plausibility_gen/<seq>/` (isolated from `output/08`). Per track:
+  `<id>_partial.ply` (raw PCN input) + `<id>.ply` (completed, 4096 pts). **2,822 completed tracks**
+  total (paired-test N). `tracks.json.tracks[]` has `centroid_history` (static/mover), `completed`,
+  `ref_fit_length/width`.
+- **Harmonization — RESOLVED (measured).** Completed clouds AND ModelNet40 cars are both
+  y-up / z-length / x-width, so **no up-axis rotation** is needed (reverses the plan's z-up
+  assumption; retires review point 2). Harmonization = unit-sphere + subsample to 1024; only the
+  heading sign remains, to be confirmed by an overlay viz.
+- **PENDING:** (1) scoring harness → judge car-prob + argmax on the 2,822 pairs, McNemar (argmax)
+  + Wilcoxon (car-prob), heading-sign overlay-viz check first; (2) static-accumulation ceiling
+  (SemanticKITTI sem=10) for the H3 shape-quality read; (3) record a Finding → feeds the Ch4 reframe.
+- **Source layout / build:** unchanged — six files under `docs/writing/thesis/` (`ch0_abstract`,
   `ch1_introduction`, `ch2_background`, `ch3_methodology`, `ch4_evaluation`,
-  `ch5_discussion_conclusion` — wired by `main.tex`.
-- **Build:** clean (latexmk exit 0, 0 undefined refs/citations, 0 overfull >20 pt),
-  **~76 pp** as of the 2026-09-06 polish pass.
-- **State:** uncommitted working-tree edits; **NOT advisor-reviewed**. Many external-LLM
-  review rounds have been processed with hard pushback (all prose-only; nothing frozen
-  touched) — round-by-round record is in the `session_history.md` snapshot.
-- **Open (optional):** acknowledgements page; confirm FPT-mandated Declaration wording;
-  1.5 line spacing if FPT requires; advisor review.
+  `ch5_discussion_conclusion`) wired by `main.tex`; clean build, ~76 pp. Still NOT advisor-reviewed.
 
 ## Evidence Tasks — all closed
 
@@ -214,6 +229,8 @@ under-completion (raw partial scored lowest CD on every real example).
 - `checkpoints/classifier_best.pth` — binary Stage A classifier (ablation material)
 - `checkpoints/pcn_kitti_best.pth` — PCN on KITTI-like partials (used by fixed `complete()`)
 - `checkpoints/pcn_best.pth` — prior PCN (blobs on real data, #15-19)
+- `checkpoints/modelnet40_pointnet2.pth` — ModelNet40 PointNet++ SSG plausibility judge (Task G,
+  test top-1 0.9214; gitignored, real-data-independent, not part of the detection/completion pipeline)
 
 ## Completion — Frozen Results Summary
 
