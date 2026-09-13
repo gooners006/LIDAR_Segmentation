@@ -73,8 +73,8 @@
   \vspace{0.5in}
 
   \noindent\makebox[\linewidth]{\rule{\linewidth}{1.2pt}}
-  \textbf{\large A Donor-Frame Coverage Metric for Evaluating
-    Occluded-Vehicle Completion in Automotive LiDAR}
+  \textbf{\large A Modular Detection and Completion Framework for
+    Occluded Vehicles in Automotive LiDAR}
   \noindent\makebox[\linewidth]{\rule{\linewidth}{1.2pt}}
 
   \vspace{0.5in}
@@ -113,10 +113,11 @@
   \item Vehicle detection
   \item Point cloud completion
   \item Occluded-vehicle completion
-  \item Donor-frame coverage metric
+  \item Modular perception pipeline
+  \item Auto-mined supervision
   \item Reference-free evaluation
-  \item Amodal bounding box
   \item SemanticKITTI
+  \item ShapeNet
 \end{itemize}
 \clearpage
 
@@ -133,11 +134,11 @@ I am also grateful to the faculty and staff at the \textbf{FPT School of Busines
 Finally, I wish to thank my family for their patience and support during the period of my graduate studies.
 
 \section*{Declaration of Authorship}
-I, \textbf{Ngo Vi Viet Anh}, student ID \textbf{MSE13205}, hereby declare that this thesis, entitled \textit{``A Donor-Frame Coverage Metric for Evaluating Occluded-Vehicle Completion in Automotive LiDAR''}, is the result of my own work carried out under the supervision of Dr. Doan Nhat Quang at the FPT School of Business \& Technology.
+I, \textbf{Ngo Vi Viet Anh}, student ID \textbf{MSE13205}, hereby declare that this thesis, entitled \textit{``A Modular Detection and Completion Framework for Occluded Vehicles in Automotive LiDAR''}, is the result of my own work carried out under the supervision of Dr. Doan Nhat Quang at the FPT School of Business \& Technology.
 
 I solemnly declare that:
 \begin{itemize}
-    \item The research presented in this work, including the donor-frame coverage metric, the hybrid detection-and-completion pipeline, and the evaluation of occluded-vehicle completion, is my own original work unless otherwise referenced.
+    \item The research presented in this work, including the modular detection-and-completion framework, its training with zero additional manual annotation on SemanticKITTI and ShapeNet, and the evaluation of occluded-vehicle completion, is my own original work unless otherwise referenced.
     \item All experimental results and quantitative evaluations reported in Chapter~\ref{ch:evaluation} are authentic and have been obtained through testing on the specified datasets. No data fabrication or manipulation has taken place.
     \item All sources of information utilized in this thesis have been cited in accordance with standard academic referencing practices.
     \item This thesis has not been submitted, in whole or in part, for any other degree or qualification at this or any other institution.
@@ -157,7 +158,7 @@ I take full responsibility for the content, accuracy, and academic integrity of 
 \input{ch1_introduction}
 \input{ch2_background}
 \input{ch3_methodology}               % Chapter 3: detection pipeline + object completion
-\input{ch4_evaluation}                % Chapter 4: protocol + detection results + recall analysis + donor metric + completion results
+\input{ch4_evaluation}                % Chapter 4: protocol + detection results + recall analysis + completion results (synthetic CD/F + independent-classifier plausibility + fidelity)
 \input{ch5_discussion_conclusion}     % Chapter 5: discussion + limitations + RQ answers + contributions + future work
 
 % --- Bibliography (single, master-owned) ---

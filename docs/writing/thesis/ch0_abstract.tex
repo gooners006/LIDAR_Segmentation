@@ -1,49 +1,52 @@
-% Abstract -- front matter (\input by main.tex before Chapter 1)
-% Metric-first funnel (four short paragraphs): the measurement gap (Chamfer invalid
-% on real LiDAR, #26) -> the contribution (the donor metric + its four-part
-% validation + the completion payoff, PARTIALLY-HOLDS held-out) -> the pipeline it
-% lives in and the two diagnostic findings (recall root-cause; synthetic-pretraining
-% redundancy) with the segmentation bottleneck as one late sentence -> the
-% three-contribution close. It is the first thing a committee reads, so every number
-% and hedge must be defensible. It cites no chapters and no literature -- an abstract
-% is self-contained prose -- so there are no cross-references or \cite{} here.
+% Abstract -- front matter (currently UNWIRED in main.tex; kept scrubbed and in sync).
+% Reframe (2026-09-12): framework-first funnel (four short paragraphs): the occluded-
+% vehicle problem -> the modular detection-and-completion framework, requiring zero
+% additional manual annotation on SemanticKITTI + ShapeNet -> how each half is
+% evaluated (LOSO detection;
+% completion by independent-classifier plausibility + fidelity-with-caveat) -> the two
+% diagnostic findings and the two-contribution close. It is the first thing a committee
+% reads, so every number and hedge must be defensible. It cites no chapters and no
+% literature -- an abstract is self-contained prose -- so there are no cross-references
+% or \cite{} here.
 %
 % Honesty-phrasing rules applied (personal_agenda P1):
-%   - recall (0.730) carries its qualifier inline ("at a point-IoU of 0.3, on cars
-%     with enough returns to be scorable") so it is NOT read as recall against all
-%     annotated cars (~0.54, Finding #48); the exact >=10-surviving-point denominator
-%     mechanics live in Sec 4.1
-%   - LOSO is stated qualitatively ("validated across all eleven labelled sequences to
-%     rule out model-selection bias"); the cross-validated numbers (0.737/0.719) live in
-%     Sec 4.1 -- abstract-level compression, not a softening
-%   - the amodal-box benefit is scoped to "static, gate-passed cars" (movers are
-%     plausibility-only #44; long band untested off seq 08)
-%   - the held-out completion result is "partially replicates", never "confirmed"/"holds"
-%   - the detection headline is a single-sequence (seq 08) result, cross-validated
+%   - detection is cross-validated (LOSO across all eleven labelled sequences); the
+%     pooled LOSO numbers (P0.888/R0.717/F10.793) live in Sec 4.1
+%   - the favorable real-data completion signal is plausibility ALONE; fidelity is
+%     unfavorable and named as such; synthetic CD/F is not real data
+%   - plausibility is stated as acceptance by an INDEPENDENT classifier, not the
+%     pipeline's own; the completed arm reaching the static-accumulation ceiling is the
+%     shape-quality read, with the density caveat kept
 %   - negatives (recall repairs, synthetic redundancy) are named as findings
-%   - the donor metric is "a validated" metric, NOT "the first"
-%     (no literature-priority overclaim; matches C7 and the Ch 9 review)
-%   - the three closing contributions match Ch 1 Sec 1.4 / Ch 9 Sec 9.3 / Ch 2 Sec 2.5
-%     EXACTLY (donor metric / recall root-cause / synthetic-pretraining redundancy);
-%     claims kept within the Section-6 claims map (C1-C11); no mover accuracy claim
 %
 \chapter*{Abstract}
 \label{ch:abstract}
 
-Automotive LiDAR sees every car from one side, and point-cloud completion aims to
-restore the occluded surface --- but on real data it cannot be measured. No clean
-reference shape exists for a car, and Chamfer distance against an accumulated
-multi-frame cloud is invalid: the accumulation is occluded on the same side, so the raw
-partial scores best, ranking a network that does nothing above one that completes.
+Automotive LiDAR sees every car from one side, so a perception system must both detect
+partially observed vehicles and reason about the surface the sensor never reached.
+End-to-end networks do this accurately but at the cost of dense point-wise supervision
+and stage-by-stage opacity. This thesis takes the opposite starting point and builds a
+modular detection-and-completion framework: classical geometry removes the ground
+and clusters candidates, a small binary classifier keeps the cars, a centroid tracker
+filters flicker, and a PCN network completes each detected vehicle. Every stage is
+separately inspectable, and the framework requires zero additional manual annotation:
+the classifier's training data is automatically mined from existing semantic datasets,
+and the completion network is trained exclusively on synthetic shapes.
 
-The central contribution of this thesis is a valid metric: a donor-frame coverage score
-for how much of the surface seen only in other frames of the same static car a
-completion recovers, guarded against out-of-box hallucination and compared to a
-parameter-free symmetry-mirror baseline, and passing a four-part validation battery. On
-real LiDAR cars a PCN network recovers genuinely unseen surface well above the
-mirror and tightens amodal boxes on static, gate-passed cars --- a benefit that
-partially replicates on a pre-registered held-out sequence. Along the way, we find the
-detection front-end recall-limited by clustering rather than the classifier, and
-synthetic pretraining redundant once real training clusters are plentiful. The thesis
-thus makes a quantity that could not be measured on real LiDAR measurable, giving a way
-to test whether completion helps rather than assume it.
+The framework is grounded on two public datasets: SemanticKITTI supplies real Velodyne
+scans for detection, auto-mined supervision, and evaluation, while ShapeNetCore~v2
+supplies synthetic complete shapes for training the completion network. Detection is evaluated end to end with leave-one-sequence-out
+cross-validation across all eleven labelled sequences to rule out model-selection bias.
+Completion, which has no clean ground truth on real LiDAR, is judged two ways: an
+independent shape classifier trained on external complete-shape data tests
+whether the completed real clouds read as cars, and established reference-free fidelity
+metrics are reported honestly, including where they reward leaving the partial untouched.
+The independent classifier accepts far more completed clouds than raw partials and about
+as many as a dense static-accumulation reference, so completion produces car-plausible
+shapes rather than merely denser blobs; fidelity, by contrast, penalises the added
+surface, which is why the favorable real-data claim rests on plausibility. Along the way
+we find detection recall limited by clustering fragmentation rather than the classifier,
+and synthetic pretraining redundant once real training clusters are plentiful. The
+thesis thus contributes an inspectable, reproducible framework for occluded-vehicle
+detection and completion that requires zero additional manual annotation, and a
+real-data completion assessment that avoids any self-made reference.

@@ -18,32 +18,110 @@ checkpoints without cause; new work to fresh paths). The committed reference con
 `pcn_kitti_best.pth`; eval protocol point-level IoU ≥ 0.3 greedy 1-to-1, supported-vehicles,
 track filter ON, micro-averaged) is documented in the sections below.
 
-## Thesis Status (2026-09-09) — REFRAME PLANNED (not yet executed)
+## Thesis Status (2026-09-12) — REFRAME EXECUTED (de-bold pass remaining)
 
-The manuscript is still fully drafted around the **donor-frame coverage metric** in the `.tex`
-files (no thesis edits made this session). A **reviewed, approved reframe plan** now supersedes
-that direction; execution is the next task.
+The manuscript has been **reframed** across all 7 `.tex` files. Title is now
+*"A Modular Detection and Completion Framework for Occluded Vehicles in Automotive LiDAR."*
+Builds clean (`latexmk main.tex` exit 0, **0 undefined refs/citations**, 70 pp).
 
-- **New direction:** main contribution = the modular detection-and-completion **framework**;
-  second = SemanticKITTI + ShapeNet real-data grounding. New title: *"A Modular Detection and
-  Completion Framework for Occluded Vehicles in Automotive LiDAR."* Donor metric, amodal-box
-  utility, and home-made L/W/H plausibility all **dropped** (all self-made instruments).
-- **New completion evaluation:** synthetic CD/F (0.16 / F@0.1 0.76) + Chen-2020
-  independent-classifier plausibility (new experiment, pending) + fidelity UCD/UHD reported
-  with the under-completion caveat (#52). RQ2 reframed to plausibility + fidelity.
+## Next Session (added 2026-09-14)
+
+**Just landed: height-gate normal-sign fix + full re-run cascade.** The RANSAC
+ground-plane normal sign is now forced upward in `src/pipeline.py remove_ground`
+so the signed height gate is no longer bypassed. Every seq08 detection number and
+the LOSO aggregate were re-run at full sequence and propagated across
+ch2/ch4/ch5/abstract. Post-fix canonical numbers: seq08 headline
+**P0.911/R0.732/F1 0.812**; seq00 full **0.838**; LOSO pooled
+**P0.888/R0.717/F1 0.793** (FP −2158). Provenance archived in
+`results/postfix_normalfix_2026-09-14/` (per-fold LOSO, seq08 ablation/IoU/coarsening
+JSONs, headline JSONs, split/gate `ac_seq08_*.txt`, `distance_recall_postfix.json`,
+and `EDIT_MAP.md` with the full old→new map). `thesis_full.tex` is a flattened
+single-file build (compiles byte-identical to `main.pdf`).
+
+**Suggested spot-check (do first):** rebuild `latexmk main.tex` and skim the PDF, then
+verify against `results/postfix_normalfix_2026-09-14/EDIT_MAP.md`:
+1. Table cells: `tab:headline`, `tab:ablation-stage` (§4.2), `tab:iou-sensitivity`,
+   the per-fold LOSO table, `tab:distance`, `tab:split`, `tab:splitrate`, `tab:clustering`.
+2. Hand-recomputed prose deltas — §4.2 ablation ("104000 removed", FP 108831→4303,
+   "1400 TP forgone / 106000 FP removed") and §4.4 split analysis (clean fraction 55.1%
+   vs recall 0.710, gap 15.9→7.2 pts, #6 merge 56→284, "none newly merge" now corrected).
+3. Cross-table seam: `tab:clustering` seq08 HDBSCAN and `tab:distance` pooled must both
+   read 0.840/0.671/0.746.
+4. Cross-file headline/LOSO consistency in ch2, ch5, abstract, project_state.
+
+**Suggested next: run a Gemini structural + line review** on the thesis. Feed
+`docs/writing/thesis/thesis_full.tex` as the Phase 1 "complete .tex file". Prompt to use:
+
+```
+Role: Senior Academic Editor & Peer Reviewer
+Task: Perform a two-phase Macro-to-Micro Review (Structural & Line Edit) on my LaTeX thesis.
+
+[PERSONA & GUIDELINES]
+- Academic Rigor: Critique like a dissertation committee member. Identify logical leaps, unbacked claims, structural redundancies, and weak chapter transitions.
+- Prose Stylist: Smooth out clunky, mechanical, or repetitive phrasing into natural, sophisticated academic prose. Maintain appropriate scholarly distance and proper hedging (e.g., "suggests" vs. "proves").
+- Voice Preservation: Polish rhythm and sentence cadence without replacing my voice with generic AI buzzwords.
+
+[STRICT LATEX PRESERVATION RULES]
+- Command Safety: DO NOT alter, remove, or break any LaTeX markup, including citations (\cite{}), cross-references (\ref{}, \label{}), footnotes (\footnote{}), or custom macros.
+- Environments & Math: Keep all environments (\begin{...}...\end{...}) and inline/display math intact and properly closed.
+- Formatting Integrity: Return raw, compilable LaTeX syntax inside code blocks for easy copy-pasting.
+
+[WORKFLOW]
+
+Phase 1: Macro Review (Structural & Conceptual Edit)
+I will provide: The complete .tex file or chapter outline.
+Your output:
+1. Narrative & Argument Flow: Evaluate how cleanly the core argument builds across chapters/sections.
+2. Structural Gaps: Identify missing theoretical links, redundant points, or weak section transitions.
+3. Recommendations: Provide 3–5 high-level structural adjustments before line editing begins.
+
+Phase 2: Micro Review (Line & Prose Edit)
+I will provide: Section-by-section chunks (\section or \subsection, approx. 500–1,500 words).
+Your output:
+1. Diagnostic: Briefly note 2–3 style or rhythm issues in the provided chunk.
+2. Revised LaTeX Text: Provide the complete, polished line rewrite inside a code block with all LaTeX commands fully preserved.
+3. Key Adjustments: Summarize 2–3 major stylistic improvements made.
+
+Acknowledge these instructions and confirm you are ready to receive the Phase 1 submission (full .tex file or structural outline).
+```
+
+- **Contributions (new):** C1 = the modular detection-and-completion **framework** (integration
+  of RANSAC/HDBSCAN/PointNet/PCN, end-to-end, inspectable); C2 = auto-mined supervision and
+  synthetic completion (**SemanticKITTI + ShapeNet**), requiring zero additional manual
+  annotation. Donor metric, amodal-box utility, and home-made L/W/H
+  plausibility all **removed** (grep `donor|amodal` across `docs/writing/thesis/*.tex` = 0).
+  Overclaims "near-annotation-free" / "trained without point-wise labels" / "sees no
+  hand-labelled real cars" removed 2026-09-12: classifier labels are auto-mined from
+  SemanticKITTI's existing semantic labels, so the honest claim is "zero additional manual
+  annotation," not "annotation-free" (see memory [[annotation-framing]]).
+- **RQs (new):** RQ1 = can the modular pipeline requiring zero additional manual annotation detect+complete occluded
+  vehicles (answered by LOSO detection, pooled P0.888/R0.717/F10.793); RQ2 = does completion
+  produce car-plausible shapes per an independent classifier + how it fares on fidelity.
+- **Completion evaluation (new spine):** synthetic CD 0.16 / F@0.1 0.76 (network works) +
+  Chen-2020 independent-classifier plausibility (#54: raw 0.253 → completed 0.785, at ceiling
+  0.807) + reference-free fidelity UCD/UHD reported with the under-completion caveat (#52).
+- **Done:** Ch1+main+abstract, Ch2 (UCD/UHD+plausibility math, completion figure, metrics table),
+  Ch3 (donor section deleted, results migrated to Ch4, configured-formula cross-refs), Ch4
+  (completion rebuilt on #54 + dataset table + supervised/unsupervised table + plausibility
+  figure/table), Ch5 (reframed conclusions/limitations/future-work). Style: em-dashes removed
+  (rendered PDF), colon-not-period on `\paragraph` leads.
+- **Remaining:** the de-bold/de-emph minimization pass (`\textbf`/`\emph` reduction, subjective);
+  optional figure polish; a full numbers spot-check.
 - **Plans (outside repo):** `~/.claude/plans/drop-the-whole-donor-frame-nifty-papert.md`
-  (reframe) and `~/.claude/plans/independent-classifier-plausibility.md` (new experiment).
-- **Execution order:** run the plausibility experiment FIRST (it supplies the only favorable
-  real-data completion number), then reframe Ch1+main → Ch2 → Ch3 → Ch4 → Ch5 → global style
-  passes (drop em-dashes, colon-not-period on list leads, minimize bold/italic). **Task G is now
-  half-done (judge trained + all-sequence generation complete, 2026-09-10); scoring/stats pending —
-  see "Task G" below.**
+  (reframe, executed) and `~/.claude/plans/independent-classifier-plausibility.md` (Task G, done).
 
-## Task G — Independent-Classifier Plausibility (in progress, 2026-09-10)
+## Task G — Independent-Classifier Plausibility (DONE, 2026-09-12)
 
-The prerequisite completion experiment (Finding #53 pre-registration; plans
-`~/.claude/plans/independent-classifier-plausibility.md`). Judge and data generation done;
-scoring, ceiling, and stats remain.
+The prerequisite completion experiment (Finding #53 pre-registration -> **#54 results**; plans
+`~/.claude/plans/independent-classifier-plausibility.md`). **Complete and FAVORABLE.** Next task
+is the Ch4 reframe that cites #54.
+
+**Headline (#54, pooled N=2822):** raw-partial car-acceptance 0.253 -> **completed 0.785**
+(McNemar p~=0, Wilcoxon p~=0), reaching the static-accumulation ceiling 0.807; on car-prob
+completed (0.745) is at/above ceiling (0.728). Movers complete as plausibly as statics (0.837).
+Heading-flip sensitivity negligible (+0.009). Artifacts:
+`output/experiments/plausibility_chen/{summary.json, per_seq.json, acceptance.png}`; harness
+`scratchpad/plausibility/{build_ceiling,harmonize,score}.py`.
 
 - **Judge — DONE.** In-repo PointNet++ SSG (Option A, built on `src/pointr.py` FPS/index/distance
   primitives + ball query; no new deps, no CUDA). Code `scratchpad/plausibility/{pointnet2_ssg,
@@ -55,13 +133,33 @@ scoring, ceiling, and stats remain.
   `<id>_partial.ply` (raw PCN input) + `<id>.ply` (completed, 4096 pts). **2,822 completed tracks**
   total (paired-test N). `tracks.json.tracks[]` has `centroid_history` (static/mover), `completed`,
   `ref_fit_length/width`.
-- **Harmonization — RESOLVED (measured).** Completed clouds AND ModelNet40 cars are both
-  y-up / z-length / x-width, so **no up-axis rotation** is needed (reverses the plan's z-up
-  assumption; retires review point 2). Harmonization = unit-sphere + subsample to 1024; only the
-  heading sign remains, to be confirmed by an overlay viz.
-- **PENDING:** (1) scoring harness → judge car-prob + argmax on the 2,822 pairs, McNemar (argmax)
-  + Wilcoxon (car-prob), heading-sign overlay-viz check first; (2) static-accumulation ceiling
-  (SemanticKITTI sem=10) for the H3 shape-quality read; (3) record a Finding → feeds the Ch4 reframe.
+- **Ceiling (step 4) — DONE (2026-09-12).** Static-accumulation upper bound built by
+  `scratchpad/plausibility/build_ceiling.py` (reuses `scratchpad/amodal_gt.py` accumulation +
+  `well_observed` gate unchanged; it adds the point-cloud dump amodal_gt.json omits). **140
+  qualifying dense clouds** (of 1861 observed) across 8 contributing seqs (highway 01/04 → 0, as
+  expected) → `output/experiments/plausibility_ceiling/<seq>/{<inst_id>.ply, manifest.json}`.
+  Clouds saved object-centered, **world (cam0) orientation preserved**; manifest carries
+  `yaw_deg`/`dims_lwh`/`center_world` for step-5 reorientation. 00/05/08 counts (46/11/40)
+  reproduce the cached `amodal_gt.json` exactly (deterministic).
+- **Harmonization (step 5) — orientation MEASURED; state-doc claim CORRECTED.** The earlier
+  "completed and ModelNet40 both y-up, no rotation needed" was **WRONG**. Verified against the
+  data (`scratchpad/plausibility/figs/orientation_check.png`): ModelNet40 (judge) is **up=+Y**
+  (84/100 bottom-wider; sedan renders roof-up), but BOTH pipeline sources are **up=-Y** (cam0
+  frame) — completed (skew -0.29 vs MN40 +0.41; same pipeline frame as ceiling) and ceiling
+  (0/61 bottom-wider, decisive; renders roof-down). All three have Y vertical / Z length / X
+  width EXCEPT ceiling is yaw-rotated in X-Z. **The judge trained with NO rotation aug, so it is
+  orientation-sensitive** — scoring unflipped would feed upside-down cars and yield a false
+  honest-negative (the Finding-#26 semantics trap). **Fix:** completed → 180deg about length axis
+  Z `(x,y,z)->(-x,-y,z)`; ceiling → de-rotate by `yaw_deg` about Y, reorder to X-wid/Y/Z-len,
+  then the same 180deg-about-Z flip. Then FPS-to-1024 + unit-sphere + min-point gate on raw
+  partials. Residual front/back **heading sign** (L-shape leaves 180deg ambiguous) handled by
+  scoring both ways and reporting sensitivity (low-risk for a binary car judge).
+- **Steps 5-8 DONE (2026-09-12):** harmonization (`harmonize.py`, orientation-verified), scoring
+  (`score.py`, 2,822 pairs + 140 ceiling), stats (McNemar/Wilcoxon/MW), and Finding #54 recorded.
+- **NEXT — the thesis reframe** (`~/.claude/plans/drop-the-whole-donor-frame-nifty-papert.md`):
+  Task G's #54 supplies the favorable real-data completion number. Execution order per the reframe
+  plan: Ch1+main contribution -> Ch2 -> Ch3 -> Ch4 (cite #54: plausibility + fidelity, drop donor
+  metric) -> Ch5 -> global style passes.
 - **Source layout / build:** unchanged — six files under `docs/writing/thesis/` (`ch0_abstract`,
   `ch1_introduction`, `ch2_background`, `ch3_methodology`, `ch4_evaluation`,
   `ch5_discussion_conclusion`) wired by `main.tex`; clean build, ~76 pp. Still NOT advisor-reviewed.
@@ -74,7 +172,7 @@ Read-only analyses against the frozen config (freeze-safe). Full detail in `docs
 - **B2** (GT-eligibility count) — DONE (#48): ~25.5% of annotated cars excluded by the
   >=10-surviving-points rule -> implied recall vs all annotated cars ~=0.54.
 - **LOSO cross-validation** — DONE (#51, `results/loso/`): leakage was precision-only
-  (~2 pts); pooled over 11 seqs P 0.874 / R 0.719 / F1 0.789. Answers the
+  (~2 pts); pooled over 11 seqs P 0.888 / R 0.717 / F1 0.793 (post height-gate fix, 2026-09-14). Answers the
   "validation-as-test" critique; shipped checkpoint + `PIPELINE_CONFIG` untouched.
 - **UCD/UHD reference-free comparison** — DONE (#52): standard input-fidelity metrics rank
   raw partial = mirror = 0 and the completion worst, while donor cov@0.1 credits the
@@ -137,18 +235,23 @@ prior fine-tuned-checkpoint numbers preserved there).
 TP=1242 FP=20 FN=389. RANSAC is deterministic (`np.random.default_rng(42)`). Results reproducible across runs.
 Promoted-config 100-frame eval (2026-07-23, report refresh): P 0.967 / R 0.777 / F1 0.862 / mIoU 0.962. TP=1296 FP=44 FN=371 (TP/FP/FN not separately recorded 2026-07-23; re-run and filled in 2026-08-02, same command/config, metrics unchanged — `.venv\Scripts\python.exe src/evaluate.py`).
 
-### Seq 08 (full, 4071 frames) — generalization check (promoted config, updated 2026-07-23)
+### Seq 08 (full, 4071 frames) — generalization check (promoted config, updated 2026-09-14 after height-gate fix)
 
 | Metric | Value |
 |--------|-------|
-| Precision | 0.905 |
-| Recall | 0.730 |
-| F1 | 0.808 |
-| Mean IoU | 0.912 |
+| Precision | 0.911 |
+| Recall | 0.732 |
+| F1 | 0.812 |
+| Mean IoU | 0.913 |
 
-TP=25478 FP=2676 FN=9444. Promoted `PIPELINE_CONFIG` (voxel_before_denoise,
-ransac_iterations=300, cluster_voxel_size=0.10; Finding #34). Pre-opt numbers
-(0.903/0.699/0.788/0.895, TP=23823 FP=2565 FN=10240) preserved in #34.
+TP=25568 FP=2513 FN=9354. Promoted `PIPELINE_CONFIG` (voxel_before_denoise,
+ransac_iterations=300, cluster_voxel_size=0.10; Finding #34). Height-gate
+normal-sign fix (2026-09-14, `src/pipeline.py remove_ground`) cut false
+positives (FP 2676→2513) and lifted F1 0.808→0.812; the fix cascaded through
+every seq08 detection table in Ch4 (headline, ablation, IoU sweep, coarsening,
+recall-by-distance, gate ablation, split analysis) plus the LOSO aggregate.
+Pre-fix numbers (0.905/0.730/0.808/0.912, TP=25478 FP=2676 FN=9444) and the
+earlier pre-opt numbers (0.903/0.699/0.788/0.895, TP=23823 FP=2565 FN=10240) preserved in #34.
 Command: `.venv\Scripts\python.exe src/evaluate.py --seq 08 --frames 5000`.
 Confirms the seq-00 story at 40× scale: precision-saturated, recall-limited;
 per-frame recall anti-correlated with GT-car density, FP flat ~1/frame.

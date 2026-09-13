@@ -143,13 +143,18 @@ def process_frame(bin_path, label_path, cfg):
         gt_n_pts = gt_m.sum()
         gt_cluster_labels = cluster_labels[gt_m]
 
+        # Horizontal range (m) of the GT centroid from the sensor origin,
+        # for distance-binned split-rate reporting.
+        gt_centroid = obj_points[gt_m].mean(axis=0)
+        gt_dist = float(np.linalg.norm(gt_centroid[:2]))
+
         label_counts = Counter(gt_cluster_labels.tolist())
         noise_pts = label_counts.pop(-1, 0)
         noise_frac = noise_pts / gt_n_pts
 
         if not label_counts:
             gt_analysis.append({
-                "gt_id": gi, "n_pts": gt_n_pts,
+                "gt_id": gi, "n_pts": gt_n_pts, "dist": gt_dist,
                 "status": "all_noise", "noise_frac": noise_frac,
                 "n_clusters": 0, "dominant_frac": 0.0,
             })
@@ -161,7 +166,7 @@ def process_frame(bin_path, label_path, cfg):
         n_clusters = len(label_counts)
 
         gt_analysis.append({
-            "gt_id": gi, "n_pts": gt_n_pts,
+            "gt_id": gi, "n_pts": gt_n_pts, "dist": gt_dist,
             "status": "ok" if n_clusters == 1 and noise_frac < 0.3 else
                       "split" if n_clusters > 1 else "noisy",
             "noise_frac": noise_frac,
@@ -284,6 +289,24 @@ if __name__ == "__main__":
         print(f"  Mean clusters per split GT: {np.mean(n_clusters_dist):.1f}")
         print(f"  Mean dominant cluster fraction: {np.mean(dom_fracs):.2f}")
         print(f"  Median dominant cluster fraction: {np.median(dom_fracs):.2f}")
+
+    # Distance-binned split rate: fraction of GT cars in each horizontal-range
+    # band whose points fragment across >1 cluster. Near cars carry many points
+    # and over-segment; far cars are too sparse to split (they fall to noise
+    # instead), so split rate falls with range.
+    bin_edges = [0.0, 10.0, 20.0, 40.0, float("inf")]
+    bin_labels = ["0-10m", "10-20m", "20-40m", "40m+"]
+    gt_with_dist = [g for g in all_gt if "dist" in g]
+    if gt_with_dist:
+        print(f"\nSplit rate by distance (horizontal range of GT centroid):")
+        for lo, hi, lab in zip(bin_edges[:-1], bin_edges[1:], bin_labels):
+            in_bin = [g for g in gt_with_dist if lo <= g["dist"] < hi]
+            if in_bin:
+                n_split = sum(1 for g in in_bin if g["status"] == "split")
+                print(f"  {lab:8s}: {100*n_split/len(in_bin):5.1f}% split "
+                      f"({n_split}/{len(in_bin)})")
+            else:
+                print(f"  {lab:8s}: (no GT cars)")
 
     # Merged details
     merged_gt = [g for g in all_gt if g["merged"]]

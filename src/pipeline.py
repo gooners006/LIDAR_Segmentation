@@ -218,8 +218,15 @@ def remove_ground(
         return o3d.geometry.PointCloud(), pcd, None, []
 
     a, b, c, d = best_plane
+    # The normal from a cross product of three arbitrarily ordered sample
+    # points can point either way; force it upward (c >= 0) so the signed
+    # height in _center_height_above_ground is positive for points above the
+    # ground and the center-height gate can reject elevated clusters.
+    if c < 0:
+        a, b, c, d = -a, -b, -c, -d
+    best_plane = (a, b, c, d)
     normal_len = np.sqrt(a**2 + b**2 + c**2)
-    if abs(c) / normal_len < min_normal_z:
+    if c / normal_len < min_normal_z:
         return o3d.geometry.PointCloud(), pcd, None, []
 
     ground_pcd = pcd.select_by_index(best_inliers)

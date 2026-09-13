@@ -1,0 +1,65 @@
+{
+  "seq": "08",
+  "stride": 20,
+  "frames_total": 4071,
+  "frames_sampled": 204,
+  "iou_threshold": 0.3,
+  "classifier_ckpt": "stage_b_scratch_best.pth",
+  "unknown_threshold": 0.5,
+  "target_classes": [
+    10,
+    252
+  ],
+  "evaluation_mode": "per-frame, track-filter-OFF (stride breaks tracker)",
+  "bins": [
+    {
+      "range_m": "0-10",
+      "tp": 311,
+      "fp": 35,
+      "fn": 84,
+      "precision": 0.8988439306358381,
+      "recall": 0.7873417721518987,
+      "f1": 0.8394062078272604,
+      "mean_iou_matched": 0.9023350073533098
+    },
+    {
+      "range_m": "10-20",
+      "tp": 432,
+      "fp": 65,
+      "fn": 69,
+      "precision": 0.869215291750503,
+      "recall": 0.8622754491017964,
+      "f1": 0.8657314629258518,
+      "mean_iou_matched": 0.9262495945153069
+    },
+    {
+      "range_m": "20-40",
+      "tp": 401,
+      "fp": 101,
+      "fn": 328,
+      "precision": 0.798804780876494,
+      "recall": 0.5500685871056241,
+      "f1": 0.6515028432168968,
+      "mean_iou_matched": 0.934060972667333
+    },
+    {
+      "range_m": "40+",
+      "tp": 22,
+      "fp": 21,
+      "fn": 90,
+      "precision": 0.5116279069767442,
+      "recall": 0.19642857142857142,
+      "f1": 0.2838709677419355,
+      "mean_iou_matched": 0.9425548152400317
+    }
+  ],
+  "pooled": {
+    "tp": 1166,
+    "fp": 222,
+    "fn": 571,
+    "precision": 0.840057636887608,
+    "recall": 0.671272308578008,
+    "f1": 0.74624,
+    "mean_iou_matched": 0.922865066974591
+  }
+}

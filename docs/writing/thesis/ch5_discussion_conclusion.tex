@@ -12,11 +12,18 @@
 %   - negative results (#40/#45 etc.) presented as findings, not apologised for; #37 as a
 %     metric-design lesson
 %   - every number traces to a finding / artifact (cited Finding~\#NN)
-%   - the six mandatory named limitations are all present: detection selection-exposure
-%     (now bounded by LOSO cross-validation, Sec 4.1: precision-only, ~2 pts), statics-only
-%     accuracy, compact-band d2, empty long band, 23% length-estimate fallback (#41),
-%     SemanticKITTI label-quality assumption -- plus the clustering-objectness ceiling
-%     (recall analysis, Ch 4) and the offline-runtime scope
+%   - the named limitations are all present: detection selection-exposure
+%     (bounded by LOSO cross-validation, Sec 4.1: precision-only, ~2 pts), the
+%     completion claim resting on plausibility alone (fidelity is unfavorable; synthetic
+%     is not real data), the length-estimate fallback (#41), the SemanticKITTI
+%     label-quality assumption, the clustering-objectness ceiling (recall analysis, Ch 4),
+%     and the offline-runtime scope
+%
+% Reframe (2026-09-12): main contribution = the modular detection-and-completion
+% framework; second = auto-mined supervision and synthetic completion (SemanticKITTI +
+% ShapeNet), requiring zero additional manual annotation. The
+% old self-made completion metric and box-reference evaluation are dropped; the favorable
+% real-data completion evidence is independent-classifier plausibility (Finding #54).
 %
 \chapter{Conclusion and Future Work}
 \label{ch:conclusion}
@@ -25,9 +32,9 @@ The preceding chapters reported results; this one interprets them and closes the
 thesis. It first draws the conclusions, answering the two research questions and
 restating the contributions (Section~\ref{sec:conclusion-rqs}); then gathers what the
 evidence supports and how far each claim reaches, together with every limitation the
-work carries, into a single section (Section~\ref{sec:disc-limitations}) --- the
+work carries, into a single section (Section~\ref{sec:disc-limitations}), the
 validity of the evaluation, the scope of the completion claims, the ground-truth
-assumptions, and the architectural and operational limits --- and finally turns the
+assumptions, and the architectural and operational limits, and finally turns the
 most consequential boundaries into future work (Section~\ref{sec:conclusion-future}).
 Every weakness named here is measured elsewhere in the document and cross-referenced to
 the finding that quantifies it: a limitation the thesis names, quantifies, and bounds is
@@ -36,40 +43,51 @@ defended; one a committee surfaces first is not.
 \section{Conclusion}
 \label{sec:conclusion-rqs}
 
-Chapter~\ref{ch:introduction} posed two research questions, both about measuring completion
-on real LiDAR; each is answered in full in Section~\ref{sec:donor-validation} and restated
+Chapter~\ref{ch:introduction} posed two research questions, one for each half of the
+framework; each is answered by the evaluation of Chapter~\ref{ch:evaluation} and restated
 here in the form asked, with its reach discussed in Section~\ref{sec:disc-what-holds}.
 
-\paragraph{RQ1 --- how to evaluate completion on real LiDAR.}
-Reference-based Chamfer distance against accumulated pseudo-ground-truth is invalid, because
-the accumulated reference is occluded on the same side as the input and so rewards
-under-completion; the thesis replaces it with the donor-frame occluded-side coverage metric,
-which scores recovery of surface seen only in other frames of the same static car and passes
-a four-item validation gate.
+\paragraph{RQ1, can a modular pipeline requiring zero additional manual annotation detect
+and complete occluded vehicles on real LiDAR?} Yes. The framework detects cars with a chain
+of training-free classical stages and two small learned models, the classifier trained on
+supervision auto-mined from existing semantic annotations and the completion network on
+synthetic shapes,
+reaching precision \num{0.888}, recall \num{0.717}, and $F_1$~\num{0.793} pooled under
+leave-one-sequence-out cross-validation across all eleven labelled sequences, and completes
+each detected car with a PCN network. Every stage is separately inspectable, which is what
+lets the recall shortfall be root-caused to a single stage rather than left opaque.
 
-\paragraph{RQ2 --- whether completion recovers unseen surface, and whether the benefit holds out.}
-Yes, within a named scope. On sequence~08 the donor metric shows PCN recovers genuinely
-occluded surface (coverage at \SI{0.1}{\metre} \num{0.000}~$\rightarrow$~\num{0.304} against
-the mirror baseline \num{0.043}) and improves the amodal box
-(\num{0.725}~$\rightarrow$~\num{0.771}); under a pre-registered test on held-out sequence~00
-the benefit \textsc{partially holds} --- both metrics replicate, but the long band was
-untestable and the compact guard fails. Moving cars are a plausibility check only.
+\paragraph{RQ2, does learned completion produce car-plausible shapes on real LiDAR, and
+how does it fare on established fidelity metrics?} On real cars an independent shape
+classifier, trained on external complete-shape data, accepts the completed clouds as cars far
+more often than the raw partials (car-acceptance
+\num{0.253}~$\rightarrow$~\num{0.785}, paired McNemar and Wilcoxon $p\approx0$) and about as
+often as a dense static-accumulation shape ceiling (\num{0.807}), consistently across all
+eleven sequences and for moving as well as static cars, so completion produces genuinely
+car-plausible shapes rather than denser blobs. The established reference-free fidelity metrics
+(UCD, UHD) do not credit the completion: they reward reproducing the observed input, so the
+raw partial is their trivial optimum. The favorable real-data claim therefore rests on
+plausibility, with fidelity reported honestly as unfavorable.
 
-\paragraph{Diagnostic findings.}
+\paragraph{Diagnostic findings:}
 Two findings emerged along the way (Section~\ref{sec:recall-analysis},
-Chapter~\ref{ch:evaluation}): recall is clustering-bound, not classifier-bound --- HDBSCAN
-splits \SIrange{31}{37}{\percent} of cars and a chain of repair strategies fails to
-generalise --- and synthetic pretraining is redundant once real clusters are plentiful, the
+Chapter~\ref{ch:evaluation}): recall is clustering-bound, not classifier-bound, HDBSCAN
+splits \SI{33.7}{\percent} of cars and a chain of repair strategies fails to
+generalise, and synthetic pretraining is redundant once real clusters are plentiful, the
 sim-to-real gap being total and symmetric.
 
-\paragraph{Contributions.}
-The thesis makes a single scientific contribution, methodological rather than architectural:
-\textbf{a validated metric for completion quality on real LiDAR}, through which learned
-completion is shown to recover genuinely occluded surface and improve amodal boxes on static
-cars, partially replicated on a held-out sequence. Two diagnostic findings sit alongside it
---- the clustering-bound recall account and the redundancy of synthetic pretraining --- with
-engineering contributions (the modular pipeline and its runtime characterisation, the amodal
-box builder, the reproducibility infrastructure) and documented negative-result lines.
+\paragraph{Contributions:}
+The thesis makes two contributions. The first, and main, is a modular
+detection-and-completion framework for occluded vehicles on real LiDAR: an end-to-end,
+separately-inspectable pipeline that integrates established components (RANSAC, HDBSCAN,
+PointNet, PCN) into a coherent, reproducible system, evaluated end to end. The second is
+auto-mined supervision and synthetic completion, an approach requiring zero additional
+manual annotation, built on SemanticKITTI (real scans for detection, mining, and
+evaluation) and ShapeNet (synthetic complete shapes for completion training), whose
+real-data completion quality is assessed with an independent classifier so that no
+self-made reference is involved. Two diagnostic findings sit alongside
+them, the clustering-bound recall account and the redundancy of synthetic pretraining,
+together with the reproducibility infrastructure and documented negative-result lines.
 
 \section{Limitations and Discussion}
 \label{sec:disc-limitations}
@@ -77,52 +95,45 @@ box builder, the reproducibility infrastructure) and documented negative-result 
 \subsection{Established Results and Their Reach}
 \label{sec:disc-what-holds}
 
-Two threads carry the strongest evidence, both belonging to the metric contribution. The
-first is methodological: the donor-frame occluded-side coverage metric
-(Section~\ref{sec:donor-validation}). We are not aware of a prior metric that scores a real
-LiDAR car's completion against donor frames of the same static instance --- the reference-free
-measures reviewed in Section~\ref{sec:bg-completion} all score against the observed input, a
-synthetic prior, or the model's own outputs, and the closest prior construction (Ren et
-al.~\cite{ren2022selfsupervised}) scores the accumulated cloud as a whole, not the
-never-observed surface. It also carries a measured negative result about metrics: the obvious
-alternative --- Chamfer distance against accumulated pseudo-ground-truth --- is invalid,
-because accumulated LiDAR is itself one-sided and rewards under-completion (the raw partial
-scored the lowest Chamfer distance on every real example), as do the field's standard
-input-referenced UCD/UHD (Section~\ref{sec:reffree-compare}). The second thread is empirical
-and rests on that metric: completion adds genuinely unseen surface (median occluded-side
-coverage within \SI{0.1}{\metre} of \num{0.304} on sequence~08, against \num{0.043} for the
-symmetry mirror and \num{0.000} for the raw partial) and improves the amodal box (median BEV
-IoU \num{0.725}~$\rightarrow$~\num{0.771}, gains concentrated where the sensor saw least);
-both survive a pre-registered held-out replication with named caveats (\textsc{partially
-holds}; Section~\ref{sec:disc-eval-validity}).
-
-The detection pipeline is a strong engineering result rather than a claim of
-state-of-the-art accuracy: the supervised networks positioned in
-Section~\ref{sec:bg-positioning} reach higher accuracy at the dense annotation cost this
-pipeline avoids. It reaches precision \num{0.905}, recall \num{0.730}, $F_1$~\num{0.808} on
-the full sequence~08 (mean IoU of matched detections \num{0.912}; recall denominator: car
+The framework rests on two halves, each with its own evidence. The detection half is
+the broadest result: an interpretable clustering front end, requiring zero additional
+manual annotation, reaching
+precision \num{0.888}, recall \num{0.717}, $F_1$~\num{0.793} pooled under
+leave-one-sequence-out cross-validation across all eleven labelled sequences
+(Section~\ref{sec:eval-loso}; \num{0.911}~/~\num{0.732}~/~\num{0.812} at the sequence-08
+operating point, mean IoU of matched detections \num{0.913}; recall denominator: car
 instances with at least \num{10} points surviving preprocessing,
-Section~\ref{sec:eval-protocol}), with an interpretable, near-annotation-free clustering
-front end on modest hardware. Its recall shortfall is root-caused, not mysterious --- HDBSCAN
-splitting large, close cars into fragments (Section~\ref{sec:recall-analysis}) --- and that
-diagnosis, with the finding that synthetic pretraining is redundant at scale, are the two
-secondary results the investigation produced.
+Section~\ref{sec:eval-protocol}), on modest hardware and without state-of-the-art accuracy,
+which the supervised networks of Section~\ref{sec:bg-positioning} reach through dense
+per-point supervision, whereas this pipeline requires zero additional manual annotation. Its recall shortfall is root-caused, not mysterious,
+HDBSCAN splitting large, close cars into fragments (Section~\ref{sec:recall-analysis}).
 
-These reaches vary. The detection operating point is the broadest, cross-validated across
-all eleven labelled sequences (Section~\ref{sec:eval-loso}). Two completion results transfer
-by argument rather than by sample --- the invalidity of accumulated-Chamfer follows from the
-one-sidedness of accumulated LiDAR, and the donor metric is dataset-agnostic wherever static
-cars are seen from multiple frames --- whereas the recall diagnosis is an inductive result
-from two sequences, mechanistic but not a proven invariant. The tuned constants (the length
-prior, the estimate quantile, the geometric thresholds) are sequence-derived and should be
-re-checked on a new sensor, and the completion accuracy claims are scoped to static,
-gate-passed cars in the compact and normal bands. For practice, three readings follow: the
-interpretable, near-annotation-free detector is a viable choice where labelling budget or
-inspectability outweighs peak recall, provided the domain is dense-scene; the donor metric is
-a reusable instrument for any real-LiDAR completion where static objects recur across frames;
-and because input quality, not model choice, governs whether completion is usable, effort is
-better spent on segmentation than on swapping architectures. These reaches are bounded by the
-limitations set out next.
+The completion half's favorable real-data evidence is the independent-classifier
+plausibility (Section~\ref{sec:results-plausibility}): completion lifts car-acceptance from
+\num{0.253} on the raw partials to \num{0.785}, reaching the dense static-accumulation shape
+ceiling (\num{0.807}), consistently across all eleven sequences and for moving as well as
+static cars, with the paired gain significant on McNemar and Wilcoxon tests ($p\approx0$).
+This is an established protocol (Chen et al.~\cite{chen2020unpaired}) with an external judge
+disjoint from the completion network's training data, so it is not circular. In distribution,
+on synthetic shapes with a complete ground truth, the network scores Chamfer \SI{0.16}{\metre}
+and F@\SI{0.1}{\metre} \num{0.76}. Against these stands the honest negative: the established
+reference-free fidelity metrics (UCD, UHD; Section~\ref{sec:results-fidelity}) reward
+reproducing the observed input, so they cannot credit the completion, and the favorable claim
+rests on plausibility alone.
+
+These reaches vary. The detection operating point is cross-validated across all eleven
+sequences (Section~\ref{sec:eval-loso}), and the plausibility gain likewise appears on every
+sequence, so both halves transfer beyond the tuning sequence. The recall diagnosis is an
+inductive result from the labelled sequences, mechanistic but not a proven invariant, and the
+tuned completion constants (the length prior, the estimate quantile, the geometric
+thresholds) are sequence-derived and should be re-checked on a new sensor. For practice, three
+readings follow: the interpretable detector, requiring zero additional manual annotation, is
+a viable choice where labelling budget or inspectability outweighs peak recall, provided the
+domain is dense-scene;
+independent-classifier plausibility is a reusable, non-circular way to assess real-LiDAR
+completion where no complete ground truth exists; and because input quality, not model choice,
+governs whether completion is usable, effort is better spent on segmentation than on swapping
+architectures. These reaches are bounded by the limitations set out next.
 
 \subsection{Validity of the Evaluation}
 \label{sec:disc-eval-validity}
@@ -131,92 +142,87 @@ Detection is cross-validated, and the selection exposure is precision-only. Sema
 labels only sequences \numrange{00}{10}, so no labelled sequence can be reserved as a
 conventional held-out detection test set, and the final classifier was historically selected
 on sequence~08; leave-one-sequence-out cross-validation (Section~\ref{sec:eval-loso}) bounds
-the exposure, the fold-08 classifier matching its recall (\num{0.737} versus \num{0.730}) and
-losing only about two precision points (\num{0.881} versus \num{0.905}), so the selection
-touched precision, not the clustering-imposed recall ceiling (\num{0.775}) that accounts for
-most missed cars. Completion is held out more strongly still --- its claims are re-tested on
-sequence~00 under a pre-registration and the model never saw a real sequence --- and that
-replication returned \textsc{partially holds}: both primary metrics were decisive wins (BEV
-IoU \num{0.739}~$\rightarrow$~\num{0.766}, $p=\num{1.6e-3}$; donor coverage
-\num{0.000}~$\rightarrow$~\num{0.413}), but the long band was empty (no car
-$\geq$~\SI{4.6}{\metre} survived the static-car construction), leaving long-car behaviour
-untestable off the tuning sequence, and the compact-band guard fails there as on sequence~08.
-The completion value is thus replicated once, not across a range of sequences.
+the exposure, the fold-08 classifier matching its recall (\num{0.736} versus \num{0.732}) and
+losing only about two precision points (\num{0.888} versus \num{0.911}), so the selection
+touched precision, not the clustering-imposed recall ceiling (\num{0.773}) that accounts for
+most missed cars. The completion evaluation is guarded on two fronts. It is
+non-circular: the plausibility judge is trained on ModelNet40, a shape repository
+disjoint from the ShapeNet cars the completion network learned from, so an accepted car is not
+an artefact of shared training data, and the completion network never saw a real LiDAR
+sequence. And it generalises: the acceptance gain is not a single held-out replication
+but appears on all eleven labelled sequences (Section~\ref{sec:results-plausibility}), with
+the tuning sequence~08 unremarkable among them. Its one honest asymmetry is that the favorable
+evidence is plausibility alone; the established fidelity metrics do not corroborate it,
+because they reward under-completion, and synthetic fidelity is not a real-data claim.
 
 \subsection{Scope of the Completion Claims}
 \label{sec:disc-completion-scope}
 
-The quantitative completion claims are bounded in what they can score. Both metrics require a
-static car by construction, so moving cars cannot be scored by either and are reported only as
-a plausibility check, where they reach plausible boxes at essentially the static rate
-(\SI{57.9}{\percent} versus \SI{53.7}{\percent}) --- a parity result, not an accuracy claim,
-and a conservative one, since the axis-aligned flag penalises the non-axis-aligned cars movers
-over-represent. The metric also scores only clean, gate-passed clusters, and whether a car
-reaches completion as one is decided upstream by the clustering that caps recall: the
-ablations (Section~\ref{sec:abl-completion}) show the L-shape input gate sharply raises
-plausible-completion rates on every sequence whereas swapping PCN for PoinTr changes them not
-at all, so widening completion's reach is a segmentation problem, not a
+The completion claim is deliberately bounded. The favorable real-data evidence is a single
+established instrument, independent-classifier plausibility, and it measures whether a
+completed cloud reads as a car, not metric surface accuracy against a complete shape, which
+no real-LiDAR reference can supply. The established reference-free fidelity metrics do not
+corroborate it, so the claim rests on plausibility alone and must not be read as a
+surface-reconstruction-accuracy claim. Plausibility scores only clean, gate-passed clusters,
+and whether a car reaches completion as one is decided upstream by the clustering that caps
+recall: the L-shape input gate rejects fragments and merges that would otherwise complete
+implausibly (Section~\ref{sec:abl-completion}), whereas swapping PCN for PoinTr changes the
+result not at all, so widening completion's reach is a segmentation problem, not a
 completion-architecture one.
 
-Within that scope, three residuals bound accuracy. The per-car length estimate falls back to
-the \SI{4.14}{\metre} population prior on tracks with fewer than five gate-passed frames ---
-\SI{23.0}{\percent} of sequence-08 tracks --- reintroducing compact overshoot there; the cost
-sits inside the headline gain (median BEV IoU \num{0.725}~$\rightarrow$~\num{0.771}, measured
-on the same tracks) and falls on the sparsest, most distant cars where the box matters least.
-Even with an unbiased estimate the completed cloud stays slightly short at the far end by an
-amount that scales with car length, and a pre-registered fix removed this on normal and long
-cars but over-extended compacts, so the compensation is irreducibly length-dependent and the
-far end remains the weakest-covered region. Both residuals compound the model's synthetic-only
-training --- the source of the evaluation's independence but also the synthetic-to-real gap
-(Section~\ref{sec:bg-completion}) behind the residual flatness of real completions --- which
-shows most sharply on compact cars, where completions spray points outside the box at roughly
-\num{100} times the mirrored baseline under the fixed prior and about \num{16} times under the
-per-car estimate; no configuration clears the compact bar, so we report the ratios rather than
-tune the guard, a band-localised failure the original pooled-median guard was blind to.
+Within that scope, two residuals bound the completed shape. The per-car length estimate falls
+back to the \SI{4.14}{\metre} population prior on tracks with fewer than five gate-passed
+frames, a non-trivial fraction of sequence-08 tracks, reintroducing some compact
+overshoot there, on the sparsest, most distant cars where it matters least. Even with an
+unbiased estimate the completed cloud stays slightly short at the far end by an amount that
+scales with car length: a pre-registered fix removed this on normal and long cars but
+over-extended compacts, so the compensation is irreducibly length-dependent and the far end
+remains the weakest-covered region. Both residuals compound the model's synthetic-only
+training, the source of the evaluation's independence, but also a synthetic-to-real gap
+(Section~\ref{sec:bg-completion}) behind the residual flatness of the sparsest real
+completions.
 
 \subsection{Ground-Truth and Dataset Assumptions}
 \label{sec:disc-gt}
 
-Three assumptions underlie the ground truth. The amodal box is constructed by accumulating a
-static car's frames, since no external amodal reference exists (KITTI raw tracklets for the
-sequence-08 drive, \texttt{2011\_09\_30\_drive\_0028}, do not exist on the official archive);
-it rests on the paired design comparing raw against completed on the same box,
-viewpoint- and motion-coverage guards, and a sane dimension distribution, so the claim is
-robustness to plausible reference error, not an error-free reference. Recall is reported
-against eligible cars --- those with at least \num{10} points surviving preprocessing ---
-which excludes \SI{25.5}{\percent} of annotated cars too sparse or distant to reach the front
-end, so recall against all annotated cars is approximately \num{0.54} against the \num{0.730}
-eligible figure (both reported; the two ``$\geq$10-point'' rules are distinct). And all
-counts, matches, and the amodal construction assume SemanticKITTI's labels are correct; we did
-not audit them, and mislabelled cars would propagate into both the detection metrics and the
-ground truth.
+Two assumptions underlie the ground truth. Recall is reported against eligible cars, those
+with at least \num{10} points surviving preprocessing, which excludes \SI{25.5}{\percent}
+of annotated cars too sparse or distant to reach the front end, so recall against all
+annotated cars is approximately \num{0.55} against the \num{0.732} eligible figure (both
+reported; the two ``$\geq$10-point'' rules are distinct). And all counts and matches assume
+SemanticKITTI's labels are correct; we did not audit them, and mislabelled cars would
+propagate into the detection metrics and the mined classifier labels. The completion
+evaluation avoids a self-made reference entirely: its plausibility judge is scored against
+ModelNet40's own labels, and the raw-versus-completed comparison is paired on identical
+inputs, so no accumulated pseudo-ground-truth enters the completion claim.
 
 \subsection{Architectural and Operational Limits}
 \label{sec:disc-architectural}
 
 The remaining limits are architectural or operational. The recall ceiling is architectural,
 not a tuning failure (Section~\ref{sec:recall-analysis}): coarsening the cluster voxel to
-\SI{0.10}{\metre} recovered part of the loss (\num{0.699}~$\rightarrow$~\num{0.730}) but
+\SI{0.10}{\metre} recovered part of the loss (\num{0.710}~$\rightarrow$~\num{0.732}) but
 coarsening further fuses adjacent cars, and no fixed-radius density clusterer reaches HDBSCAN's
-recall at any tested radius, so the ceiling (\num{0.775} before any learned stage, splitting
-\SIrange{31}{37}{\percent} of cars) is the measured price of the interpretable,
-near-annotation-free design the thesis exists to evaluate, and lifting it means a learned
-detector --- a different system. The operational domain is dense scenes: recall falls to
-\num{0.336} on the sparse highway sequence~01 against \num{0.761} on dense-urban sequence~00,
+recall at any tested radius, so the ceiling (\num{0.773} before any learned stage, splitting
+\SI{33.7}{\percent} of cars) is the measured price of the interpretable design,
+requiring zero additional manual annotation, the thesis exists to evaluate, and lifting it
+means a learned detector, a different system. The operational domain is dense scenes: recall falls to
+\num{0.336} on the sparse highway sequence~01 against \num{0.758} on dense-urban sequence~00,
 mostly because highway cars are distant and recall collapses with range (\num{0.196} beyond
 \SI{40}{\metre}) and partly because the front end was tuned on dense data, though the failure
 is a conservative miss, not a false alarm (sequence~01 precision \num{0.951}). The system is
 offline by design, running at about \SI{623.5}{\milli\second} per frame
 (Section~\ref{sec:results-runtime}) with the $\leq\SI{400}{\milli\second}$ target unreachable
 through the authorised tiers, and real-time operation is out of scope. Finally, the centroid
-tracker feeds the length estimate and drives the \SI{23}{\percent} fallback but is never
+tracker feeds the per-car length estimate and drives its fixed-prior fallback but is never
 scored as a tracker (no MOTA or IDF1), so its contribution to that fallback is unmeasured.
 
 % Conclusion moved to the top of this chapter (Section~\ref{sec:conclusion-rqs}) to
-% mirror the gospel's Conclusion-first order; the Established Results discussion is
-% folded into Limitations and Discussion above. Honesty-phrasing rules (personal_agenda
-% P1) still apply to the moved Conclusion: held-out outcome PARTIALLY HOLDS (#42),
-% moving cars = plausibility only (#44), negatives as findings, claims within C1-C11.
+% mirror the Conclusion-first order; the Established Results discussion is folded into
+% Limitations and Discussion above. Honesty-phrasing rules (personal_agenda P1) still
+% apply: favorable real-data completion evidence = independent-classifier plausibility
+% alone (#54), fidelity unfavorable, movers complete as plausibly as statics, negatives
+% as findings.
 
 \section{Future Work}
 \label{sec:conclusion-future}
@@ -224,41 +230,42 @@ scored as a tracker (no MOTA or IDF1), so its contribution to that fallback is u
 The limitations above named the boundaries of the present results. Three of them are the natural next
 steps, each already scoped by a finding rather than left open.
 
-\paragraph{A real-time variant.} The pipeline runs offline at roughly
+\paragraph{A real-time variant:} The pipeline runs offline at roughly
 \SI{623.5}{\milli\second} per scan (Section~\ref{sec:results-runtime}), dominated by the
 classical CPU stages. The direct speed path is an implementation one: the residual
-$\sim$\SI{185}{\milli\second} attributed to clustering is the cost of the \emph{Python}
-HDBSCAN, not the HDBSCAN \emph{algorithm}, so a native or GPU implementation would attack
+$\sim$\SI{185}{\milli\second} attributed to clustering is the cost of the Python
+HDBSCAN, not the HDBSCAN algorithm, so a native or GPU implementation would attack
 that floor without changing what is computed. Swapping in a faster fixed-radius clusterer is
-not a free substitution --- the benchmark shows none reaches HDBSCAN's recall at any tested
-radius --- so a real-time variant must preserve the HDBSCAN algorithm via a faster
+not a free substitution, the benchmark shows none reaches HDBSCAN's recall at any tested
+radius, so a real-time variant must preserve the HDBSCAN algorithm via a faster
 implementation, or replace the front end with a learned detector, rather than trade measured
 recall for speed.
 
-\paragraph{Real-data fine-tuning for completion.} The completion model was trained on
-synthetic KITTI-like partials only, which is at once the source of the donor metric's
-validity and a ceiling on real-data crispness: on the sparsest, most one-sided inputs the
+\paragraph{Real-data fine-tuning for completion:} The completion model was trained on
+synthetic KITTI-like partials only, which is at once the source of the evaluation's
+independence and a ceiling on real-data crispness: on the sparsest, most one-sided inputs the
 completions stay flat, which traces to the remaining synthetic-to-real
 domain gap. Closing it would call for real-data fine-tuning, which is itself a documented
 negative-result line in this project; it is a contingency
 direction, to be attempted only with the leakage controls that make real-data supervision
 safe.
 
-\paragraph{Long-band amodal ground truth on a second held-out sequence.} The held-out
-replication (Section~\ref{sec:results-heldout}) partially held in part because the long length band was empty on
-sequence~00 --- no car of at least \SI{4.6}{\metre} survived the well-observed-static-car
-construction --- so the per-car length estimate's behaviour on long cars could not be tested
-off the tuning sequence. Building amodal ground truth for a third sequence with long cars
-present would close that single coverage gap and upgrade the long-band claim from a
-sequence-08 result to a replicated one. It is deferred here as a bounded data-construction
-task, not a change to the method.
+\paragraph{Downstream detection utility:} The plausibility result establishes that completed
+clouds read as cars, but not yet that completion improves a downstream perception task. The
+field's other real-data payoff for completion is a measured improvement in 3D-detection
+precision from feeding completed clouds to a detector (Ren et
+al.~\cite{ren2022selfsupervised}). Wiring the completed cars into an oriented-box estimator
+and measuring whether detection improves would turn the plausibility signal into a
+task-level one, and is the natural next validation. It is deferred here as an integration
+task, not a change to the completion method.
 
 \bigskip
 
-None of the thesis's results rests on an additional point of metric improvement: the
-methodological contribution is a validated real-data completion metric, and each empirical
-claim --- that learned completion adds genuinely unseen surface and improves amodal boxes on
-static cars, that recall is clustering-bound, that synthetic pretraining is redundant at
-scale --- is defended by explanation and, where the design allowed it, by a pre-registered
-test whose outcome was reportable either way. That is the standard the work set for itself,
-and the standard on which it asks to be judged.
+None of the thesis's results rests on a self-made evaluation instrument: the main
+contribution is the modular framework itself, and each empirical claim, that a modular
+pipeline requiring zero additional manual annotation detects and completes occluded vehicles
+on real LiDAR, that its
+completions read as cars to an independent classifier, that recall is clustering-bound, that
+synthetic pretraining is redundant at scale, is defended by cross-validation, by an
+established external judge, or by explanation, and reported as it fell. That is the standard
+the work set for itself, and the standard on which it asks to be judged.

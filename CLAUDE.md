@@ -37,8 +37,11 @@ system `python`/`python3`.
 Common evaluation commands:
 
 ```bash
-# Headline baseline: seq 00, 100 frames (defaults; deterministic)
-.venv\Scripts\python.exe src/evaluate.py
+# Headline baseline: seq 00, full sequence (deterministic).
+# Always evaluate on the full sequence, never a 100-frame sample: small-sample
+# numbers are noisy and have reversed at full scale. --frames 5000 covers all
+# of seq00 (4541) and seq08 (4071). Do NOT rely on evaluate.py's --frames 100 default.
+.venv\Scripts\python.exe src/evaluate.py --seq 00 --frames 5000
 # Generalization check: seq 08, full sequence
 .venv\Scripts\python.exe src/evaluate.py --seq 08 --frames 5000
 # Run pipeline headless with saved outputs

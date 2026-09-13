@@ -2224,3 +2224,63 @@ to a vendored port is needed. Checkpoint `checkpoints/modelnet40_pointnet2.pth`
 confirming the argmax==car metric is not diluted by near-vehicle classes). Log:
 `checkpoints/modelnet40_pointnet2_log.csv`. Everything else in #53 remains pre-registered and
 unmeasured until the completions are scored.
+
+
+## 54. RESULTS — Independent-Classifier Plausibility (Chen 2020), Task G (2026-09-12)
+
+**Context:** Executes the pre-registered experiment (#53): does PCN completion make real
+post-pipeline car clusters read as cars to an *independent* judge? This is the single favorable
+real-data completion signal the thesis reframe leaves standing, so H1/H2 significance and the
+completed->ceiling shape read are load-bearing.
+
+**Setup as run:** Judge = ModelNet40 PointNet++ SSG (#53, test top-1 **0.9214** >= 0.88 gate).
+Scored **2,822** completed car tracks (raw partial vs completed) across all 11 sequences +
+**140** static-accumulation ceiling clouds (`scratchpad/plausibility/build_ceiling.py --all`;
+140/1861 well-observed static cars, 8 contributing seqs -> `output/experiments/plausibility_ceiling/`).
+All clouds harmonized into the judge frame (X=width / Y=up / Z=length) via
+`scratchpad/plausibility/harmonize.py`, then FPS->1024 + unit-sphere. Command:
+`.venv\Scripts\python.exe scratchpad/plausibility/score.py` ->
+`output/experiments/plausibility_chen/{summary.json, per_seq.json, acceptance.png}`.
+
+**Finding (pooled, N=2822 pairs):**
+
+| Arm | Accept (argmax==car) | Mean car-prob |
+|-----|------|------|
+| Raw partial | 0.253 | 0.219 |
+| **Completed** | **0.785** | **0.745** |
+| Ceiling (N=140) | 0.807 | 0.728 |
+
+- **H1 (McNemar, paired argmax):** b=115 (raw-only), c=1615 (completed-only), **p~=0** —
+  completion flips 14x more rejects->accepts than the reverse. Holds decisively.
+- **H2 (Wilcoxon, paired car-prob):** **p~=0**. Holds decisively.
+- **H3 (shape, static subset, N=2220):** static completed accept 0.770 / car-prob **0.730** vs
+  ceiling 0.807 / **0.728** — completed recovers ~96% of the raw->ceiling acceptance gap and is
+  **at the ceiling on car-prob**. completed->ceiling is unpaired (different car populations);
+  Mann-Whitney on car-prob p=6.8e-7 reflects distribution shape at large N, with completed >=
+  ceiling in central tendency.
+- **Movers complete as plausibly as statics** (accept 0.837, N=602, vs 0.770), consistent with #44.
+- **Heading-sign sensitivity (added control):** scoring completed with a 180deg front/back flip
+  changes acceptance by **+0.009** — negligible; the residual L-shape heading ambiguity is not a
+  confound.
+
+**Reading (pre-committed outcome = "H1 & H2 hold, completed near ceiling"):** completion produces
+genuinely *car-plausible shapes*, not just denser blobs — it matches the dense-AND-correct-shape
+ceiling, the pre-registered density/shape confound control. The raw->completed gain is reported
+with the density caveat; the completed->ceiling near-parity is the shape-quality claim.
+
+**Deviations (from #53):**
+1. Min-point gate coded at 30 (`harmonize.py MIN_POINTS`), not the pre-registered >=10.
+   **Immaterial:** 0 partials were gated at 30 (all had >=30 pts), so the scored set is identical
+   to what >=10 selects.
+2. #53 described PCN output as 16,384 pts; actual saved completed clouds are 4,096 -> FPS 1024.
+   Method used the saved 4,096-pt clouds.
+3. Harmonization required a y-down->y-up flip (both pipeline sources are cam0 y-down; the judge is
+   y-up) that #53/the plan did not anticipate — the plan assumed z-up ModelNet40 and
+   `project_state.md` wrongly said "no rotation needed." Verified before scoring
+   (`scratchpad/plausibility/figs/orientation_check.png`); the judge trained without rotation aug,
+   so the flip was necessary for validity, not cosmetic. All three sources confirmed in-frame
+   post-harmonization (ceiling bottom-wider 0/61 -> 60/60, matching ModelNet40).
+
+**Decision:** This is the favorable, established, non-self-made real-data completion result for the
+Ch4 reframe. Report acceptance + car-prob together, state raw->completed alongside the
+completed->ceiling near-parity, and keep the density caveat.
