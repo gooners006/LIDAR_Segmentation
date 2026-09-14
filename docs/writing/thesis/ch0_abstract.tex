@@ -12,7 +12,7 @@
 % Honesty-phrasing rules applied (personal_agenda P1):
 %   - detection is cross-validated (LOSO across all eleven labelled sequences); the
 %     pooled LOSO numbers (P0.888/R0.717/F10.793) live in Sec 4.1
-%   - the favorable real-data completion signal is plausibility ALONE; fidelity is
+%   - the favorable real data completion signal is plausibility ALONE; fidelity is
 %     unfavorable and named as such; synthetic CD/F is not real data
 %   - plausibility is stated as acceptance by an INDEPENDENT classifier, not the
 %     pipeline's own; the completed arm reaching the static-accumulation ceiling is the
@@ -25,8 +25,8 @@
 Automotive LiDAR sees every car from one side, so a perception system must both detect
 partially observed vehicles and reason about the surface the sensor never reached.
 End-to-end networks do this accurately but at the cost of dense point-wise supervision
-and stage-by-stage opacity. This thesis takes the opposite starting point and builds a
-modular detection-and-completion framework: classical geometry removes the ground
+and stage by stage opacity. This thesis takes the opposite starting point and builds a
+modular detection and completion framework: classical geometry removes the ground
 and clusters candidates, a small binary classifier keeps the cars, a centroid tracker
 filters flicker, and a PCN network completes each detected vehicle. Every stage is
 separately inspectable, and the framework requires zero additional manual annotation:
@@ -36,17 +36,17 @@ and the completion network is trained exclusively on synthetic shapes.
 The framework is grounded on two public datasets: SemanticKITTI supplies real Velodyne
 scans for detection, auto-mined supervision, and evaluation, while ShapeNetCore~v2
 supplies synthetic complete shapes for training the completion network. Detection is evaluated end to end with leave-one-sequence-out
-cross-validation across all eleven labelled sequences to rule out model-selection bias.
+cross-validation across all eleven labelled sequences to rule out model selection bias.
 Completion, which has no clean ground truth on real LiDAR, is judged two ways: an
-independent shape classifier trained on external complete-shape data tests
-whether the completed real clouds read as cars, and established reference-free fidelity
+independent shape classifier trained on external complete shape data tests
+whether the completed real clouds read as cars, and established reference free fidelity
 metrics are reported honestly, including where they reward leaving the partial untouched.
 The independent classifier accepts far more completed clouds than raw partials and about
-as many as a dense static-accumulation reference, so completion produces car-plausible
-shapes rather than merely denser blobs; fidelity, by contrast, penalises the added
-surface, which is why the favorable real-data claim rests on plausibility. Along the way
+as many as a dense static accumulation reference, so completion produces car-plausible
+shapes rather than merely denser blobs. Fidelity, by contrast, penalises the added
+surface, which is why the favorable real data claim rests on plausibility. Along the way
 we find detection recall limited by clustering fragmentation rather than the classifier,
 and synthetic pretraining redundant once real training clusters are plentiful. The
-thesis thus contributes an inspectable, reproducible framework for occluded-vehicle
+thesis thus contributes an inspectable, reproducible framework for occluded vehicle
 detection and completion that requires zero additional manual annotation, and a
-real-data completion assessment that avoids any self-made reference.
+real data completion assessment that avoids any self-made reference.

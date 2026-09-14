@@ -4504,3 +4504,67 @@ process artifact; log ended "ALL SEQUENCES COMPLETE", all 11 `tracks.json` prese
 - Build the static-accumulation ceiling (SemanticKITTI sem=10) for the H3 shape-quality read;
   split static/mover via `centroid_history`.
 - Record results as a Finding; those numbers feed the Ch4 completion reframe.
+
+---
+# Session — 2026-09-15 (thesis figure / caption / prose polish pass)
+
+## What was done
+
+Editorial + figure polish across all chapters (modular `chN.tex` + regenerated flattened
+`thesis_full.tex`; both build clean, byte-identical PDFs). This commit also lands the
+previously-uncommitted Ch2/Ch4 restructure and Ch3 diagrams accumulated since commit 7560e9a.
+
+### Chapter 3 — pipeline diagrams + I/O contracts
+- Added `\textbf{Input:} … | \textbf{Output:} …` headers under every pipeline step:
+  Detection §3.2.2–3.2.7 and Completion §3.3.4–3.3.7.
+- Two new TikZ figures: `fig:geo-filter` (car accept vs pole/wall reject by OBB gates, §3.2.5)
+  and `fig:lshape-gate` (single car / fragment / merge, §3.3.5).
+- Same commit (carried over): `fig:architecture`, redesigned `fig:pipeline`,
+  `fig:completion-pipeline` TikZ diagrams; §2.1.4 real-data figure `completion_task_08.png`
+  (track 9658).
+
+### Citations
+- Added `zhang2017lshape` (Efficient L-Shape Fitting, IV 2017) to `docs/references.bib`;
+  converted plain-text "(Zhang et al., 2017)" and "(Yuan et al., 2018)" in Ch3 to `\cite{}`.
+
+### Chapter 4 — dataset/sensor tables + Table 4.3
+- New §4.1 tables `tab:dataset-roles` (SemanticKITTI vs ShapeNetCore v2) and `tab:sensor-spec`
+  (Velodyne HDL-64E).
+- Table 4.3: vertical rules isolating the seq-08 validation column; new `PCN role` row.
+  Reconciled horizontal resolution 0.08°→0.09° (matches `train_pcn.py kitti_h_res_deg=0.09`).
+
+### Caption-bloat pass (all 41 fig/table captions)
+- Trimmed to 1–2 sentences (what it is + colours/axes + condition); max caption 164w→≤53w.
+  Insights not already in body woven into adjacent prose (sensor→sparsity, mean-IoU at
+  stricter gate, HDBSCAN 4–6× slower, L-shape-gate rationale).
+
+### Prose line-edit
+- Run-on count (>45w) 66→15 (remainder are inline math-definition sentences / legit lists);
+  fixed comma splices; rewrote conversational passages to detached academic form (notably
+  §4.3.3 "hard ceiling" → "Initially, the recall appeared constrained…").
+
+### Specific-sequence de-cluttering
+- Removed incidental "sequence 08 / seq-08" from all 7 raster-figure captions and 7 table
+  captions (generalised to "the full sequence" / "real cars"); kept where load-bearing
+  (tab:dataset split, tab:headline LOSO contrast, tab:strategies seq00/08, all-11 tables).
+
+## Files changed
+- Modified: `docs/references.bib`; `docs/writing/thesis/{ch0_abstract,ch1_introduction,
+  ch2_background,ch3_methodology,ch4_evaluation,ch5_discussion_conclusion,main}.tex`,
+  `thesis_full.tex`, `main.pdf`, `thesis_full.pdf`.
+- New (committed): `docs/writing/thesis/figures/{bg_lidar_scan,bg_pipeline_stages,bg_iou,
+  bg_fidelity,completion_task_08}.png`.
+- Untracked, NOT committed (analysis scratch): `find_clunky.py`, `sample_clunky.py`,
+  `get_captions.py`, `get_context.py`, `get_long_captions.py`, `get_math.py`, `context.txt`,
+  `docs/writing/BAKBOOK-thesis.doc`.
+
+## Results / findings
+- `latexmk main.tex` and `thesis_full.tex` both exit 0; 0 errors, 0 undefined refs/citations,
+  71 pages; `main.pdf` == `thesis_full.pdf` (3197255 bytes).
+- Editorial only — no pipeline re-runs; all reported numbers unchanged from the 2026-09-14
+  height-gate cascade.
+
+## Next
+- Gemini structural + line review still pending (prompt + `thesis_full.tex` in project_state).
+- Numbers spot-check vs `results/postfix_normalfix_2026-09-14/EDIT_MAP.md` still recommended.
+- Optional de-bold/de-emph pass; advisor review (never done).

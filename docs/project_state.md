@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-09-10
+Last updated: 2026-09-15
 
 > **Full chronological record: `docs/session_history.md`.** This file was compacted on
 > 2026-09-07 — the historical per-session narrative blocks (thesis reframe/polish/review
@@ -18,15 +18,37 @@ checkpoints without cause; new work to fresh paths). The committed reference con
 `pcn_kitti_best.pth`; eval protocol point-level IoU ≥ 0.3 greedy 1-to-1, supported-vehicles,
 track filter ON, micro-averaged) is documented in the sections below.
 
-## Thesis Status (2026-09-12) — REFRAME EXECUTED (de-bold pass remaining)
+## Thesis Status (2026-09-15) — REFRAME DONE; figure/caption/prose polish DONE
 
-The manuscript has been **reframed** across all 7 `.tex` files. Title is now
-*"A Modular Detection and Completion Framework for Occluded Vehicles in Automotive LiDAR."*
-Builds clean (`latexmk main.tex` exit 0, **0 undefined refs/citations**, 70 pp).
+Reframed across all 7 `.tex` files; title *"A Modular Detection and Completion Framework for
+Occluded Vehicles in Automotive LiDAR."* Since 2026-09-14 a full figure + editorial pass landed:
+TikZ pipeline/architecture/completion diagrams, geometric-filter and L-shape-gate figures, a
+real-data §2.1.4 completion figure, background figures (`bg_*`), per-step Input/Output headers in
+Ch3, two §4.1 dataset/sensor tables, a de-bloated caption set (all 41 ≤53w), and a run-on /
+comma-splice / conversational-phrasing line-edit. Builds clean: `latexmk` exit 0,
+**0 undefined refs/citations**, **71 pp**, `main.pdf` == `thesis_full.pdf` (byte-identical,
+3197255 bytes). New bib key `zhang2017lshape`. Editorial only — no metric changes since the
+2026-09-14 height-gate cascade.
 
-## Next Session (added 2026-09-14)
+## Next Session (updated 2026-09-15)
 
-**Just landed: height-gate normal-sign fix + full re-run cascade.** The RANSAC
+**Outstanding, in priority order:**
+1. **Gemini structural + line review** of the thesis (prompt block below; feed
+   `docs/writing/thesis/thesis_full.tex`). Not yet done.
+2. **Numbers spot-check** vs `results/postfix_normalfix_2026-09-14/EDIT_MAP.md` (details below);
+   not yet done.
+3. Optional **de-bold/de-emph minimisation** pass (`\textbf`/`\emph` reduction, subjective).
+4. **Advisor review** — the manuscript has never been advisor-reviewed.
+
+Done as of 2026-09-15 (this commit): figure set (pipeline/architecture/completion TikZ diagrams,
+geometric-filter + L-shape-gate figures, §2.1.4 real-data figure, `bg_*` background figures), Ch3
+per-step Input/Output headers, §4.1 dataset/sensor tables, Table 4.3 seq-08 separator + PCN-role
+row, 0.08°→0.09° reconciliation, `zhang2017lshape` citation, full caption-bloat trim, and the
+run-on/comma-splice/conversational line-edit. Build is clean at 71 pp, PDFs byte-identical.
+
+---
+
+**Background: height-gate normal-sign fix + full re-run cascade (2026-09-14).** The RANSAC
 ground-plane normal sign is now forced upward in `src/pipeline.py remove_ground`
 so the signed height gate is no longer bypassed. Every seq08 detection number and
 the LOSO aggregate were re-run at full sequence and propagated across
@@ -105,8 +127,8 @@ Acknowledge these instructions and confirm you are ready to receive the Phase 1 
   (completion rebuilt on #54 + dataset table + supervised/unsupervised table + plausibility
   figure/table), Ch5 (reframed conclusions/limitations/future-work). Style: em-dashes removed
   (rendered PDF), colon-not-period on `\paragraph` leads.
-- **Remaining:** the de-bold/de-emph minimization pass (`\textbf`/`\emph` reduction, subjective);
-  optional figure polish; a full numbers spot-check.
+- **Remaining:** the de-bold/de-emph minimization pass (`\textbf`/`\emph` reduction, subjective)
+  and a full numbers spot-check. Figure polish is **done** (2026-09-15).
 - **Plans (outside repo):** `~/.claude/plans/drop-the-whole-donor-frame-nifty-papert.md`
   (reframe, executed) and `~/.claude/plans/independent-classifier-plausibility.md` (Task G, done).
 
