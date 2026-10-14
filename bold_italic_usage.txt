@@ -1,0 +1,93 @@
+
+docs\writing\thesis\ch2_background.tex:301:    sets. \textbf{(a)}~Chamfer distance sums nearest-point distances in both directions,
+docs\writing\thesis\ch2_background.tex:302:    so it needs a complete reference $B$. \textbf{(b)}~The unidirectional UCD and UHD score
+docs\writing\thesis\ch2_background.tex:349:    \textbf{(a)}~Bird's-eye view of one raw scan coloured by range to the ego
+docs\writing\thesis\ch2_background.tex:350:    sensor (red triangle); the central disc is the sensor blind spot. \textbf{(b)}~A single
+docs\writing\thesis\ch2_background.tex:446:    thesis adopts, on one SemanticKITTI scan (bird's-eye). \textbf{(a)}~The preprocessed
+docs\writing\thesis\ch2_background.tex:447:    scan. \textbf{(b)}~RANSAC fits and removes the ground plane (tan), leaving object
+docs\writing\thesis\ch2_background.tex:448:    points (blue). \textbf{(c)}~Density-based clustering groups the object points into
+docs\writing\thesis\ch2_background.tex:561:    \textbf{Plausibility}~\cite{chen2020unpaired} & plausibility & external classifier's car acceptance & yes \\
+docs\writing\thesis\ch2_background.tex:603:    \textbf{This work} & Geometric clustering + binary classifier (+ completion) & None for segmentation; auto-mined weak labels for the classifier & Point-level car clusters (+ completion) \\
+docs\writing\thesis\ch2_background.tex:661:  \item \textbf{Annotation Cost:} The accuracy of mainstream LiDAR segmentation is
+docs\writing\thesis\ch2_background.tex:664:  \item \textbf{Stage-Level Transparency:} The classical route's transparency enables
+docs\writing\thesis\ch2_background.tex:667:  \item \textbf{Reference-Free Evaluation:} Completion on real LiDAR lacks a valid complete
+docs\writing\thesis\ch3_methodology.tex:60:      {\textbf{Detection}\\[1pt]
+docs\writing\thesis\ch3_methodology.tex:66:      {\textbf{Completion}\\[1pt]
+docs\writing\thesis\ch3_methodology.tex:190:\noindent \textbf{Input:} raw LiDAR scan \quad \textbar \quad \textbf{Output:} cleaned point cloud (height-filtered, voxel-downsampled, denoised) \vspace{0.5em}
+docs\writing\thesis\ch3_methodology.tex:220:\noindent \textbf{Input:} cleaned point cloud \quad \textbar \quad \textbf{Output:} non-ground (object) points $+$ fitted ground plane \vspace{0.5em}
+docs\writing\thesis\ch3_methodology.tex:245:\noindent \textbf{Input:} non-ground points \quad \textbar \quad \textbf{Output:} object clusters \vspace{0.5em}
+docs\writing\thesis\ch3_methodology.tex:315:\noindent \textbf{Input:} object clusters \quad \textbar \quad \textbf{Output:} car-candidate clusters (oriented boxes) \vspace{0.5em}
+docs\writing\thesis\ch3_methodology.tex:365:      {within all gates\\\textbf{accept}~\textcolor{green!55!black}{\checkmark}};
+docs\writing\thesis\ch3_methodology.tex:375:      {span $>\SI{1.8}{\meter}$, aspect $>\num{6}$\\\textbf{reject}~\textcolor{red!75!black}{$\times$}};
+docs\writing\thesis\ch3_methodology.tex:387:      {extent $>\SI{6}{\meter}$, aspect $>\num{6}$\\\textbf{reject}~\textcolor{red!75!black}{$\times$}};
+docs\writing\thesis\ch3_methodology.tex:400:\noindent \textbf{Input:} car-candidate clusters \quad \textbar \quad \textbf{Output:} per-frame car / not-car label per cluster \vspace{0.5em}
+docs\writing\thesis\ch3_methodology.tex:507:\noindent \textbf{Input:} per-frame car detections \quad \textbar \quad \textbf{Output:} tracked cars (oriented boxes $+$ stable track ids) \vspace{0.5em}
+docs\writing\thesis\ch3_methodology.tex:849:\noindent \textbf{Input:} gated car cluster (sensor frame) $+$ L-shape heading and per-car length \quad \textbar \quad \textbf{Output:} \num{256}-point partial in the canonical car frame (centred, scale-normalised) \vspace{0.5em}
+docs\writing\thesis\ch3_methodology.tex:897:\noindent \textbf{Input:} detected car cluster (single-frame partial) \quad \textbar \quad \textbf{Output:} fitted footprint $+$ accept/reject decision (fragments and merges rejected) \vspace{0.5em}
+docs\writing\thesis\ch3_methodology.tex:941:    \node[verdict, fill=green!15] at (\ao+2.15,-2.7) {\textbf{accept}~\textcolor{green!55!black}{\checkmark}};
+docs\writing\thesis\ch3_methodology.tex:952:    \node[verdict, fill=red!8] at (\bo+1.0,-2.7) {\textbf{reject:} fragment~\textcolor{red!75!black}{$\times$}};
+docs\writing\thesis\ch3_methodology.tex:966:    \node[verdict, fill=red!8] at (\co+2.3,-2.7) {\textbf{reject:} merge~\textcolor{red!75!black}{$\times$}};
+docs\writing\thesis\ch3_methodology.tex:979:\noindent \textbf{Input:} the track's gate-passed footprint length fits \quad \textbar \quad \textbf{Output:} per-car length estimate (feeds the centre estimate) \vspace{0.5em}
+docs\writing\thesis\ch3_methodology.tex:1012:\noindent \textbf{Input:} single-frame car cluster (sensor frame) \quad \textbar \quad \textbf{Output:} completed dense car (\num{4096}-point surface $+$ box, sensor frame) \vspace{0.5em}
+docs\writing\thesis\ch4_evaluation.tex:139:    frame counts and roles. \emph{Classifier role}: the headline detection split (train /
+docs\writing\thesis\ch4_evaluation.tex:140:    validation${}={}$seq~08 / train). \emph{PCN role}: every sequence is completion evaluation
+docs\writing\thesis\ch4_evaluation.tex:488:    \textbf{Pooled (all 11)} & \textbf{0.888} & \textbf{0.717} & \textbf{0.793} & \textbf{0.919} & \num{116797} / \num{14681} / \num{46141} \\
+docs\writing\thesis\ch4_evaluation.tex:560:    10--20  & 0.869 & \textbf{0.862} & 0.866 & 0.926 & \num{432} / \num{65}  / \num{69}  \\
+docs\writing\thesis\ch4_evaluation.tex:715:      & HDBSCAN   & 0.972 & \textbf{0.731} & \textbf{0.835} & 0.968 & 306 \\
+docs\writing\thesis\ch4_evaluation.tex:720:      & HDBSCAN   & 0.840 & \textbf{0.671} & \textbf{0.746} & 0.923 & 320 \\
+docs\writing\thesis\ch4_evaluation.tex:967:    Baseline (HDBSCAN, MCS \num{10}) & 0.984 & 0.739 & \textbf{0.844} & \textbf{0.829} \\
+docs\writing\thesis\ch4_evaluation.tex:1224:    \textbf{Completed}     & \textbf{0.785} & \textbf{0.745} \\
+docs\writing\thesis\ch4_evaluation.tex:1326:    \textbf{Completed} & 0.090 & 0.286 & 0.183 \\
+docs\writing\thesis\main.tex:73:  \textbf{\large MASTER'S THESIS}
+docs\writing\thesis\main.tex:77:  \textbf{\large A Modular Detection and Completion Framework for
+docs\writing\thesis\main.tex:85:      \textit{Student:} \\
+docs\writing\thesis\main.tex:95:      \textit{Advisor:} \\
+docs\writing\thesis\main.tex:101:  \textbf{\large Master's Thesis} \\
+docs\writing\thesis\main.tex:131:I would like to express my sincere gratitude to my thesis supervisor, \textbf{Dr. Doan Nhat Quang}, for his guidance, constructive feedback, and support throughout the development of this research. His academic advice and technical insights have been essential to the conceptualization and refinement of the proposed framework.
+docs\writing\thesis\main.tex:133:I am also grateful to the faculty and staff at the \textbf{FPT School of Business \& Technology (FSB)} for providing a structured academic environment and for the knowledge they have shared throughout the Master's programme. I also thank my colleagues and peers for their helpful discussions and feedback during the research process.
+docs\writing\thesis\main.tex:138:I, \textbf{Ngo Vi Viet Anh}, student ID \textbf{MSE13205}, hereby declare that this thesis, entitled \textit{``A Modular Detection and Completion Framework for Occluded Vehicles in Automotive LiDAR''}, is the result of my own work carried out under the supervision of Dr. Doan Nhat Quang at the FPT School of Business \& Technology.
+docs\writing\thesis\thesis_full.tex:73:  \textbf{\large MASTER'S THESIS}
+docs\writing\thesis\thesis_full.tex:77:  \textbf{\large A Modular Detection and Completion Framework for
+docs\writing\thesis\thesis_full.tex:85:      \textit{Student:} \\
+docs\writing\thesis\thesis_full.tex:95:      \textit{Advisor:} \\
+docs\writing\thesis\thesis_full.tex:101:  \textbf{\large Master's Thesis} \\
+docs\writing\thesis\thesis_full.tex:131:I would like to express my sincere gratitude to my thesis supervisor, \textbf{Dr. Doan Nhat Quang}, for his guidance, constructive feedback, and support throughout the development of this research. His academic advice and technical insights have been essential to the conceptualization and refinement of the proposed framework.
+docs\writing\thesis\thesis_full.tex:133:I am also grateful to the faculty and staff at the \textbf{FPT School of Business \& Technology (FSB)} for providing a structured academic environment and for the knowledge they have shared throughout the Master's programme. I also thank my colleagues and peers for their helpful discussions and feedback during the research process.
+docs\writing\thesis\thesis_full.tex:138:I, \textbf{Ngo Vi Viet Anh}, student ID \textbf{MSE13205}, hereby declare that this thesis, entitled \textit{``A Modular Detection and Completion Framework for Occluded Vehicles in Automotive LiDAR''}, is the result of my own work carried out under the supervision of Dr. Doan Nhat Quang at the FPT School of Business \& Technology.
+docs\writing\thesis\thesis_full.tex:409:    \textbf{(a)}~Bird's-eye view of one raw scan coloured by range to the ego
+docs\writing\thesis\thesis_full.tex:410:    sensor (red triangle); the central disc is the sensor blind spot. \textbf{(b)}~A single
+docs\writing\thesis\thesis_full.tex:528:    thesis adopts, on one SemanticKITTI scan (bird's-eye). \textbf{(a)}~The preprocessed
+docs\writing\thesis\thesis_full.tex:529:    scan. \textbf{(b)}~RANSAC fits and removes the ground plane (tan), leaving object
+docs\writing\thesis\thesis_full.tex:530:    points (blue). \textbf{(c)}~Density-based clustering groups the object points into
+docs\writing\thesis\thesis_full.tex:762:    \textbf{Plausibility}~\cite{chen2020unpaired} & plausibility & external classifier's car acceptance & yes \\
+docs\writing\thesis\thesis_full.tex:838:    sets. \textbf{(a)}~Chamfer distance sums nearest-point distances in both directions,
+docs\writing\thesis\thesis_full.tex:839:    so it needs a complete reference $B$. \textbf{(b)}~The unidirectional UCD and UHD score
+docs\writing\thesis\thesis_full.tex:905:    \textbf{This work} & Geometric clustering + binary classifier (+ completion) & None for segmentation; auto-mined weak labels for the classifier & Point level car clusters (+ completion) \\
+docs\writing\thesis\thesis_full.tex:1034:      {\textbf{Detection}\\[1pt]
+docs\writing\thesis\thesis_full.tex:1040:      {\textbf{Completion}\\[1pt]
+docs\writing\thesis\thesis_full.tex:1164:\noindent \textbf{Input:} raw LiDAR scan \quad \textbar \quad \textbf{Output:} cleaned point cloud (height-filtered, voxel-downsampled, denoised) \vspace{0.5em}
+docs\writing\thesis\thesis_full.tex:1194:\noindent \textbf{Input:} cleaned point cloud \quad \textbar \quad \textbf{Output:} non-ground (object) points $+$ fitted ground plane \vspace{0.5em}
+docs\writing\thesis\thesis_full.tex:1219:\noindent \textbf{Input:} non-ground points \quad \textbar \quad \textbf{Output:} object clusters \vspace{0.5em}
+docs\writing\thesis\thesis_full.tex:1289:\noindent \textbf{Input:} object clusters \quad \textbar \quad \textbf{Output:} car-candidate clusters (oriented boxes) \vspace{0.5em}
+docs\writing\thesis\thesis_full.tex:1339:      {within all gates\\\textbf{accept}~\textcolor{green!55!black}{$\surd$}};
+docs\writing\thesis\thesis_full.tex:1349:      {span $>\SI{1.8}{\meter}$, aspect $>\num{6}$\\\textbf{reject}~\textcolor{red!75!black}{$\times$}};
+docs\writing\thesis\thesis_full.tex:1361:      {extent $>\SI{6}{\meter}$, aspect $>\num{6}$\\\textbf{reject}~\textcolor{red!75!black}{$\times$}};
+docs\writing\thesis\thesis_full.tex:1374:\noindent \textbf{Input:} car-candidate clusters \quad \textbar \quad \textbf{Output:} per-frame car / not-car label per cluster \vspace{0.5em}
+docs\writing\thesis\thesis_full.tex:1482:\noindent \textbf{Input:} per-frame car detections \quad \textbar \quad \textbf{Output:} tracked cars (oriented boxes $+$ stable track ids) \vspace{0.5em}
+docs\writing\thesis\thesis_full.tex:1826:\noindent \textbf{Input:} gated car cluster (sensor frame) $+$ L-shape heading and per-car length \quad \textbar \quad \textbf{Output:} \num{256}-point partial in the canonical car frame (centred, scale-normalised) \vspace{0.5em}
+docs\writing\thesis\thesis_full.tex:1874:\noindent \textbf{Input:} detected car cluster (single-frame partial) \quad \textbar \quad \textbf{Output:} fitted footprint $+$ accept/reject decision (fragments and merges rejected) \vspace{0.5em}
+docs\writing\thesis\thesis_full.tex:1918:    \node[verdict, fill=green!15] at (\ao+2.15,-2.7) {\textbf{accept}~\textcolor{green!55!black}{$\surd$}};
+docs\writing\thesis\thesis_full.tex:1929:    \node[verdict, fill=red!8] at (\bo+1.0,-2.7) {\textbf{reject:} fragment~\textcolor{red!75!black}{$\times$}};
+docs\writing\thesis\thesis_full.tex:1943:    \node[verdict, fill=red!8] at (\co+2.3,-2.7) {\textbf{reject:} merge~\textcolor{red!75!black}{$\times$}};
+docs\writing\thesis\thesis_full.tex:1956:\noindent \textbf{Input:} the track's gate-passed footprint length fits \quad \textbar \quad \textbf{Output:} per-car length estimate (feeds the centre estimate) \vspace{0.5em}
+docs\writing\thesis\thesis_full.tex:1989:\noindent \textbf{Input:} single-frame car cluster (sensor frame) \quad \textbar \quad \textbf{Output:} completed dense car (\num{4096}-point surface $+$ box, sensor frame) \vspace{0.5em}
+docs\writing\thesis\thesis_full.tex:2192:    frame counts and roles. \emph{Classifier role}: the headline detection split (train /
+docs\writing\thesis\thesis_full.tex:2193:    validation${}={}$seq~08 / train). \emph{PCN role}: every sequence is completion evaluation
+docs\writing\thesis\thesis_full.tex:2585:    \textbf{Pooled (all 11)} & \textbf{0.888} & \textbf{0.717} & \textbf{0.793} & \textbf{0.919} & \num{116797} / \num{14681} / \num{46141} \\
+docs\writing\thesis\thesis_full.tex:2657:    10--20  & 0.869 & \textbf{0.862} & 0.866 & 0.926 & \num{432} / \num{65}  / \num{69}  \\
+docs\writing\thesis\thesis_full.tex:2812:      & HDBSCAN   & 0.972 & \textbf{0.731} & \textbf{0.835} & 0.968 & 306 \\
+docs\writing\thesis\thesis_full.tex:2817:      & HDBSCAN   & 0.840 & \textbf{0.671} & \textbf{0.746} & 0.923 & 320 \\
+docs\writing\thesis\thesis_full.tex:3009:    Baseline (HDBSCAN, MCS \num{10}) & 0.984 & 0.739 & \textbf{0.844} & \textbf{0.829} \\
+docs\writing\thesis\thesis_full.tex:3322:    \textbf{Completed}     & \textbf{0.785} & \textbf{0.745} \\
+docs\writing\thesis\thesis_full.tex:3424:    \textbf{Completed} & 0.090 & 0.286 & 0.183 \\
+

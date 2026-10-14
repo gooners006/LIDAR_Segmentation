@@ -1,0 +1,195 @@
+
+--- Context around Equation at line 487 ---
+\label{sec:th-pointnet}
+The car/not-car classifier is built on PointNet~\cite{Qi_2017_CVPR}, whose defining property
+is invariance to the ordering of its input points. A function of a point set is made
+permutation invariant by applying a shared map to each point, pooling with a symmetric
+operator, and passing the pooled feature through a final map,
+\begin{equation}
+  f(\{\mathbf{x}_1,\dots,\mathbf{x}_n\}) = g\!\left( \max_{i=1,\dots,n} h(\mathbf{x}_i) \right),
+\end{equation}
+where
+\[
+  \begin{array}{@{}l@{\quad}l@{}}
+    \{\mathbf{x}_1,\dots,\mathbf{x}_n\} & \text{the input point set,}\\
+    h & \text{shared per point map (an MLP),}\\
+
+--- Context around Equation at line 556 ---
+$P = \{\mathbf{x}_i \in \mathbb{R}^3\}_{i=1}^{N}$.
+
+\subsubsection{Ground Plane Removal by RANSAC}
+\label{sec:th-ransac}
+A plane is a pair $(\mathbf{n}, d)$, and a point's signed distance to it is
+\begin{equation}
+  \delta(\mathbf{x};\mathbf{n},d) = \mathbf{n}\cdot\mathbf{x} + d ,
+\end{equation}
+where
+\[
+  \begin{array}{@{}l@{\quad}l@{}}
+    \mathbf{n} & \text{plane unit normal, } \lVert\mathbf{n}\rVert = 1,\\
+    d & \text{plane offset,}\\
+
+--- Context around Equation at line 569 ---
+    \mathbf{x} & \text{a query point, } \mathbf{x}\in\mathbb{R}^3.
+  \end{array}
+\]
+RANSAC~\cite{fischler1981random} fits the ground plane by repeatedly sampling three points,
+forming the plane through them, and scoring it by its inlier set,
+\begin{equation}
+  \mathcal{I}(\mathbf{n},d) = \bigl\{\, \mathbf{x}\in P : \lvert \delta(\mathbf{x};\mathbf{n},d)\rvert \le \tau_g \,\bigr\},
+\end{equation}
+where
+\[
+  \begin{array}{@{}l@{\quad}l@{}}
+    \mathcal{I}(\mathbf{n},d) & \text{inlier set of the plane } (\mathbf{n},d),\\
+    \tau_g & \text{inlier distance tolerance,}\\
+
+--- Context around Equation at line 582 ---
+    P & \text{the input scan.}
+  \end{array}
+\]
+The candidate with the largest inlier set is kept and its inliers removed as ground. The
+number of iterations needed to draw at least one all inlier sample is
+\begin{equation}
+  T = \left\lceil \frac{\log(1-p)}{\log\!\bigl(1 - w^{s}\bigr)} \right\rceil ,
+\end{equation}
+where
+\[
+  \begin{array}{@{}l@{\quad}l@{}}
+    T & \text{number of RANSAC iterations,}\\
+    p & \text{target probability of a clean sample,}\\
+
+--- Context around Equation at line 599 ---
+
+\subsubsection{Voxel Grid Downsampling}
+\label{sec:th-voxel}
+To reduce the range dependent density bias before clustering, the non-ground points are
+downsampled on a regular grid. Each point maps to an integer cell index
+\begin{equation}
+  \mathrm{vox}(\mathbf{x}) = \left\lfloor \frac{\mathbf{x} - \mathbf{x}_{\min}}{v} \right\rfloor \in \mathbb{Z}^3 ,
+\end{equation}
+the floor taken per coordinate, where
+\[
+  \begin{array}{@{}l@{\quad}l@{}}
+    v & \text{voxel side length,}\\
+    \mathbf{x}_{\min} & \text{per axis minimum corner of the point set.}
+
+--- Context around Equation at line 611 ---
+    \mathbf{x}_{\min} & \text{per axis minimum corner of the point set.}
+  \end{array}
+\]
+Writing $P_c = \{\mathbf{x}\in P : \mathrm{vox}(\mathbf{x}) = c\}$ for the points falling in
+cell $c$, every occupied cell is replaced by their centroid,
+\begin{equation}
+  \bar{\mathbf{x}}_c = \frac{1}{\lvert P_c\rvert} \sum_{\mathbf{x}\in P_c} \mathbf{x} ,
+\end{equation}
+where
+\[
+  \begin{array}{@{}l@{\quad}l@{}}
+    \bar{\mathbf{x}}_c & \text{centroid representing cell } c,\\
+    P_c & \text{the points falling in cell } c.
+
+--- Context around Equation at line 627 ---
+\subsubsection{Density-Based Clustering: DBSCAN and HDBSCAN}
+\label{sec:th-clustering}
+The non-ground points are grouped into objects by density. DBSCAN~\cite{ester1996dbscan}
+uses a fixed radius $\varepsilon$ and a minimum count $m$: a point is a core point when its
+neighbourhood is large enough,
+\begin{equation}
+  \lvert \mathcal{N}_\varepsilon(\mathbf{p}) \rvert \ge m ,
+\end{equation}
+where
+\[
+  \begin{array}{@{}l@{\quad}l@{}}
+    \mathcal{N}_\varepsilon(\mathbf{p}) & \varepsilon\text{-neighbourhood } \{\mathbf{q}\in P : \lVert\mathbf{p}-\mathbf{q}\rVert \le \varepsilon\},\\
+    \varepsilon & \text{neighbourhood radius,}\\
+
+--- Context around Equation at line 642 ---
+\]
+Clusters are the maximal sets connected through core points, and a single $\varepsilon$
+cannot serve both the dense near field and the sparse far field of a scan.
+HDBSCAN~\cite{campello2013hdbscan,mcinnes2017hdbscan} removes the fixed radius, replacing
+Euclidean distance with the mutual reachability distance
+\begin{equation}
+  d_{\mathrm{mreach}}(\mathbf{a},\mathbf{b}) = \max\!\bigl(\, d_{\mathrm{core}}(\mathbf{a}),\; d_{\mathrm{core}}(\mathbf{b}),\; \lVert\mathbf{a}-\mathbf{b}\rVert \,\bigr),
+\end{equation}
+where
+\[
+  \begin{array}{@{}l@{\quad}l@{}}
+    d_{\mathrm{mreach}}(\mathbf{a},\mathbf{b}) & \text{mutual reachability distance of } \mathbf{a},\mathbf{b},\\
+    d_{\mathrm{core}}(\mathbf{p}) & \text{distance from } \mathbf{p} \text{ to its } m\text{-th nearest neighbour.}
+
+--- Context around Equation at line 654 ---
+    d_{\mathrm{core}}(\mathbf{p}) & \text{distance from } \mathbf{p} \text{ to its } m\text{-th nearest neighbour.}
+  \end{array}
+\]
+It builds a minimum spanning tree under $d_{\mathrm{mreach}}$ and condenses it into a
+hierarchy indexed by $\lambda = 1/d_{\mathrm{mreach}}$. A candidate cluster's stability is
+\begin{equation}
+  S(C) = \sum_{\mathbf{p}\in C} \bigl(\lambda_{\mathbf{p}} - \lambda_{\min}(C)\bigr),
+\end{equation}
+where
+\[
+  \begin{array}{@{}l@{\quad}l@{}}
+    S(C) & \text{stability of candidate cluster } C,\\
+    \lambda_{\min}(C) & \text{density level at which } C \text{ is born,}\\
+
+--- Context around Equation at line 787 ---
+\subsubsection{Point Set Distances and Completion Quality Measures}
+\label{sec:th-distances}
+Completion and its evaluation are expressed through distances between point sets. The
+Chamfer distance between sets $A$ and $B$ averages, in each direction, the squared
+distance from every point to the nearest point of the other set,
+\begin{equation}
+  \mathrm{CD}(A,B) = \frac{1}{\lvert A\rvert}\sum_{\mathbf{a}\in A} \min_{\mathbf{b}\in B} \lVert\mathbf{a}-\mathbf{b}\rVert^2 \;+\; \frac{1}{\lvert B\rvert}\sum_{\mathbf{b}\in B} \min_{\mathbf{a}\in A} \lVert\mathbf{b}-\mathbf{a}\rVert^2 ,
+\end{equation}
+where
+\[
+  \begin{array}{@{}l@{\quad}l@{}}
+    A, B & \text{the two point sets compared,}\\
+    \lVert\mathbf{a}-\mathbf{b}\rVert & \text{Euclidean distance between two points.}
+
+--- Context around Equation at line 803 ---
+a complete ground truth shape $B$ exists~\cite{fan2017point,yuan2019pcnpointcompletionnetwork}.
+On real LiDAR no such $B$ exists (Section~\ref{sec:bg-completion}), so completion is scored
+by two reference free measures instead. Detection is first scored by a point level
+intersection over union between a predicted cluster $Q$ and a ground truth car's point set
+$G$,
+\begin{equation}
+  \mathrm{IoU}(Q,G) = \frac{\lvert Q \cap G\rvert}{\lvert Q \cup G\rvert},
+\end{equation}
+where
+\[
+  \begin{array}{@{}l@{\quad}l@{}}
+    Q & \text{predicted cluster (its point set),}\\
+    G & \text{ground truth car's point set,}\\
+
+--- Context around Equation at line 833 ---
+For completion, unidirectional fidelity measures how well a completed cloud $C$
+preserves the observed partial input $P$, by the directed distance from each observed
+point to its nearest completed point. The unidirectional Chamfer distance
+(UCD)~\cite{cui2023p2c} averages it and the unidirectional Hausdorff distance
+(UHD)~\cite{chen2020unpaired} takes its worst case,
+\begin{equation}
+  \mathrm{UCD}(P,C) = \frac{1}{\lvert P\rvert}\sum_{\mathbf{p}\in P} \min_{\mathbf{c}\in C} \lVert\mathbf{p}-\mathbf{c}\rVert^2 ,
+  \qquad
+  \mathrm{UHD}(P,C) = \max_{\mathbf{p}\in P} \min_{\mathbf{c}\in C} \lVert\mathbf{p}-\mathbf{c}\rVert .
+\end{equation}
+where
+\[
+  \begin{array}{@{}l@{\quad}l@{}}
+
+--- Context around Equation at line 869 ---
+plausibility~\cite{chen2020unpaired}: an independent shape classifier
+$\phi(\cdot)$, trained on external complete shapes and returning a probability per class,
+judges whether a completed cloud reads as a car. Over a set of completions
+$\{C_k\}_{k=1}^{K}$, the acceptance rate is the fraction the classifier assigns to the car
+class,
+\begin{equation}
+  \mathrm{Acc} = \frac{1}{K}\sum_{k=1}^{K} \mathbf{1}\!\left[\, \arg\max_j \phi_j(C_k) = \mathrm{car} \,\right],
+\end{equation}
+where
+\[
+  \begin{array}{@{}l@{\quad}l@{}}
+    \phi_j(C_k) & \text{classifier probability of class } j \text{ for completion } C_k,\\
+    K & \text{number of completions scored,}\\
