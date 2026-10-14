@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1150 900" width="1150" height="900">
+  <!-- D1: top-down occlusion geometry. Sensor S=(200,760); car x 520-920, y 220-390.
+       Rays every 4 deg (30..58 deg above horizontal); hit points computed exactly.
+       Shadow bounded by the two sightlines through the outermost corners
+       T=(520,220) and B=(920,390). -->
+  <g font-family="Be Vietnam Pro, Inter, Segoe UI, Arial, sans-serif">
+    <!-- occlusion shadow -->
+    <polygon points="520,220 638.5,20 1130,20 1130,282.1 920,390 920,220"
+             fill="#9AA0A6" fill-opacity="0.18"/>
+    <!-- shadow boundaries: sightlines through the outermost corners -->
+    <line x1="200" y1="760" x2="638.5" y2="20" stroke="#9AA0A6" stroke-width="3" stroke-dasharray="12 9"/>
+    <line x1="200" y1="760" x2="1130" y2="282.1" stroke="#9AA0A6" stroke-width="3" stroke-dasharray="12 9"/>
+    <!-- laser rays, equal 4-degree spacing -->
+    <g stroke="#D7263D" stroke-width="3" stroke-opacity="0.55">
+      <line x1="200" y1="760" x2="840.8" y2="390"/>
+      <line x1="200" y1="760" x2="748.6" y2="390"/>
+      <line x1="200" y1="760" x2="673.6" y2="390"/>
+      <line x1="200" y1="760" x2="610.9" y2="390"/>
+      <line x1="200" y1="760" x2="557.3" y2="390"/>
+      <line x1="200" y1="760" x2="520" y2="378.6"/>
+      <line x1="200" y1="760" x2="520" y2="319.6"/>
+      <line x1="200" y1="760" x2="520" y2="247.9"/>
+    </g>
+    <!-- target car (top view) -->
+    <rect x="520" y="220" width="400" height="170" fill="#FFFFFF"/>
+    <g stroke="#9AA0A6" stroke-width="5" stroke-dasharray="14 10" fill="none">
+      <line x1="520" y1="220" x2="920" y2="220"/>
+      <line x1="920" y1="220" x2="920" y2="390"/>
+    </g>
+    <g stroke="#D7263D" stroke-width="12" stroke-linecap="square">
+      <line x1="520" y1="220" x2="520" y2="390"/>
+      <line x1="520" y1="390" x2="920" y2="390"/>
+    </g>
+    <!-- returned points -->
+    <g fill="#D7263D">
+      <circle cx="840.8" cy="390" r="8"/><circle cx="748.6" cy="390" r="8"/>
+      <circle cx="673.6" cy="390" r="8"/><circle cx="610.9" cy="390" r="8"/>
+      <circle cx="557.3" cy="390" r="8"/><circle cx="520" cy="378.6" r="8"/>
+      <circle cx="520" cy="319.6" r="8"/><circle cx="520" cy="247.9" r="8"/>
+    </g>
+    <!-- ego vehicle + sensor -->
+    <rect x="110" y="745" width="180" height="80" rx="14" fill="#FFFFFF" stroke="#3E4C59" stroke-width="4"/>
+    <polygon points="200,738 181,772 219,772" fill="#D7263D"/>
+  </g>
+</svg>
