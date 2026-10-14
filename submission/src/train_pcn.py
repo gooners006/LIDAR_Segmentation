@@ -1,0 +1,834 @@
+"""Train PCN on ShapeNet for point cloud completion.
+
+Usage:
+    python src/train_pcn.py                          # default: 100 epochs, batch 8
+    python src/train_pcn.py --epochs 50 --batch-size 4
+    python src/train_pcn.py --resume checkpoints/pcn_last.pth
+    python src/train_pcn.py --eval-only --resume checkpoints/pcn_best.pth
+"""
+
+import argparse
+import csv
+import os
+import sys
+import time
+
+import numpy as np
+import open3d as o3d
+import torch
+import torch.utils.data as data
+from tqdm import tqdm
+
+sys.path.insert(0, os.path.dirname(__file__))
+from completion import f_score, simulate_lidar_noise
+from pcn import PCN, pcn_loss
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+TRAIN_CONFIG = {
+    "shapenet_root": os.path.join(PROJECT_ROOT, "dataset", "shapenet_data"),
+    "categories": {
+        "02958343": "car",
+        "02924116": "bus",
+        "03790512": "motorcycle",
+    },
+    "category_scale_m": {
+        "02958343": 4.5,
+        "02924116": 10.0,
+        "03790512": 2.2,
+    },
+    "gt_n_points": 4096,
+    "partial_n_points": 256,
+    "partial_min_points": 32,
+    "coarse_n_points": 1024,
+    "grid_size": 2,
+    "depth_h": 256,
+    "depth_w": 256,
+    "viewpoint_elev_range": (-20.0, 30.0),
+    "viewpoint_azim_range": (0.0, 360.0),
+    "viewpoint_radius_factor_range": (1.5, 2.5),
+    "val_fraction": 0.2,
+    "split_seed": 42,
+    "alpha": 0.5,
+    "epochs": 100,
+    "batch_size": 8,
+    "lr": 1e-4,
+    "lr_decay_step": 40,
+    "lr_decay_gamma": 0.5,
+    "num_workers": 4,
+    "seed": 42,
+    "checkpoint_dir": os.path.join(PROJECT_ROOT, "checkpoints"),
+    "checkpoint_every": 10,
+    "log_every": 50,
+    "lidar_augment": False,
+    "lidar_sparse_range": (64, 1024),
+    "lidar_distance_range": (8.0, 50.0),
+    # KITTI-like single-view partial generation (see docs/pcn/kitti_like_partial.md).
+    # Replicates the real pipeline transform: single Velodyne viewpoint -> per-frame
+    # voxel downsample -> ground removal, so synthetic partials match the real
+    # single-frame clusters the completer sees at inference. Validated in the
+    # scratchpad derisk against seq-08 single-frame clusters.
+    "kitti_like_partial": False,
+    "kitti_distance_range": (8.0, 30.0),
+    "kitti_sensor_height": 1.73,    # HDL-64E mount height above ground (m)
+    "kitti_ground_cut": 0.30,       # drop points within this height of the ground (m)
+    "kitti_noise_sigma": 0.015,     # absolute range noise (m), ~real Velodyne
+    "kitti_h_res_deg": 0.09,        # HDL-64E horizontal angular resolution (deg)
+    "kitti_voxel_size": 0.05,       # must match PIPELINE_CONFIG["voxel_size"]
+}
+
+
+# ---------------------------------------------------------------------------
+# Dataset
+# ---------------------------------------------------------------------------
+
+
+class ShapeNetCompletionDataset(data.Dataset):
+    """ShapeNet meshes → (partial, gt, gt_coarse) via depth-image back-projection."""
+
+    def __init__(self, config: dict, split: str = "train", lidar_augment: bool = False):
+        """Discover ShapeNet models and prepare train/val split.
+
+        Args:
+            config: Training config with paths, point counts, and split params.
+            split: Either ``"train"`` or ``"val"``.
+            lidar_augment: Apply LiDAR-like degradation to partial views.
+        """
+        self.config = config
+        self.split = split
+        self.lidar_augment = lidar_augment
+        self.items: list[tuple[str, str]] = []  # (obj_path, synset_id)
+
+        for synset_id in config["categories"]:
+            cat_dir = os.path.join(config["shapenet_root"], synset_id)
+            if not os.path.isdir(cat_dir):
+                continue
+            model_dirs = sorted(os.listdir(cat_dir))
+            rng = np.random.default_rng(config["split_seed"])
+            rng.shuffle(model_dirs)
+            n_val = int(len(model_dirs) * config["val_fraction"])
+            n_train = len(model_dirs) - n_val
+            if split == "train":
+                model_dirs = model_dirs[:n_train]
+            else:
+                model_dirs = model_dirs[n_train:]
+
+            for md in model_dirs:
+                obj_path = os.path.join(cat_dir, md, "models", "model_normalized.obj")
+                if os.path.isfile(obj_path):
+                    self.items.append((obj_path, synset_id))
+
+    def __len__(self) -> int:
+        return len(self.items)
+
+    def __getitem__(self, idx: int) -> dict:
+        """Load one sample: partial render, full GT, and coarse GT subsample."""
+        max_retries = 10
+        for attempt in range(max_retries):
+            try_idx = idx if attempt == 0 else np.random.randint(0, len(self))
+            obj_path, synset_id = self.items[try_idx]
+            scale_m = self.config["category_scale_m"][synset_id]
+
+            mesh = self._load_and_scale(obj_path, scale_m)
+            if mesh is None or mesh.get_surface_area() < 1e-6:
+                continue
+
+            gt_pts = self._sample_gt(mesh)
+
+            if self.config.get("kitti_like_partial"):
+                partial_pts = self._render_kitti_like(mesh, scale_m)
+            elif self.lidar_augment:
+                partial_pts = self._render_lidar_partial(mesh, scale_m)
+            else:
+                partial_pts = self._render_partial(mesh, scale_m)
+            if partial_pts is None:
+                continue
+
+            # Center both on GT centroid
+            centroid = gt_pts.mean(axis=0)
+            gt_pts -= centroid
+            partial_pts -= centroid
+
+            # Random sparsification to match real LiDAR cluster density
+            k = np.random.randint(
+                self.config["partial_min_points"],
+                self.config["partial_n_points"] + 1,
+            )
+            if len(partial_pts) > k:
+                idx = np.random.choice(len(partial_pts), k, replace=False)
+                partial_pts = partial_pts[idx]
+            partial_pts = self._fix_size(partial_pts, self.config["partial_n_points"])
+
+            # Normalize to unit sphere so CD loss is scale-invariant across categories
+            radius = np.linalg.norm(gt_pts, axis=1).max()
+            if radius > 1e-6:
+                gt_pts /= radius
+                partial_pts /= radius
+
+            # Random Z-axis rotation augmentation
+            if self.split == "train":
+                gt_pts, partial_pts = self._augment_rotation(gt_pts, partial_pts)
+
+            # Subsample GT for coarse loss target
+            coarse_idx = np.random.choice(
+                len(gt_pts), self.config["coarse_n_points"], replace=False
+            )
+            gt_coarse = gt_pts[coarse_idx]
+
+            return {
+                "partial": torch.from_numpy(partial_pts).float(),
+                "gt": torch.from_numpy(gt_pts).float(),
+                "gt_coarse": torch.from_numpy(gt_coarse).float(),
+            }
+
+        raise RuntimeError(
+            f"Failed to load a valid sample after {max_retries} retries (initial idx={idx})"
+        )
+
+    @staticmethod
+    def _load_and_scale(obj_path: str, scale_m: float):
+        """Load mesh via Open3D and rescale so max extent equals *scale_m* metres."""
+        try:
+            mesh = o3d.io.read_triangle_mesh(obj_path, enable_post_processing=True)
+        except Exception:
+            return None
+        if not mesh.has_vertices() or not mesh.has_triangles():
+            return None
+        verts = np.asarray(mesh.vertices)
+        extents = verts.max(axis=0) - verts.min(axis=0)
+        max_extent = extents.max()
+        if max_extent < 1e-6:
+            return None
+        scale = scale_m / max_extent
+        centroid = verts.mean(axis=0)
+        mesh.vertices = o3d.utility.Vector3dVector((verts - centroid) * scale)
+        return mesh
+
+    def _sample_gt(self, mesh) -> np.ndarray:
+        """Uniformly sample ``gt_n_points`` from the mesh surface via area-weighted triangle sampling."""
+        n_points = self.config["gt_n_points"]
+        verts = np.asarray(mesh.vertices, dtype=np.float64)
+        tris = np.asarray(mesh.triangles)
+        v0, v1, v2 = verts[tris[:, 0]], verts[tris[:, 1]], verts[tris[:, 2]]
+        areas = 0.5 * np.linalg.norm(np.cross(v1 - v0, v2 - v0), axis=1)
+        probs = areas / areas.sum()
+        tri_idx = np.random.choice(len(tris), size=n_points, p=probs)
+        r1 = np.random.random(n_points)
+        r2 = np.random.random(n_points)
+        sqrt_r1 = np.sqrt(r1)
+        pts = ((1 - sqrt_r1)[:, None] * v0[tri_idx]
+               + (sqrt_r1 * (1 - r2))[:, None] * v1[tri_idx]
+               + (sqrt_r1 * r2)[:, None] * v2[tri_idx])
+        return pts.astype(np.float32)
+
+    def _render_partial(
+        self, mesh, scale_m: float, max_retries: int = 5
+    ) -> np.ndarray | None:
+        """Render depth from a random viewpoint and back-project to 3D."""
+        vertices = np.asarray(mesh.vertices, dtype=np.float32)
+        faces = np.asarray(mesh.triangles, dtype=np.int32)
+
+        # Build raycasting scene
+        scene = o3d.t.geometry.RaycastingScene()
+        mesh_t = o3d.t.geometry.TriangleMesh()
+        mesh_t.vertex.positions = o3d.core.Tensor(vertices)
+        mesh_t.triangle.indices = o3d.core.Tensor(faces)
+        scene.add_triangles(mesh_t)
+
+        H, W = self.config["depth_h"], self.config["depth_w"]
+        fov_deg = 60.0
+        fx = fy = W / (2.0 * np.tan(np.radians(fov_deg / 2)))
+        cx, cy = W / 2.0, H / 2.0
+
+        intrinsic = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float32)
+
+        for _ in range(max_retries):
+            extrinsic = self._random_extrinsic(scale_m)
+            rays = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
+                o3d.core.Tensor(intrinsic),
+                o3d.core.Tensor(extrinsic),
+                width_px=W,
+                height_px=H,
+            )
+            ans = scene.cast_rays(rays)
+            t_hit = ans["t_hit"].numpy()  # (H, W)
+
+            rays_np = rays.numpy()  # (H, W, 6)
+            origins = rays_np[..., :3]
+            directions = rays_np[..., 3:]
+
+            valid = np.isfinite(t_hit)
+            if valid.sum() < self.config["partial_min_points"]:
+                continue
+
+            pts_3d = origins[valid] + t_hit[valid, np.newaxis] * directions[valid]
+            return pts_3d.astype(np.float32)
+
+        return None
+
+    def _render_lidar_partial(
+        self, mesh, scale_m: float, max_retries: int = 5
+    ) -> np.ndarray | None:
+        """Simulate Velodyne HDL-64E scan on a ShapeNet mesh."""
+        vertices = np.asarray(mesh.vertices, dtype=np.float32)
+        faces = np.asarray(mesh.triangles, dtype=np.int32)
+
+        scene = o3d.t.geometry.RaycastingScene()
+        mesh_t = o3d.t.geometry.TriangleMesh()
+        mesh_t.vertex.positions = o3d.core.Tensor(vertices)
+        mesh_t.triangle.indices = o3d.core.Tensor(faces)
+        scene.add_triangles(mesh_t)
+
+        # HDL-64E parameters
+        beam_elevations = np.linspace(np.radians(-24.9), np.radians(2.0), 64)
+        h_resolution = np.radians(0.09)
+        d_min, d_max = self.config["lidar_distance_range"]
+
+        for _ in range(max_retries):
+            distance = np.random.uniform(d_min, d_max)
+            azim = np.random.uniform(0, 2 * np.pi)
+            # Sensor slightly above object (roof-mounted LiDAR looking at nearby cars)
+            sensor_elev = np.radians(np.random.uniform(2.0, 15.0))
+
+            sensor_pos = np.array([
+                distance * np.cos(sensor_elev) * np.cos(azim),
+                distance * np.cos(sensor_elev) * np.sin(azim),
+                distance * np.sin(sensor_elev),
+            ])
+
+            # Sensor coordinate frame: x=toward object, y=left, z=up
+            forward = -sensor_pos / np.linalg.norm(sensor_pos)
+            world_up = np.array([0.0, 0.0, 1.0])
+            right = np.cross(forward, world_up)
+            r_norm = np.linalg.norm(right)
+            if r_norm < 1e-6:
+                world_up = np.array([0.0, 1.0, 0.0])
+                right = np.cross(forward, world_up)
+                r_norm = np.linalg.norm(right)
+            right /= r_norm
+            up = np.cross(right, forward)
+            R = np.column_stack([forward, right, up])  # sensor-to-world rotation
+
+            # Azimuth range covering the object (with margin)
+            angular_size = 2 * np.arctan2(scale_m * 0.75, distance)
+            azim_range = max(angular_size * 1.5, np.radians(5.0))
+            n_azim = max(int(azim_range / h_resolution), 20)
+            azim_offsets = np.linspace(-azim_range / 2, azim_range / 2, n_azim)
+
+            # Vectorized ray generation
+            elev_grid, azim_grid = np.meshgrid(beam_elevations, azim_offsets, indexing="ij")
+            elev_flat = elev_grid.ravel()
+            azim_flat = azim_grid.ravel()
+            local_dirs = np.column_stack([
+                np.cos(elev_flat) * np.cos(azim_flat),
+                np.cos(elev_flat) * np.sin(azim_flat),
+                np.sin(elev_flat),
+            ])
+            world_dirs = (R @ local_dirs.T).T  # (n_rays, 3)
+
+            origins = np.broadcast_to(sensor_pos, world_dirs.shape).copy()
+            rays = np.hstack([origins, world_dirs]).astype(np.float32)
+
+            ans = scene.cast_rays(o3d.core.Tensor(rays))
+            t_hit = ans["t_hit"].numpy()
+
+            valid = np.isfinite(t_hit)
+            if valid.sum() < 16:
+                continue
+
+            pts_3d = rays[valid, :3] + t_hit[valid, np.newaxis] * rays[valid, 3:]
+
+            # Range-proportional noise
+            ranges = np.linalg.norm(pts_3d - sensor_pos, axis=1, keepdims=True)
+            pts_3d += np.random.randn(*pts_3d.shape).astype(np.float32) * (0.005 * ranges)
+
+            return pts_3d.astype(np.float32)
+
+        return None
+
+    def _render_kitti_like(
+        self, mesh, scale_m: float, max_retries: int = 5
+    ) -> np.ndarray | None:
+        """Single Velodyne viewpoint matched to real seq-08 single-frame clusters.
+
+        Replicates the real pipeline transform applied before completion: a single
+        HDL-64E scan from one ego viewpoint, per-frame voxel downsample, and ground
+        removal. The mesh is centred at the origin (from ``_load_and_scale``); the
+        ground plane is its lowest point. Returned points are in the mesh-centred
+        frame so they align with the GT sample. Validated against real single-frame
+        clusters in the scratchpad derisk (NN spacing, extents, scan banding).
+        """
+        verts_orig = np.asarray(mesh.vertices, dtype=np.float32)
+        faces = np.asarray(mesh.triangles, dtype=np.int32)
+
+        # ShapeNet cars are not Z-up: the vertical (height) axis is the smallest
+        # extent. Permute so the up-axis becomes Z, raycast in a Z-up world, then
+        # permute hit points back so they stay aligned with the GT sample.
+        ext = verts_orig.max(0) - verts_orig.min(0)
+        up = int(np.argmin(ext))
+        order = [a for a in range(3) if a != up] + [up]  # up-axis -> Z
+        inv_order = np.argsort(order)
+        verts = verts_orig[:, order]
+
+        z_ground = float(verts[:, 2].min())
+        z_top = float(verts[:, 2].max())
+        obj_r = 0.5 * float(np.linalg.norm(verts[:, :2].max(0) - verts[:, :2].min(0)))
+
+        scene = o3d.t.geometry.RaycastingScene()
+        mesh_t = o3d.t.geometry.TriangleMesh()
+        mesh_t.vertex.positions = o3d.core.Tensor(np.ascontiguousarray(verts))
+        mesh_t.triangle.indices = o3d.core.Tensor(faces)
+        scene.add_triangles(mesh_t)
+
+        beam_elev = np.linspace(np.radians(-24.9), np.radians(2.0), 64)
+        h_res = np.radians(self.config["kitti_h_res_deg"])
+        d_min, d_max = self.config["kitti_distance_range"]
+        sensor_h = self.config["kitti_sensor_height"]
+        target = np.array([0.0, 0.0, 0.5 * (z_ground + z_top)], dtype=np.float32)
+
+        for _ in range(max_retries):
+            az = np.random.uniform(0, 2 * np.pi)
+            d = np.random.uniform(d_min, d_max)
+            sensor = np.array(
+                [d * np.cos(az), d * np.sin(az), z_ground + sensor_h], dtype=np.float32
+            )
+
+            d_xy = float(np.hypot(sensor[0] - target[0], sensor[1] - target[1]))
+            az_center = np.arctan2(target[1] - sensor[1], target[0] - sensor[0])
+            half_w = np.arctan2(obj_r * 1.3, max(d_xy, 1e-3))
+            n_az = max(int(2 * half_w / h_res), 8)
+            azim = az_center + np.linspace(-half_w, half_w, n_az)
+
+            elev_g, azim_g = np.meshgrid(beam_elev, azim, indexing="ij")
+            e = elev_g.ravel()
+            a = azim_g.ravel()
+            dirs = np.column_stack(
+                [np.cos(e) * np.cos(a), np.cos(e) * np.sin(a), np.sin(e)]
+            )
+            origins = np.broadcast_to(sensor, dirs.shape).copy()
+            rays = np.hstack([origins, dirs]).astype(np.float32)
+
+            ans = scene.cast_rays(o3d.core.Tensor(rays))
+            t_hit = ans["t_hit"].numpy()
+            valid = np.isfinite(t_hit)
+            if valid.sum() < self.config["partial_min_points"]:
+                continue
+
+            pts = rays[valid, :3] + t_hit[valid, np.newaxis] * rays[valid, 3:]
+            pts = pts + np.random.randn(*pts.shape).astype(np.float32) * self.config[
+                "kitti_noise_sigma"
+            ]
+
+            # Per-frame voxel downsample (matches the real pipeline)
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(pts)
+            pcd = pcd.voxel_down_sample(self.config["kitti_voxel_size"])
+            pts = np.asarray(pcd.points, dtype=np.float32)
+
+            # Ground removal: drop points near the ground plane
+            pts = pts[pts[:, 2] > z_ground + self.config["kitti_ground_cut"]]
+            if len(pts) < self.config["partial_min_points"]:
+                continue
+            # Permute axes back so points align with the original mesh / GT frame
+            return pts[:, inv_order].astype(np.float32)
+
+        return None
+
+    def _random_extrinsic(self, scale_m: float) -> np.ndarray:
+        """Sample a random viewpoint and return the world-to-camera 4×4 matrix."""
+        elev_min, elev_max = self.config["viewpoint_elev_range"]
+        azim_min, azim_max = self.config["viewpoint_azim_range"]
+        f_min, f_max = self.config["viewpoint_radius_factor_range"]
+
+        elev = np.radians(np.random.uniform(elev_min, elev_max))
+        azim = np.radians(np.random.uniform(azim_min, azim_max))
+        r = np.random.uniform(f_min * scale_m, f_max * scale_m)
+
+        # Camera position in world coordinates
+        cam_pos = np.array(
+            [
+                r * np.cos(elev) * np.cos(azim),
+                r * np.cos(elev) * np.sin(azim),
+                r * np.sin(elev),
+            ],
+            dtype=np.float64,
+        )
+
+        # Look-at: camera looks at origin
+        forward = -cam_pos / np.linalg.norm(cam_pos)
+        world_up = np.array([0.0, 0.0, 1.0])
+        right = np.cross(forward, world_up)
+        right_norm = np.linalg.norm(right)
+        if right_norm < 1e-6:
+            world_up = np.array([0.0, 1.0, 0.0])
+            right = np.cross(forward, world_up)
+            right_norm = np.linalg.norm(right)
+        right /= right_norm
+        up = np.cross(right, forward)
+
+        # World-to-camera rotation (camera axes: right=X, down=Y, forward=Z in OpenCV)
+        R = np.stack([right, -up, forward], axis=0)  # (3, 3)
+        t = -R @ cam_pos  # translation
+
+        extrinsic = np.eye(4, dtype=np.float32)
+        extrinsic[:3, :3] = R.astype(np.float32)
+        extrinsic[:3, 3] = t.astype(np.float32)
+        return extrinsic
+
+    @staticmethod
+    def _fix_size(pts: np.ndarray, n: int) -> np.ndarray:
+        """Subsample or pad (by duplication) to exactly *n* points."""
+        if len(pts) == n:
+            return pts
+        if len(pts) > n:
+            idx = np.random.choice(len(pts), n, replace=False)
+            return pts[idx]
+        # Pad by repeating
+        pad_idx = np.random.choice(len(pts), n - len(pts), replace=True)
+        return np.vstack([pts, pts[pad_idx]])
+
+    @staticmethod
+    def _augment_rotation(gt: np.ndarray, partial: np.ndarray):
+        """Apply a random Z-axis rotation to both GT and partial consistently."""
+        angle = np.random.uniform(0, 2 * np.pi)
+        c, s = np.cos(angle), np.sin(angle)
+        R = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]], dtype=np.float32)
+        return gt @ R.T, partial @ R.T
+
+
+# ---------------------------------------------------------------------------
+# Training
+# ---------------------------------------------------------------------------
+
+
+def train_one_epoch(model, loader, optimizer, device, config, epoch):
+    """Run one training epoch. Returns dict with avg train_loss, train_cd_coarse, train_cd_fine."""
+    model.train()
+    total_loss = 0.0
+    total_cd_c = 0.0
+    total_cd_f = 0.0
+    n_batches = 0
+
+    pbar = tqdm(loader, desc=f"Epoch {epoch+1}/{config['epochs']}", leave=False)
+    for batch in pbar:
+        partial = batch["partial"].to(device)
+        gt = batch["gt"].to(device)
+        gt_coarse = batch["gt_coarse"].to(device)
+
+        coarse, fine = model(partial)
+        loss, cd_c, cd_f = pcn_loss(coarse, fine, gt, gt_coarse, config["alpha"])
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item()
+        total_cd_c += cd_c.item()
+        total_cd_f += cd_f.item()
+        n_batches += 1
+
+        if n_batches % config["log_every"] == 0:
+            pbar.set_postfix(
+                loss=f"{loss.item():.5f}",
+                cd_c=f"{cd_c.item():.5f}",
+                cd_f=f"{cd_f.item():.5f}",
+            )
+
+    return {
+        "train_loss": total_loss / n_batches,
+        "train_cd_coarse": total_cd_c / n_batches,
+        "train_cd_fine": total_cd_f / n_batches,
+    }
+
+
+@torch.no_grad()
+def evaluate(model, loader, device, config, compute_fscore: bool = False):
+    """Evaluate on validation set. Returns dict with val_loss, val_cd_coarse, val_cd_fine, and optionally val_fscore."""
+    model.eval()
+    total_loss = 0.0
+    total_cd_c = 0.0
+    total_cd_f = 0.0
+    n_batches = 0
+    fscores = []
+
+    for batch in tqdm(loader, desc="Validating", leave=False):
+        partial = batch["partial"].to(device)
+        gt = batch["gt"].to(device)
+        gt_coarse = batch["gt_coarse"].to(device)
+
+        coarse, fine = model(partial)
+        loss, cd_c, cd_f = pcn_loss(coarse, fine, gt, gt_coarse, config["alpha"])
+
+        total_loss += loss.item()
+        total_cd_c += cd_c.item()
+        total_cd_f += cd_f.item()
+        n_batches += 1
+
+        if compute_fscore and n_batches <= 20:
+            pred_np = fine[0].cpu().numpy()
+            gt_np = gt[0].cpu().numpy()
+            fscores.append(f_score(pred_np, gt_np, threshold=0.1))
+
+    metrics = {
+        "val_loss": total_loss / n_batches,
+        "val_cd_coarse": total_cd_c / n_batches,
+        "val_cd_fine": total_cd_f / n_batches,
+    }
+    if fscores:
+        metrics["val_fscore"] = np.mean(fscores)
+    return metrics
+
+
+def save_checkpoint(model, optimizer, scheduler, epoch, metrics, path):
+    """Save model, optimizer, scheduler, and metrics to a checkpoint file."""
+    torch.save(
+        {
+            "epoch": epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "scheduler_state_dict": scheduler.state_dict() if scheduler else None,
+            "metrics": metrics,
+            "config": TRAIN_CONFIG,
+        },
+        path,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+
+def main():
+    """Train or evaluate PCN on ShapeNet partial→complete pairs.
+
+    Handles dataset creation, model setup, checkpoint resume, training
+    loop with CSV logging, and best/last/periodic checkpoint saving.
+    """
+    parser = argparse.ArgumentParser(description="Train PCN on ShapeNet")
+    parser.add_argument("--epochs", type=int, default=TRAIN_CONFIG["epochs"])
+    parser.add_argument("--batch-size", type=int, default=TRAIN_CONFIG["batch_size"])
+    parser.add_argument("--lr", type=float, default=TRAIN_CONFIG["lr"])
+    parser.add_argument("--workers", type=int, default=TRAIN_CONFIG["num_workers"])
+    parser.add_argument("--resume", type=str, default=None)
+    parser.add_argument("--eval-only", action="store_true")
+    parser.add_argument("--no-cuda", action="store_true")
+    parser.add_argument("--finetune-lidar", action="store_true",
+                        help="Enable LiDAR noise augmentation for domain adaptation")
+    parser.add_argument("--pretrained", type=str, default=None,
+                        help="Load model weights only (fresh optimizer/scheduler)")
+    parser.add_argument("--kitti-like", action="store_true",
+                        help="Use KITTI-like single-view partials (matches real "
+                             "single-frame clusters; see docs/pcn/kitti_like_partial.md)")
+    parser.add_argument("--tag", type=str, default=None,
+                        help="Override checkpoint/log filename prefix "
+                             "(avoids overwriting existing runs)")
+    args = parser.parse_args()
+
+    if args.resume and args.pretrained:
+        parser.error("Use either --resume or --pretrained, not both.")
+
+    config = TRAIN_CONFIG.copy()
+    config["epochs"] = args.epochs
+    config["batch_size"] = args.batch_size
+    config["lr"] = args.lr
+    config["num_workers"] = args.workers
+    config["lidar_augment"] = args.finetune_lidar
+    config["kitti_like_partial"] = args.kitti_like
+    if args.kitti_like:
+        print("KITTI-like single-view partial generation enabled")
+
+    device = torch.device(
+        "cpu" if args.no_cuda or not torch.cuda.is_available() else "cuda"
+    )
+    print(f"Device: {device}")
+
+    torch.manual_seed(config["seed"])
+    np.random.seed(config["seed"])
+
+    # Datasets
+    train_ds = ShapeNetCompletionDataset(
+        config, split="train", lidar_augment=config["lidar_augment"])
+    val_ds = ShapeNetCompletionDataset(config, split="val")
+    print(f"Train: {len(train_ds)} samples | Val: {len(val_ds)} samples")
+    if config["lidar_augment"]:
+        print("  LiDAR augmentation enabled for training")
+
+    train_loader = data.DataLoader(
+        train_ds,
+        batch_size=config["batch_size"],
+        shuffle=True,
+        num_workers=config["num_workers"],
+        pin_memory=True,
+        drop_last=True,
+    )
+    val_loader = data.DataLoader(
+        val_ds,
+        batch_size=config["batch_size"],
+        shuffle=False,
+        num_workers=config["num_workers"],
+        pin_memory=True,
+    )
+
+    val_lidar_loader = None
+    if config["lidar_augment"]:
+        val_lidar_ds = ShapeNetCompletionDataset(config, split="val", lidar_augment=True)
+        val_lidar_loader = data.DataLoader(
+            val_lidar_ds,
+            batch_size=config["batch_size"],
+            shuffle=False,
+            num_workers=config["num_workers"],
+            pin_memory=True,
+        )
+
+    # Model
+    model = PCN(num_coarse=config["coarse_n_points"], grid_size=config["grid_size"]).to(device)
+    n_params = sum(p.numel() for p in model.parameters())
+    print(f"PCN parameters: {n_params:,}")
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"], weight_decay=1e-6)
+    scheduler = torch.optim.lr_scheduler.StepLR(
+        optimizer, step_size=config["lr_decay_step"], gamma=config["lr_decay_gamma"]
+    )
+
+    # Load weights
+    start_epoch = 0
+    best_val_loss = float("inf")
+    if args.pretrained and os.path.isfile(args.pretrained):
+        ckpt = torch.load(args.pretrained, map_location=device, weights_only=False)
+        model.load_state_dict(ckpt["model_state_dict"])
+        print(f"Loaded pretrained weights from {args.pretrained}")
+    elif args.resume and os.path.isfile(args.resume):
+        ckpt = torch.load(args.resume, map_location=device, weights_only=False)
+        model.load_state_dict(ckpt["model_state_dict"])
+        optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+        if ckpt.get("scheduler_state_dict"):
+            scheduler.load_state_dict(ckpt["scheduler_state_dict"])
+        start_epoch = ckpt["epoch"] + 1
+        best_val_loss = ckpt["metrics"].get("val_loss", float("inf"))
+        print(f"Resumed from epoch {start_epoch}, best_val_loss={best_val_loss:.6f}")
+
+    if args.eval_only:
+        metrics = evaluate(model, val_loader, device, config, compute_fscore=True)
+        print(f"Eval results: {metrics}")
+        return
+
+    # Training
+    os.makedirs(config["checkpoint_dir"], exist_ok=True)
+    if args.tag:
+        ckpt_prefix = args.tag
+    elif config["kitti_like_partial"]:
+        ckpt_prefix = "pcn_kitti"
+    elif config["lidar_augment"]:
+        ckpt_prefix = "pcn_lidar"
+    else:
+        ckpt_prefix = "pcn"
+    log_path = os.path.join(config["checkpoint_dir"], f"{ckpt_prefix}_training_log.csv")
+    log_exists = os.path.isfile(log_path)
+    log_file = open(log_path, "a", newline="")
+    log_writer = csv.writer(log_file)
+    if not log_exists:
+        columns = [
+            "epoch", "train_loss", "train_cd_coarse", "train_cd_fine",
+            "val_loss", "val_cd_coarse", "val_cd_fine", "val_fscore",
+        ]
+        if config["lidar_augment"]:
+            columns.extend(["lidar_val_loss", "lidar_val_cd_fine", "lidar_val_fscore"])
+        columns.extend(["lr", "time_s"])
+        log_writer.writerow(columns)
+
+    for epoch in range(start_epoch, config["epochs"]):
+        t0 = time.time()
+
+        train_metrics = train_one_epoch(
+            model, train_loader, optimizer, device, config, epoch
+        )
+        scheduler.step()
+
+        compute_fs = (epoch + 1) % 10 == 0 or epoch == config["epochs"] - 1
+        val_metrics = evaluate(
+            model, val_loader, device, config, compute_fscore=compute_fs
+        )
+
+        lidar_val_metrics = {}
+        if val_lidar_loader is not None:
+            lidar_val_metrics = evaluate(
+                model, val_lidar_loader, device, config, compute_fscore=compute_fs
+            )
+
+        elapsed = time.time() - t0
+        lr = scheduler.get_last_lr()[0]
+
+        msg = (
+            f"Epoch {epoch+1:3d}/{config['epochs']} | "
+            f"train={train_metrics['train_loss']:.5f} | "
+            f"val={val_metrics['val_loss']:.5f} | "
+            f"cd_f={val_metrics['val_cd_fine']:.5f}"
+        )
+        if lidar_val_metrics:
+            msg += f" | lidar_cd_f={lidar_val_metrics['val_cd_fine']:.5f}"
+        msg += f" | lr={lr:.2e} | {elapsed:.0f}s"
+        print(msg)
+
+        row = [
+            epoch + 1,
+            train_metrics["train_loss"],
+            train_metrics["train_cd_coarse"],
+            train_metrics["train_cd_fine"],
+            val_metrics["val_loss"],
+            val_metrics["val_cd_coarse"],
+            val_metrics["val_cd_fine"],
+            val_metrics.get("val_fscore", ""),
+        ]
+        if config["lidar_augment"]:
+            row.extend([
+                lidar_val_metrics.get("val_loss", ""),
+                lidar_val_metrics.get("val_cd_fine", ""),
+                lidar_val_metrics.get("val_fscore", ""),
+            ])
+        row.extend([lr, f"{elapsed:.1f}"])
+        log_writer.writerow(row)
+        log_file.flush()
+
+        # Save checkpoints
+        all_metrics = {**train_metrics, **val_metrics}
+        if lidar_val_metrics:
+            all_metrics.update({f"lidar_{k}": v for k, v in lidar_val_metrics.items()})
+        save_checkpoint(
+            model,
+            optimizer,
+            scheduler,
+            epoch,
+            all_metrics,
+            os.path.join(config["checkpoint_dir"], f"{ckpt_prefix}_last.pth"),
+        )
+
+        if val_metrics["val_loss"] < best_val_loss:
+            best_val_loss = val_metrics["val_loss"]
+            save_checkpoint(
+                model,
+                optimizer,
+                scheduler,
+                epoch,
+                all_metrics,
+                os.path.join(config["checkpoint_dir"], f"{ckpt_prefix}_best.pth"),
+            )
+            print(f"  -> new best (val_loss={best_val_loss:.6f})")
+
+        if (epoch + 1) % config["checkpoint_every"] == 0:
+            save_checkpoint(
+                model,
+                optimizer,
+                scheduler,
+                epoch,
+                all_metrics,
+                os.path.join(config["checkpoint_dir"], f"{ckpt_prefix}_epoch{epoch+1:03d}.pth"),
+            )
+
+    log_file.close()
+    print(f"\nDone. Best val loss: {best_val_loss:.6f}")
+    print(f"Checkpoints: {config['checkpoint_dir']}")
+
+
+if __name__ == "__main__":
+    main()
