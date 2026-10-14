@@ -4568,3 +4568,54 @@ previously-uncommitted Ch2/Ch4 restructure and Ch3 diagrams accumulated since co
 - Gemini structural + line review still pending (prompt + `thesis_full.tex` in project_state).
 - Numbers spot-check vs `results/postfix_normalfix_2026-09-14/EDIT_MAP.md` still recommended.
 - Optional de-bold/de-emph pass; advisor review (never done).
+
+---
+
+# Session — 2026-10-12 (Defense prep kickoff: outline, numbers spot-check, S1 study notes)
+
+## What was done
+
+- **Defense prep started.** Logistics: defense 2026-10-25, 15 min talk + 30 min Q&A, English
+  slides / Vietnamese talk, committee assumed non-specialist, Canva Business, no template
+  requirement. User draws all diagrams with guidance (Canva for simple/animated ones, draw.io →
+  SVG for complex ones). Saved to memory (`defense-logistics.md`).
+- **Outline v1 written and signed off:** `docs/defense/outline.md`. One-paragraph story,
+  13-slide main deck (~14 min) with per-slide message/visual/tool, 14 backup slides keyed to
+  expected questions, diagram inventory D1–D12, schedule Oct 12–25. User agreed to keep eval
+  details (IoU matching, LOSO folds) and the normalisation bug in backup only.
+- **Source of truth fixed:** the submitted thesis in `docs/writing/thesis/` (`main.pdf` built
+  2026-09-16 after the last `.tex` edit, per mtimes). Found that `ch0_abstract.tex` is unwired
+  (not in the submitted PDF).
+- **Numbers spot-check vs `results/postfix_normalfix_2026-09-14/EDIT_MAP.md`: PASSED.**
+  Verified `tab:headline`, `tab:ablation-stage`, `tab:iou-sensitivity`, `tab:loso` (pooled
+  P/R recomputed from TP/FP/FN: 0.8883 / 0.7168), `tab:distance`, `tab:split`,
+  `tab:splitrate`, the `tab:clustering`↔`tab:distance` seam (0.840/0.671/0.746), and prose
+  deltas (108831−4303 = 104528; 27002−25568 = 1434; 108831−2513 = 106318; gaps 15.9 / 7.2;
+  merges 284−56 = 228). Grep for pre-fix values: none stale. Seq-00 full F1 0.838 does not
+  appear in the thesis.
+- **Session S1 delivered:** `docs/defense/s1_problem_data_framework.md`. Concepts (LiDAR scan +
+  spacing worked example, L/I self-occlusion, end-to-end vs modular trade, datasets + LOSO
+  rationale, eight-step framework), five Q&A traps, step-by-step instructions for D1
+  (occlusion, Canva), D2 (end-to-end vs modular, Canva) and D3 (master pipeline, draw.io →
+  SVG, reused as a "you are here" strip), EN→VI glossary. 6-question quiz posed in chat (not
+  yet answered).
+- **Thesis weak spot found:** ch3 §3.1 says detection "emits an oriented bounding box"; ch2
+  §2.2.5 says the pipeline "never fits an oriented box". A prepared answer is in the S1 notes.
+
+## Files changed
+
+- New: `docs/defense/outline.md`, `docs/defense/s1_problem_data_framework.md`
+- Deleted (user decision): `docs/defense/plan.md`, `docs/defense/storyboard.md` (2026-08-30,
+  pre-reframe: donor-metric headline, 25–30 min, python-pptx; superseded by `outline.md`;
+  recoverable from git commit d06c248)
+- Modified: `docs/project_state.md` (defense-prep section, then full replacement by this summary)
+- Memory (outside repo): `defense-logistics.md` + `MEMORY.md` index line
+- Pre-existing uncommitted changes, **not from this session**: `docs/writing/thesis/ch1`–`ch5`,
+  `main.tex`, `main.pdf` (submitted-state edits); `thesis_full.tex/.pdf` deleted; various
+  untracked helper scripts and `submission/`.
+
+## Next
+
+- User answers the S1 quiz; draws D1–D3 and sends screenshots.
+- Canva → PPTX/PDF export fidelity test.
+- S2 (preprocess, RANSAC, voxels, HDBSCAN → D4–D5), scheduled Oct 15.

@@ -1,5 +1,5 @@
 % Chapter 1 -- Introduction (\input by main.tex)
-% Frames the problem, the modular framework, the two research questions, the
+% Frames the problem, the modular framework, the research objectives, the
 % contributions, the scope, and the thesis outline.
 % Published literature uses BibTeX \cite{}.
 %
@@ -41,17 +41,18 @@ point-based segmentation networks~\cite{Qi_2017_CVPR,NIPS2017_d8bf84be,Hu_2020_C
 projection- and voxel-based models~\cite{10.1109/ICRA.2018.8462926,milioto2019rangenet++,zhu2021cylindrical},
 single pass object detectors~\cite{lang2019pointpillars,yin2021centerpoint}, and
 panoptic models~\cite{zhou2021panopticpolarnet,hong2021dsnet}. These define the state
-of the art in accuracy, which is paid for in two costs. The first is supervision: the
+of the art in accuracy, which incurs two primary costs. The first is supervision: the
 results rest on dense, point-wise labels, and the annotation behind a benchmark like
-SemanticKITTI, a class on every one of billions of points, is out of reach for
+SemanticKITTI, a class on every one of billions of points, is prohibitively expensive for
 most groups and most new datasets. The second is opacity: an end-to-end network spreads
-each decision across millions of weights, so when it misses a car there is no single
-stage to inspect or repair.
+each decision across millions of weights, making it difficult to isolate or debug
+missed detections.
 
-This thesis takes the opposite starting point, asking how far a modular pipeline that
-requires zero additional manual annotation can go: classical geometry for the parts
-geometry solves well, and small learned models only where discrimination needs them, an
-approach to LiDAR vehicle detection that has drawn renewed interest~\cite{lim2025longrange}.
+In contrast to end-to-end architectures, this thesis investigates the limits of a modular
+perception pipeline that requires zero additional manual annotation. By designing a system
+where classical geometric methods handle structural processing, while lightweight learned
+models are reserved for discriminative tasks, it pursues an approach to LiDAR vehicle
+detection that has drawn renewed interest~\cite{lim2025longrange}.
 Clustering proposes candidate objects, a small binary car/not-car
 classifier keeps the vehicles, and a PCN network completes each detected car. Every
 stage is separately inspectable. The classifier is trained on supervision auto-mined
@@ -61,7 +62,7 @@ from existing semantic datasets, and the completion network on synthetic shapes 
 \section{Completing Occluded Vehicles on Real LiDAR}
 \label{sec:intro-challenges}
 
-It is the second half of this pipeline that carries the harder question. Completing a
+The completion stage of this framework introduces a more complex challenge. Completing a
 partially observed car, recovering the far side the sensor cannot reach, is attractive
 for downstream box estimation, and networks such as
 PCN~\cite{yuan2019pcnpointcompletionnetwork} are well studied on synthetic benchmarks.
@@ -71,33 +72,21 @@ shape, so the network is trained on synthetic CAD partials and must transfer to 
 scans it never saw during training. The second is evaluation: on real LiDAR there is no
 clean ground truth complete shape to score against, and the obvious substitute of
 accumulating the same static car across many frames is itself occluded on the same side,
-so reference free fidelity metrics reward doing nothing at all. The question this thesis
-puts to the completion stage is therefore not whether it lowers a distance to a
-reference that does not exist, but whether it produces shapes that read as genuine cars
-on real data, judged by evidence that does not depend on a self-made reference.
+so reference free fidelity metrics reward doing nothing at all. This thesis therefore asks
+not whether completion lowers a distance to a nonexistent reference, but whether it
+produces shapes that read as genuine cars on real data, judged by evidence independent of
+any self-made reference.
 
 \section{Research Objectives}
 \label{sec:intro-objectives}
 
-The work is organised around two research questions, one for each half of the
-framework; two further findings, reported below in their own right, record what the
-investigation revealed about the detection front end along the way.
+This thesis pursues three objectives, spanning the detection front end, the completion
+back end, and the evaluation that ties them together.
 
 \begin{enumerate}
-  \item A Modular Detection Pipeline with Auto-Mined Supervision:
-    can a modular pipeline that leaves geometry to classical methods and learns only
-    where discrimination needs it detect and complete occluded vehicles on real LiDAR,
-    with zero additional manual annotation and every stage separately inspectable? This is
-    answered by the end-to-end detection evaluation, with leave-one-sequence-out
-    cross-validation across all eleven labelled sequences guarding against
-    model selection bias (RQ1; answered in Chapter~\ref{ch:evaluation}).
-  \item Car-Plausible Completion on Real LiDAR:
-    does learned completion produce car-plausible shapes on real LiDAR, as judged by an
-    independent shape classifier trained on external complete shape data, and how
-    does it fare on established reference free fidelity metrics? The plausibility judge
-    supplies the favorable real data signal; the fidelity metrics are reported honestly,
-    including where they penalise the completion (RQ2; answered in
-    Section~\ref{sec:completion-results}).
+  \item To investigate the viability of a modular, geometry-first approach for LiDAR vehicle detection as a transparent alternative to opaque, data-hungry end-to-end networks.
+  \item To establish a robust methodology for evaluating point cloud completion on real-world LiDAR data, where complete ground-truth shapes are inherently unavailable.
+  \item To determine the extent to which synthetic-only training and auto-mined supervision can generalize to real LiDAR occlusions without requiring manually annotated real-world counterparts.
 \end{enumerate}
 
 \section{Research Contributions}
@@ -107,44 +96,20 @@ The thesis makes two contributions, together with the reproducibility infrastruc
 that supports them.
 
 \begin{itemize}
-  \item A Modular Detection and Completion Framework for Occluded Vehicles:
-    an end-to-end pipeline in which classical geometry does the work geometry solves
-    well and small learned models are used only where discrimination needs them.
-    Ground removal and density clustering propose candidate objects, a binary
-    car/not-car classifier keeps the vehicles, a centroid tracker filters flicker, and
-    a PCN network completes each detected car. Every stage is separately inspectable and
-    its runtime cost is measured rather than estimated. The individual components
-    (RANSAC, HDBSCAN, PointNet, PCN) are established; the contribution is their
-    integration into a coherent, inspectable, reproducible framework for the occluded
-    vehicle problem, evaluated end to end on real LiDAR.
+  \item This research introduces an end-to-end modular detection and completion framework for occluded vehicles. By integrating classical geometric processing with lightweight learned discriminative models, the pipeline achieves strong detection performance on real LiDAR while remaining fully inspectable and reproducible at every stage.
 
-  \item Auto-Mined Supervision and Synthetic Completion:
-    the framework requires zero additional manual annotation: the classifier's training
-    data is automatically mined from existing semantic datasets, and the completion
-    network is trained exclusively on synthetic shapes.
-    SemanticKITTI~\cite{Behley_2019_ICCV} supplies real Velodyne scans for detection, the
-    auto-mined supervision, and evaluation; ShapeNetCore~v2~\cite{chang2015shapenetinformationrich3dmodel}
-    supplies synthetic complete CAD shapes for training the completion network. Because
-    the approach eliminates the need for bounding box annotations, the trained pipeline
-    carries to new sequences without fresh manual labelling. Its real data completion
-    quality is assessed with an independent shape classifier, avoiding any self-made
-    reference.
-
+  \item The proposed framework requires zero additional manual annotation by utilizing auto-mined supervision and synthetic training. The classifier's training data is automatically mined from existing semantic datasets, while the completion network is trained exclusively on synthetic CAD shapes, allowing the entire pipeline to generalize to new real-world sequences without the need for fresh bounding box annotations.
 \end{itemize}
 
 \section{Thesis Organization}
 \label{sec:intro-outline}
 
-The remainder of the thesis is organised into five chapters.
-
-Chapter~\ref{ch:introduction}: Introduction presents the background and
-rationale, the challenges of evaluating completion on real LiDAR, the research
-objectives, the contributions, and the organisation of the thesis.
+The remainder of the thesis is organised into four chapters.
 
 Chapter~\ref{ch:background}: Literature Review \& Theoretical Background
 places the pipeline against the deep learning segmentation and point cloud completion
-literature, carries the positioning table that defends the comparison, and fixes
-the notation and standard definitions for the operators the pipeline is built from.
+literature, provides a comparative positioning table, and establishes the formal
+notation and definitions for the operators the pipeline is built from.
 
 Chapter~\ref{ch:pipeline}: Proposed Methodology describes every stage of the
 framework: ground removal, clustering, the binary classifier and its training, the
@@ -155,12 +120,12 @@ general operator definitions in Chapter~\ref{ch:background}.
 Chapter~\ref{ch:evaluation}: Experimental Evaluation evaluates the framework
 end to end. It fixes the detection protocol and reports the per stage and
 cross-validated detection results, the ablations, the distance breakdown, and the
-runtime. It then root causes the recall shortfall to clustering fragmentation and
+runtime. It then traces the recall shortfall back to clustering fragmentation and
 reports the chain of negative repair strategies, which also bridges to completion.
 Finally, it evaluates the completion stage through synthetic Chamfer and F-score, the
 independent classifier plausibility of the completed real clouds, and reference free
 fidelity reported with its caveat.
 
-Chapter~\ref{ch:conclusion}: Conclusion and Future Work answers the two
-research questions, names every weakness the work is subject to, and lays out what
-remains.
+Chapter~\ref{ch:conclusion}: Conclusion and Future Work draws together the
+principal outcomes, acknowledges the study's limitations, and outlines directions for
+future research.

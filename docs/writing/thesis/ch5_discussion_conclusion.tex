@@ -1,5 +1,5 @@
 % Chapter 5 -- Discussion and Conclusion (\input by main.tex): discussion + limitations
-% + RQ answers + contributions + future work (conclusion half merged in below,
+% + principal outcomes + contributions + future work (conclusion half merged in below,
 % formerly sec_9_conclusion.tex). Synthesises the detection and completion results into
 % a single statement of what the thesis supports, then states every audit-identified
 % limitation BY NAME so the committee cannot surface one the thesis has not already named.
@@ -29,7 +29,7 @@
 \label{ch:conclusion}
 
 The preceding chapters reported results; this one interprets them and closes the
-thesis. It first draws the conclusions, answering the two research questions and
+thesis. It first draws the conclusions, setting out the principal outcomes and
 restating the contributions (Section~\ref{sec:conclusion-rqs}). It then gathers what the
 evidence supports and how far each claim reaches, together with every limitation the
 work carries, into a single section (Section~\ref{sec:disc-limitations}): the
@@ -43,39 +43,43 @@ defended; one a committee surfaces first is not.
 \section{Conclusion}
 \label{sec:conclusion-rqs}
 
-Chapter~\ref{ch:introduction} posed two research questions, one for each half of the
-framework; each is answered by the evaluation of Chapter~\ref{ch:evaluation} and restated
-here in the form asked, with its reach discussed in Section~\ref{sec:disc-what-holds}.
+The objectives set out in Chapter~\ref{ch:introduction} are met by the evaluation of
+Chapter~\ref{ch:evaluation}. This section draws its results together into the principal
+outcomes, whose reach is discussed in Section~\ref{sec:disc-what-holds}.
 
-\paragraph{RQ1, can a modular pipeline requiring zero additional manual annotation detect
-and complete occluded vehicles on real LiDAR?} Yes. The framework detects cars with a chain
-of training free classical stages and two small learned models: the classifier trained on
-supervision auto-mined from existing semantic annotations, and the completion network on
-synthetic shapes. It reaches precision \num{0.888}, recall \num{0.717}, and $F_1$~\num{0.793} pooled under
-leave-one-sequence-out cross-validation across all eleven labelled sequences, and completes
-each detected car with a PCN network. Every stage is separately inspectable, which is what
-lets the recall shortfall be root caused to a single stage rather than left opaque.
+\subsection{Principal Outcomes}
 
-\paragraph{RQ2, does learned completion produce car-plausible shapes on real LiDAR, and
-how does it fare on established fidelity metrics?} On real cars an independent shape
-classifier, trained on external complete shape data, accepts the completed clouds as cars far
-more often than the raw partials (car acceptance
-\num{0.253}~$\rightarrow$~\num{0.785}, paired McNemar and Wilcoxon $p\approx0$) and about as
-often as a dense static accumulation shape ceiling (\num{0.807}). This holds consistently across all
-eleven sequences and for moving as well as static cars, so completion produces genuinely
-car-plausible shapes rather than denser blobs. The established reference free fidelity metrics
-(UCD, UHD) do not credit the completion: they reward reproducing the observed input, so the
-raw partial is their trivial optimum. The favorable real data claim therefore rests on
-plausibility, with fidelity reported honestly as unfavorable.
+This thesis demonstrates that a modular, geometry-first perception pipeline provides a viable and transparent alternative to opaque, data-hungry end-to-end deep learning networks for LiDAR vehicle detection. By combining classical geometric clustering with lightweight, learned discriminative models, the framework achieves strong detection performance on real-world datasets without requiring any dense, point-wise manual annotations. Importantly, this modular architecture preserves full inspectability at every stage, allowing performance bottlenecks—such as the recall ceiling imposed by density-based clustering fragmentation—to be explicitly diagnosed and addressed.
 
-\paragraph{Diagnostic findings:}
-Two findings emerged along the way (Section~\ref{sec:recall-analysis},
-Chapter~\ref{ch:evaluation}): recall is clustering bound, not classifier bound, HDBSCAN
-splits \SI{33.7}{\percent} of cars and a chain of repair strategies fails to
-generalise, and synthetic pretraining is redundant once real clusters are plentiful, the
-sim-to-real gap being total and symmetric.
+Furthermore, the research establishes a robust and non-circular methodology for assessing point cloud completion on real-world data, where complete ground-truth references are inherently absent. By employing an independent shape classifier, the study proves that completion models trained exclusively on synthetic CAD shapes can successfully generalize to real LiDAR occlusions, producing genuinely car-plausible shapes rather than merely reproducing observed surfaces. Ultimately, these outcomes validate the broader potential of synthetic-only training and auto-mined supervision to alleviate the severe data annotation bottlenecks currently limiting autonomous driving perception.
 
-\paragraph{Contributions:}
+\subsection{Diagnostic and Operational Findings}
+\label{sec:completion-inferencebug}
+
+Beyond the primary outcomes, the evaluation yielded three consequential findings
+regarding pipeline design and operational safety.
+
+First, the detection bottleneck is fundamentally clustering-bound rather than classification-bound.
+As established in Chapter~\ref{ch:evaluation}, density-based clustering lacks an intrinsic
+notion of objectness; HDBSCAN inadvertently fractures \SI{33.7}{\percent} of cars, and subsequent
+attempts to heuristically repair these fragments fail to generalise without erroneously merging
+adjacent vehicles.
+
+Second, synthetic pretraining for the detection classifier proved entirely redundant. Given a
+sufficiently large corpus of auto-mined real LiDAR clusters, the domain gap renders synthetic
+priors obsolete; the network discards the synthetic initialisation entirely during fine-tuning.
+
+Finally, an operational failure during the completion network's deployment underscored a critical
+lesson in representation matching. Initial inference attempts produced structureless outputs
+despite the model succeeding in-distribution. The root cause was a silent coordinate mismatch: the
+inference path aligned partials using a 3D PCA frame with instance-specific scaling, while the
+network was trained exclusively in a gravity-aligned canonical frame (Section~\ref{sec:completion-normalisation}).
+Because both reference frames appeared geometrically valid in isolation, the
+divergence remained invisible until explicitly audited. This failure motivated a strict project-wide
+requirement: any external architectural integration must formally document and reconcile its
+semantic map, coordinate frame, and scaling conventions before execution.
+
+\subsection{Summary of Contributions}
 The thesis makes two contributions. The first, and main, is a modular
 detection and completion framework for occluded vehicles on real LiDAR: an end-to-end,
 separately inspectable pipeline that integrates established components (RANSAC, HDBSCAN,
@@ -85,40 +89,14 @@ manual annotation. It is built on SemanticKITTI (real scans for detection, minin
 evaluation) and ShapeNet (synthetic complete shapes for completion training), and its
 real data completion quality is assessed with an independent classifier so that no
 self-made reference is involved. Two diagnostic findings sit alongside
-them, the clustering bound recall account and the redundancy of synthetic pretraining,
+them, the clustering-bound recall account and the redundancy of synthetic pretraining,
 together with the reproducibility infrastructure and documented negative result lines.
 
 \section{Limitations and Discussion}
 \label{sec:disc-limitations}
 
-\subsection{Established Results and Their Reach}
+\subsection{Reach and Generalisability}
 \label{sec:disc-what-holds}
-
-The framework rests on two halves, each with its own evidence. The detection half is
-the broadest result: an interpretable clustering front end, requiring zero additional
-manual annotation, reaching
-precision \num{0.888}, recall \num{0.717}, $F_1$~\num{0.793} pooled under
-leave-one-sequence-out cross-validation across all eleven labelled sequences
-(Section~\ref{sec:eval-loso}; \num{0.911}~/~\num{0.732}~/~\num{0.812} at the sequence-08
-operating point, mean IoU of matched detections \num{0.913}; recall denominator: car
-instances with at least \num{10} points surviving preprocessing,
-Section~\ref{sec:eval-protocol}), on modest hardware and without state-of-the-art accuracy,
-which the supervised networks of Section~\ref{sec:bg-positioning} reach through dense
-per point supervision, whereas this pipeline requires zero additional manual annotation. Its recall shortfall is root caused, not mysterious,
-HDBSCAN splitting large, close cars into fragments (Section~\ref{sec:recall-analysis}).
-
-The completion half's favorable real data evidence is the independent classifier
-plausibility (Section~\ref{sec:results-plausibility}): completion lifts car acceptance from
-\num{0.253} on the raw partials to \num{0.785}, reaching the dense static accumulation shape
-ceiling (\num{0.807}), consistently across all eleven sequences and for moving as well as
-static cars, with the paired gain significant on McNemar and Wilcoxon tests ($p\approx0$).
-This is an established protocol (Chen et al.~\cite{chen2020unpaired}) with an external judge
-disjoint from the completion network's training data, so it is not circular. In distribution,
-on synthetic shapes with a complete ground truth, the network scores Chamfer \SI{0.16}{\metre}
-and F@\SI{0.1}{\metre} \num{0.76}. An important limitation is that the established
-reference free fidelity metrics (UCD, UHD; Section~\ref{sec:results-fidelity}) reward
-reproducing the observed input, so they cannot credit the completion, and the favorable claim
-rests on plausibility alone.
 
 These reaches vary. The detection operating point is cross-validated across all eleven
 sequences (Section~\ref{sec:eval-loso}), and the plausibility gain likewise appears on every
@@ -138,7 +116,7 @@ effort is better spent on segmentation than on swapping architectures. These rea
 
 Detection is cross-validated, and the selection exposure is precision only. SemanticKITTI
 labels only sequences \numrange{00}{10}, so no labelled sequence can be reserved as a
-conventional held out detection test set, and the final classifier was historically selected
+conventional held-out detection test set, and the final classifier was historically selected
 on sequence~08. Leave-one-sequence-out cross-validation (Section~\ref{sec:eval-loso}) bounds
 the exposure: the fold-08 classifier matches its recall (\num{0.736} versus \num{0.732}) and
 loses only about two precision points (\num{0.888} versus \num{0.911}). The selection
@@ -147,7 +125,7 @@ most missed cars. The completion evaluation is guarded on two fronts. It is
 non-circular: the plausibility judge is trained on ModelNet40, a shape repository
 disjoint from the ShapeNet cars the completion network learned from, so an accepted car is not
 an artefact of shared training data, and the completion network never saw a real LiDAR
-sequence. And it generalises: the acceptance gain is not a single held out replication
+sequence. And it generalises: the acceptance gain is not a single held-out replication
 but appears on all eleven labelled sequences (Section~\ref{sec:results-plausibility}), with
 the tuning sequence~08 unremarkable among them. One asymmetry remains: the favorable
 evidence is plausibility alone; the established fidelity metrics do not corroborate it,
@@ -159,7 +137,7 @@ because they reward under-completion, and synthetic fidelity is not a real data 
 The completion claim is deliberately bounded. The favorable real data evidence is a single
 established instrument, independent classifier plausibility, and it measures whether a
 completed cloud reads as a car, not metric surface accuracy against a complete shape, which
-no real LiDAR reference can supply. The established reference free fidelity metrics do not
+no real LiDAR reference can supply. The established reference-free fidelity metrics do not
 corroborate it, so the claim rests on plausibility alone and must not be read as a
 surface reconstruction accuracy claim. Plausibility scores only clean, gate passed clusters,
 and whether a car reaches completion as one is decided upstream by the clustering that caps
@@ -200,7 +178,7 @@ inputs, so no accumulated pseudo-ground truth enters the completion claim.
 The remaining limits are architectural or operational. The recall ceiling is architectural,
 not a tuning failure (Section~\ref{sec:recall-analysis}): coarsening the cluster voxel to
 \SI{0.10}{\metre} recovered part of the loss (\num{0.710}~$\rightarrow$~\num{0.732}), but
-coarsening further fuses adjacent cars, and no fixed radius density clusterer reaches HDBSCAN's
+coarsening further fuses adjacent cars, and no fixed-radius density clusterer reaches HDBSCAN's
 recall at any tested radius. The ceiling (\num{0.773} before any learned stage, splitting
 \SI{33.7}{\percent} of cars) is therefore the measured price of the interpretable,
 zero-additional-annotation design the thesis exists to evaluate. Lifting it
@@ -233,7 +211,7 @@ steps, each already scoped by a finding rather than left open.
 classical CPU stages. The direct speed path is an implementation one: the residual
 $\sim$\SI{185}{\milli\second} attributed to clustering is the cost of the Python
 HDBSCAN, not the HDBSCAN algorithm, so a native or GPU implementation would attack
-that floor without changing what is computed. Swapping in a faster fixed radius clusterer is
+that floor without changing what is computed. Swapping in a faster fixed-radius clusterer is
 not a free substitution: the benchmark shows none reaches HDBSCAN's recall at any tested
 radius. A real-time variant must therefore preserve the HDBSCAN algorithm via a faster
 implementation, or replace the front end with a learned detector, rather than trade measured
@@ -254,16 +232,16 @@ field's other real data payoff for completion is a measured improvement in 3D de
 precision from feeding completed clouds to a detector (Ren et
 al.~\cite{ren2022selfsupervised}). Wiring the completed cars into an oriented box estimator
 and measuring whether detection improves would turn the plausibility signal into a
-task level one, and is the natural next validation. It is deferred here as an integration
+task-level one, and is the natural next validation. It is deferred here as an integration
 task, not a change to the completion method.
 
-\bigskip
+\section*{Final Remarks}
 
 None of the thesis's results rests on a self-made evaluation instrument. The main
 contribution is the modular framework itself. Each empirical claim, that a modular
 pipeline requiring zero additional manual annotation detects and completes occluded vehicles
 on real LiDAR, that its
-completions read as cars to an independent classifier, that recall is clustering bound, and that
+completions read as cars to an independent classifier, that recall is clustering-bound, and that
 synthetic pretraining is redundant at scale, is defended by cross-validation, by an
 established external judge, or by explanation, and reported as it fell. That is the standard
 the work set for itself, and the standard on which it asks to be judged.

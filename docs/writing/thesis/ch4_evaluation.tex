@@ -17,45 +17,83 @@
 \chapter{Experimental Evaluation}
 \label{ch:evaluation}
 
-This chapter evaluates the full pipeline end to end. It first fixes the
-experimental setup, dataset, the pipeline under test, metrics, baselines, and
-test environment (Section~\ref{sec:eval-protocol}). It then evaluates the two
-halves of the system in turn. The detection evaluation
-(Section~\ref{sec:detection-evaluation}) reports the operating point and its
-cross-validated generalisation, the stage ablations, an analysis of where
-detection succeeds and fails, and runtime. The completion evaluation
-(Section~\ref{sec:completion-evaluation}) reports the completion results,
-synthetic fidelity, independent classifier plausibility on real cars, and
-reference free fidelity, together with the completion ablations. The recall
-analysis in the detection half root causes the recall limit to the same
-clustering step that governs input cleanliness for completion, the link between
-the chapter's two halves.
+This chapter evaluates the complete pipeline end to end. It first establishes the experimental
+setup, detailing the datasets, pipeline configuration, baselines, and evaluation metrics
+(Section~\ref{sec:eval-protocol}). The chapter then evaluates the system in two parts. The
+detection evaluation (Section~\ref{sec:detection-evaluation}) reports the pipeline's operating
+point, its cross-validated generalisation, stage ablations, an error analysis, and runtime
+performance. The completion evaluation (Section~\ref{sec:completion-evaluation}) assesses synthetic
+fidelity, independent classifier plausibility on real LiDAR data, and reference-free fidelity,
+alongside the completion ablations. Crucially, the error analysis in the detection section traces
+the pipeline's recall limit to the exact same clustering step that governs the input quality for
+the completion network, forming the theoretical bridge between the chapter's two halves.
 
 \section{Dataset \& Protocol}
 \label{sec:eval-sequences}
 
-The framework is grounded on two public datasets, matching its two halves.
-SemanticKITTI~\cite{Behley_2019_ICCV} supplies the real Velodyne HDL-64E scans
-used for detection, weak label mining, and evaluation; its per point semantic and instance
-labels serve as ground truth. ShapeNetCore~v2~\cite{chang2015shapenetinformationrich3dmodel}
-supplies the synthetic complete car meshes from which the completion network's training
-partials are rendered (Section~\ref{sec:completion-kittilike}); no real car is ever
-hand labelled for completion. Detection and completion therefore draw on real and
-synthetic data respectively, and the framework requires zero additional manual
-annotation: the classifier's training data is auto-mined from existing semantic
-annotations and the completion network is trained exclusively on synthetic shapes.
+\subsection{Implementation Details}
+\label{sec:eval-pipeline}
 
-We evaluate on the eleven labelled SemanticKITTI odometry sequences
-(\numrange{00}{10}), whose per point semantic and instance labels serve as
-ground truth. The official test sequences \numrange{11}{21} carry no
-public labels, so no ground truth detection metric can be computed on them. This
-is a property of the dataset, not a choice, and it is why no labelled sequence
-can be reserved as a conventional held out test set. Before the per sequence split,
-Tables~\ref{tab:dataset-roles} and~\ref{tab:sensor-spec} fix the two datasets' roles and
-the Velodyne HDL-64E that produces the real scans; its \num{64}-beam geometry and strong
-range fall-off set the point cloud sparsity and density variation the clustering stage must
-absorb. Table~\ref{tab:dataset} then summarises the labelled sequences, their frame counts,
-and their role in each half of the framework.
+The system evaluated here is the frozen detection and completion pipeline detailed in
+Chapter~\ref{ch:pipeline}, executed unmodified via a single script. For detection, this comprises
+ground removal, HDBSCAN clustering, the geometric filter, the binary classifier, and the centroid
+tracker with its track-level filter. For completion, it comprises the KITTI-like-trained PCN gated
+by the L-shape fit. Every reported metric relies strictly on this frozen configuration
+(Table~\ref{tab:pipeline-config}); no stage, checkpoint, or parameter was tuned to generate these
+results.
+
+The framework's defining property is that supervision is strictly confined to two learned stages,
+while all geometric reasoning is handled by training-free classical methods (Table~\ref{tab:sup-unsup}).
+The classical stages require no training data, the classifier is trained on weak
+supervision auto-mined from existing semantic annotations, and the completion network is trained
+exclusively on synthetic ShapeNet partials.
+
+\begin{table}[H]
+  \centering
+  \caption[Unsupervised and supervised stages of the framework]{The framework's stages by
+    supervision: six unsupervised classical stages and two supervised (learned) stages that
+    use no additional manual annotation.}
+  \label{tab:sup-unsup}
+  \small
+  \begin{tabular}{@{}p{0.46\linewidth}p{0.46\linewidth}@{}}
+    \toprule
+    Unsupervised (classical, training-free) & Supervised (learned, no real labels) \\
+    \midrule
+    $z$-filter; denoise + voxel downsample; RANSAC ground removal; HDBSCAN clustering;
+      geometric OBB filter; centroid tracker + track-level filter
+      & Binary car/not-car PointNet classifier (mined weak labels); PCN completion
+      (synthetic ShapeNet partials) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\label{sec:eval-environment}
+All experiments are deterministic. Ground plane RANSAC and the classifier utilise fixed seeds
+(Chapter~\ref{ch:pipeline}), guaranteeing that every reported result is precisely reproducible.
+Timings reflect wall-clock performance on an AMD Ryzen~7 7800X3D and an RTX~3070~Ti, measured
+across the full sequence~08 under the promoted configuration (Section~\ref{sec:results-runtime}).
+Training hyperparameters---including optimisers, learning rate schedules, epochs, and batch sizes---are
+specified alongside each model in Chapter~\ref{ch:pipeline} and are omitted here for brevity.
+
+The framework relies on two public datasets, corresponding to its two functional halves.
+SemanticKITTI~\cite{Behley_2019_ICCV} provides the real Velodyne HDL-64E scans used for detection,
+weak label mining, and evaluation, with its per-point semantic and instance labels serving as
+ground truth. ShapeNetCore~v2~\cite{chang2015shapenetinformationrich3dmodel} provides the complete
+synthetic car meshes from which the completion network's training partials are rendered
+(Section~\ref{sec:completion-kittilike}). Consequently, detection and completion draw on real and
+synthetic data, respectively, and the framework requires zero additional manual annotation: the
+classifier's training data is auto-mined from existing semantic labels, and the completion network
+trains exclusively on synthetic shapes.
+
+Evaluation is conducted on the eleven labelled SemanticKITTI odometry sequences
+(\numrange{00}{10}). The official test sequences (\numrange{11}{21}) carry no public labels,
+precluding ground truth detection metrics. This constraint---a property of the dataset rather than an
+experimental choice---explains why no labelled sequence can be reserved as a conventional held-out
+test set. Tables~\ref{tab:dataset-roles} and~\ref{tab:sensor-spec} summarise the respective dataset
+roles and the Velodyne HDL-64E specifications. The sensor's \num{64}-beam geometry and sharp range
+fall-off dictate the point cloud sparsity and density variations that the clustering stage must
+absorb. Table~\ref{tab:dataset} subsequently breaks down the labelled sequences, their frame counts,
+and their roles in each half of the framework.
 
 \begin{table}[H]
   \centering
@@ -97,7 +135,7 @@ and their role in each half of the framework.
 \begin{table}[H]
   \centering
   \caption[Labelled SemanticKITTI sequences and their roles]{The eleven labelled
-    SemanticKITTI sequences (\numrange{00}{10}; \num{23201} frames total), with per sequence
+    SemanticKITTI sequences (\numrange{00}{10}; \num{23201} frames total), with per-sequence
     frame counts and roles. \emph{Classifier role}: the headline detection split (train /
     validation${}={}$seq~08 / train). \emph{PCN role}: every sequence is completion evaluation
     only, since PCN trains on synthetic ShapeNet.}
@@ -115,7 +153,9 @@ and their role in each half of the framework.
   \end{tabular}
 \end{table}
 
-\paragraph{Train, validation, and test split:} For classification, the binary car/
+\subsection{Dataset Splits \& Validation Strategy}
+
+For classification, the binary car/
 not-car classifier is trained on the mined clusters of sequences \numrange{00}{07}, 09, and
 10 and validated on sequence~08; the leakage controlled result is the LOSO cross-validation
 across all eleven sequences (Section~\ref{sec:eval-loso}). For completion, the PCN
@@ -124,23 +164,22 @@ and is evaluated on all eleven labelled sequences through the independent classi
 plausibility protocol (Section~\ref{sec:results-plausibility}). The SemanticKITTI test
 sequences (\numrange{11}{21}) are unusable for either, as they carry no public labels.
 
-\paragraph{Classifier evaluation uses leave-one-sequence-out cross-validation:}
 Rather than report detection on the sequence the classifier was tuned against, we
 evaluate the binary classifier under leave-one-sequence-out (LOSO)
-cross-validation over all eleven sequences. For each held out sequence~$K$ a
+cross-validation over all eleven sequences. For each held-out sequence~$K$ a
 classifier is trained on the other ten sequences and then run on the full
-sequence~$K$; the held out sequence contributes zero clusters to that
+sequence~$K$; the held-out sequence contributes zero clusters to that
 fold's training data and is never used to select the checkpoint. Checkpoint
 selection is removed entirely: every fold trains for a fixed \num{15}-epoch
 budget and the last epoch checkpoint is used (historically the best epoch was
-\num{13}/\num{15}, so last~$\approx$~best), so the held out sequence is untouched
-during both training and model selection. In the per fold table below,
+\num{13}/\num{15}, so last~$\approx$~best), so the held-out sequence is untouched
+during both training and model selection. In the per-fold table below,
 therefore, the classifier scoring sequence~$K$ has never seen
 sequence~$K$ during training or model selection. Because the
 Stage~B clusters are stored with a sequence prefix in their filenames, the folds
 are a re-partition of the existing mined data and require no re-mining.
 
-\paragraph{Two sequences carry additional, distinct roles:}
+Two sequences carry additional, distinct roles:
 \begin{itemize}
   \item Sequence 08 (reported operating point; \num{4071} frames). The
     largest labelled sequence is the operating point at which the pipeline is
@@ -155,7 +194,7 @@ are a re-partition of the existing mined data and require no re-mining.
     \numrange{00}{07},\,\numrange{09}{10}, last epoch, never selected on 08) settles
     this empirically below.
   \item Sequence 00 (classifier training split, tuning baseline).
-    Sequence~00's classical pipeline parameters (\texttt{PIPELINE\_CONFIG}) were
+    Sequence~00's classical pipeline parameters were
     historically hand tuned on it, and it also sits in the classifier's training split,
     so its detection recall reads optimistically; we isolate that residual in the
     LOSO aggregate below (dropping fold-00 moves pooled recall by \num{0.022}). This does
@@ -163,7 +202,7 @@ are a re-partition of the existing mined data and require no re-mining.
     on identical inputs and whose network never saw any real sequence.
 \end{itemize}
 
-\paragraph{Ground truth targets and the eligibility rule:}
+\subsection{Target Eligibility \& Ground Truth}
 \label{sec:eval-targets}
 
 The pipeline is a car detector, so the evaluation counts only the two
@@ -197,6 +236,7 @@ survival ratio on this sample is $\num{1737}/\num{2332}=\num{0.745}$; the ratio 
 stride-20 estimate, so this figure is inferred, not separately measured.) We report the eligible denominator
 recall as the headline and disclose the all annotated figure alongside it.
 
+\subsection{Evaluation Protocol}
 \label{sec:eval-protocol}
 
 Every quantitative claim about detection in this thesis is produced by a single
@@ -220,7 +260,7 @@ references on the same inputs: the raw partial (the paired baseline the
 completion must beat), a dense static accumulation ceiling (the shape quality
 upper bound of a correctly shaped car), and, for architecture, PoinTr. Real data
 completion quality is scored by the independent classifier plausibility of
-Section~\ref{sec:results-plausibility}, with the standard reference free metrics UCD and
+Section~\ref{sec:results-plausibility}, with the standard reference-free metrics UCD and
 UHD (Section~\ref{sec:bg-completion}) reported alongside it in
 Section~\ref{sec:results-fidelity}.
 
@@ -260,7 +300,7 @@ ablation section (Section~\ref{sec:results-ablations}).
 \paragraph{Choice of IoU threshold and its sensitivity:}
 \label{sec:eval-iou-threshold}
 
-All headline numbers use $\tau = 0.3$. A point level threshold of 0.3 is
+All headline numbers use $\tau = 0.3$. A point-level threshold of 0.3 is
 permissive relative to the bounding box 0.5 common in detection benchmarks, so
 it is fair to ask whether the results are an artifact of a lenient gate. They
 are not, and the reason is visible in Table~\ref{tab:headline}: the mean IoU of
@@ -315,61 +355,15 @@ finding rather than tuned away; it was not sensitive.
 %     read as a trend, NOT a restatement of the 0.732 headline
 %   - every number traces to a finding / output artifact (cited Finding~\#NN)
 %
-\subsection{Implementation Details}
-\label{sec:eval-pipeline}
-
-The system under evaluation is the frozen detection and completion pipeline of
-Chapter~\ref{ch:pipeline}, run unmodified by a single script:
-ground removal, HDBSCAN clustering, the geometric
-filter, the binary classifier, and the centroid tracker with its track level
-filter for detection; and, for each detected car, the KITTI-like-trained PCN
-behind the L-shape input gate for completion. Every number below uses the
-committed \texttt{PIPELINE\_CONFIG} (Table~\ref{tab:pipeline-config}); no stage,
-checkpoint, or parameter was changed to obtain a reported result.
-
-The framework's defining property is that supervision is confined to two learned stages,
-with all geometric reasoning done by training free classical methods
-(Table~\ref{tab:sup-unsup}): the classical stages need no training data at all, the classifier is
-trained on supervision auto-mined from existing semantic annotations, and the
-completion network on synthetic ShapeNet partials.
-
-\begin{table}[H]
-  \centering
-  \caption[Unsupervised and supervised stages of the framework]{The framework's stages by
-    supervision: six unsupervised classical stages and two supervised (learned) stages that
-    use no additional manual annotation.}
-  \label{tab:sup-unsup}
-  \small
-  \begin{tabular}{@{}p{0.46\linewidth}p{0.46\linewidth}@{}}
-    \toprule
-    Unsupervised (classical, training free) & Supervised (learned, no real labels) \\
-    \midrule
-    $z$-filter; denoise + voxel downsample; RANSAC ground removal; HDBSCAN clustering;
-      geometric OBB filter; centroid tracker + track level filter
-      & Binary car/not-car PointNet classifier (mined weak labels); PCN completion
-      (synthetic ShapeNet partials) \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\label{sec:eval-environment}
-All runs are deterministic: ground plane RANSAC and the classifier use fixed
-seeds (Chapter~\ref{ch:pipeline}), so a rerun reproduces every reported number.
-Timings are wall clock on an AMD Ryzen~7 7800X3D with an RTX~3070~Ti, measured on
-the full sequence~08 under the promoted configuration
-(Section~\ref{sec:results-runtime}). The classifier and PCN training
-hyperparameters, optimiser, learning rate schedule, epochs, and batch size,
-are given with each model in Chapter~\ref{ch:pipeline} and are not repeated here.
-
 \section{Detection Evaluation}
 \label{sec:detection-evaluation}
 
 This section evaluates the detection half of the pipeline: the reported
 operating point and its cross-validated generalisation
 (Section~\ref{sec:results-detection}), the ablations that isolate each
-stage's contribution (Section~\ref{sec:results-ablations}), an analysis of
-where detection succeeds and fails (Section~\ref{sec:recall-analysis}), and
-the per frame runtime (Section~\ref{sec:results-runtime}).
+stage's contribution (Section~\ref{sec:results-ablations}), the per-frame runtime
+(Section~\ref{sec:results-runtime}), and an analysis of
+where detection succeeds and fails (Section~\ref{sec:recall-analysis}).
 
 \subsection{Detection and Classification Results}
 \label{sec:results-detection}
@@ -407,14 +401,14 @@ clustering stage recovers as single objects. The remaining sections of this
 chapter report the ablations that decompose this operating point, and Section~\ref{sec:recall-analysis}
 root causes the recall shortfall.
 
-\subsubsection{Per Frame Detection Results}
+\subsubsection{Per-Frame Detection Results}
 
 The headline operating point is the reported row of Table~\ref{tab:headline}
 (Section~\ref{sec:eval-protocol}): precision \num{0.911}, recall \num{0.732}, $F_1$ \num{0.812}, and
 a mean IoU of matched detections of \num{0.913}, over
 \num{25568}~/~\num{2513}~/~\num{9354} TP~/~FP~/~FN. Two properties of this
 operating point organise the rest of the chapter, and both are visible directly
-in the per frame record rather than only in the pooled totals.
+in the per-frame record rather than only in the pooled totals.
 
 First, the pipeline is precision saturated. Across the full sequence the
 false positive count is low and stable, about \num{0.6} per frame
@@ -429,7 +423,7 @@ recall shortfall traces to a measured clustering failure: HDBSCAN splits large,
 close cars into fragments that no longer match a single instance, and the split rate is highest exactly where cars are densest and
 nearest (\SI{53.5}{\percent} at \SIrange{0}{10}{\metre}).
 Section~\ref{sec:results-distance} exhibits the resulting near range recall dip
-directly, and the time series (Figure~\ref{fig:timeseries}) shows per frame
+directly, and the time series (Figure~\ref{fig:timeseries}) shows per-frame
 recall tending to fall in the denser frames while false positives stay flat. We
 root cause the splitting mechanism in Section~\ref{sec:recall-analysis}; here we establish only that
 recall, not precision, is the dominant error mode, and that it does not come from
@@ -458,10 +452,10 @@ the classifier misfiring (false positives stay flat regardless).
 
 The operating point above is reported on sequence~08, which is also the sequence
 the final classifier was historically selected on. To show that this selection
-does not inflate the result, and to characterise the per sequence recall spread
+does not inflate the result, and to characterise the per-sequence recall spread
 that a single reporting sequence cannot, we ran the LOSO protocol of
 Section~\ref{sec:eval-sequences}: eleven folds, each training a classifier on ten
-sequences and evaluating the full held out eleventh, so every fold's classifier
+sequences and evaluating the full held-out eleventh, so every fold's classifier
 is blind to the sequence it scores. Table~\ref{tab:loso} reports all eleven folds,
 the pooled micro-average (counts summed across folds, comparable to the single
 operating point number), and the macro mean~$\pm$~standard deviation across folds.
@@ -493,7 +487,7 @@ operating point number), and the macro mean~$\pm$~standard deviation across fold
     \midrule
     \textbf{Pooled (all 11)} & \textbf{0.888} & \textbf{0.717} & \textbf{0.793} & \textbf{0.919} & \num{116797} / \num{14681} / \num{46141} \\
     Pooled (excl.\ seq~00)   & 0.871 & 0.695 & 0.773 & 0.912 & \num{74214} / \num{11006} / \num{32534} \\
-    Macro mean $\pm$ std     & $0.861{\pm}0.059$ & $0.632{\pm}0.119$ & $0.721{\pm}0.095$ & $0.907{\pm}0.030$ &, \\
+    Macro mean $\pm$ std     & $0.861{\pm}0.059$ & $0.632{\pm}0.119$ & $0.721{\pm}0.095$ & $0.907{\pm}0.030$ &- \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -526,7 +520,7 @@ pooled cross-validated operating point over all eleven sequences,
 precision \num{0.888}, recall \num{0.717}, $F_1$~\num{0.793}, mean IoU
 \num{0.919}, sits within roughly two points of the sequence-08 operating point
 on every metric. The reported numbers are therefore representative of the labelled set
-and not specific to sequence~08. Third, the per sequence spread is now
+and not specific to sequence~08. Third, the per-sequence spread is now
 explicit: recall ranges from \num{0.336} on sequence~01 (a sparse highway drive)
 to \num{0.758} on sequence~00 (dense urban), with a macro mean of
 \num{0.632}~$\pm$~\num{0.119}; precision is far steadier
@@ -547,8 +541,8 @@ Recall is not uniform in range, and the way it varies is not the naive
 detection by the range of each cluster's centroid from the ego sensor, on a
 stride-20 sample of sequence~08 under the frozen configuration.
 Deviation: like the clustering benchmark, this table is
-per frame with the track filter off (striding breaks the tracker), so its
-pooled recall (\num{0.671}) is a per frame figure and does not restate the
+per-frame with the track filter off (striding breaks the tracker), so its
+pooled recall (\num{0.671}) is a per-frame figure and does not restate the
 track filtered headline \num{0.732}. Read the table as a range trend, not
 as a re-derivation of the headline.
 
@@ -595,7 +589,7 @@ compact, single cluster instances, so their overlap is clean even as their numbe
 collapses. The earlier precision only, seq-00, pre-promotion range analysis is superseded by this on frozen config sequence-08 table and is
 retained only as a historical note.
 
-\subsection{Ablation Studies}
+\subsection{Detection Ablation Studies}
 \label{sec:abl-detection}
 \label{sec:results-ablations}
 
@@ -632,10 +626,10 @@ configuration); the full row is the headline.
 
 The decomposition tells a two step story. The classifier
 is the precision mechanism: geometric clustering under the promoted coarse voxel
-setting emits many mostly junk clusters (precision \num{0.199}), and the per frame
+setting emits many mostly junk clusters (precision \num{0.199}), and the per-frame
 classifier removes about \num{104000} of them across the sequence
 (FP \num{108831}~$\rightarrow$~\num{4303}), lifting precision from \num{0.199} to
-\num{0.846}. It pays for this with recall, being conservative, it discards
+\num{0.846}. It pays for this with recall: being conservative, it discards
 borderline true clusters too, so recall falls from \num{0.773} to \num{0.676}.
 The track filter then recovers that recall while improving precision
 again: linking detections across frames and accepting only consistent tracks
@@ -703,7 +697,7 @@ The clustering stage is HDBSCAN. Because it is by far the most expensive stage
 density/connectivity clusterers, DBSCAN and Euclidean tolerance clustering,
 at the same voxel resolution and under an identical pipeline
 (Table~\ref{tab:clustering}). Deviation: this benchmark is
-per frame with the track filter off, because it strides across the
+per-frame with the track filter off, because it strides across the
 sequence and the tracker requires contiguous frames; the numbers are therefore
 comparable to each other but not to the track filtered headline.
 
@@ -730,7 +724,7 @@ comparable to each other but not to the track filtered headline.
   \end{tabular}
 \end{table}
 
-The gap is entirely a recall gap, precision is within \num{0.030} across all
+The gap is entirely a recall gap; precision is within \num{0.030} across all
 methods on either sequence, while HDBSCAN's recall exceeds the alternatives by
 \numrange{9}{11} points. An $\varepsilon$-sweep confirms no fixed radius closes
 it: the best fixed radius setting (Euclidean at $\varepsilon=\SI{0.4}{\metre}$)
@@ -740,6 +734,61 @@ which is exactly the recall margin that matters here. We therefore
 adopt nothing from the benchmark and keep HDBSCAN in production, paying
 its runtime cost knowingly, roughly \numrange{4}{6} times the DBSCAN and Euclidean clustering
 time here; DBSCAN and Euclidean remain available as command line options for reproduction.
+
+\subsection{Runtime Evaluation}
+\label{sec:results-runtime}
+
+Table~\ref{tab:runtime} breaks the per-frame cost down by stage, measured over
+the full sequence~08 under the final (promoted) configuration
+(\num{4068} timed frames, RTX~3070~Ti / Ryzen~7~7800X3D;
+per stage figures from the recorded timing run). The breakdown shows where
+the time goes. The two classical geometric stages, ground plane RANSAC and,
+above all, HDBSCAN clustering, dominate, together taking roughly
+\SI{68}{\percent} of the frame. Adding preprocessing and the geometric filter,
+the classical CPU stages account for about \SI{94}{\percent}, leaving the single
+learned component, the classifier, at only $\sim$\SI{5.4}{\percent} (the
+centroid/Hungarian tracker is a classical assignment step, not learned). The
+classifier is \SI{33.7}{\milli\second} for the $\sim$\num{45} clusters in a frame
+($\sim$\SI{0.75}{\milli\second} each) and the tracker is negligible.
+
+\begin{table}[H]
+  \centering
+  \caption[Per frame runtime by stage]{Per-frame runtime by stage on the full
+    sequence under the final (promoted) configuration (\num{4068} timed frames; mean ms).
+    Percentages are of the \SI{623.5}{\milli\second} total.}
+  \label{tab:runtime}
+  \begin{tabular}{lcc}
+    \toprule
+    Stage & Mean (ms) & Share \\
+    \midrule
+    Data load                       & 0.7   & 0.1\% \\
+    Preprocessing (z filter, denoise, voxel) & 125.9 & 20.2\% \\
+    Ground removal (RANSAC)         & 56.2  & 9.0\% \\
+    Clustering (HDBSCAN)            & 370.4 & 59.4\% \\
+    Geometric filter                & 36.2  & 5.8\% \\
+    Classification                  & 33.7  & 5.4\% \\
+    Tracking                        & 0.3   & 0.1\% \\
+    \midrule
+    Total                           & 623.5 & 100\% ($\approx$1.6 fps) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The promoted configuration is itself the product of a runtime optimisation that
+targeted the dominant classical stages directly: reducing the
+RANSAC iteration count and coarsening the clustering voxel to \SI{0.10}{\metre}
+cut the per-frame total by roughly a third, from a pre-optimisation
+\SI{921.3}{\milli\second} to \SI{623.5}{\milli\second} on the full sequence
+(\SI{650.6}{\milli\second} on the stride-20 sample). The coarser voxel also
+improved detection, so it is the promoted configuration used throughout
+this chapter. A sub-\SI{400}{\milli\second} target was shown to be unreachable
+through the authorised optimisation tiers: the post-ground object cloud is
+intrinsically sparse, so coarser voxelisation compresses it little and the Python
+HDBSCAN retains a floor of $\sim$\SI{185}{\milli\second}. The achieved
+operating point was accepted, real-time operation being out of scope (user
+decision, \num{2026}-07-23). Point completion, when it runs, adds
+$\sim$\SI{13}{\milli\second} per completed car on top of detection and is not part
+of the detection budget above.
 
 \subsection{Result Analysis and Error Analysis}
 \label{sec:recall-analysis}
@@ -788,9 +837,9 @@ The geometric filters are not the cap either. Ablation of the
 size/shape gates across the full sequence~08 shows that of the
 \num{903901} HDBSCAN clusters, \num{127654} (\SI{14.1}{\percent})
 pass the filters, and \num{27718} of the rejected clusters overlap a ground truth
-car, dominated by \texttt{min\_volume} (\SI{73.9}{\percent} of the GT matching
-rejections) and \texttt{min\_points} (\SI{12.7}{\percent}). The dominant gates are
-\texttt{min\_volume} and \texttt{min\_points}, the two that reject small
+car, dominated by the minimum-volume gate (\SI{73.9}{\percent} of the GT matching
+rejections) and the minimum-points gate (\SI{12.7}{\percent}). The dominant gates are
+the minimum-volume and minimum-points bounds, the two that reject small
 clusters. This is consistent with the rejected clusters being the smaller
 sub-fragments of cars that HDBSCAN has already split (the dominant fragment passing
 while the splinters fail the size gates), which the split analysis of
@@ -898,7 +947,7 @@ Table~\ref{tab:strategies} collects the four with a reproducible quantitative
 outcome, and two further strategies (temporal accumulation and threshold lowering)
 are discussed in prose below. All were evaluated against the same pre-promotion
 sequence-00 baseline (full pipeline, classifier and track filter on;
-$F_1=\num{0.844}$), and the load bearing ones were re-checked on the held out
+$F_1=\num{0.844}$), and the load bearing ones were re-checked on the held-out
 sequence~08.
 
 \begin{table}[H]
@@ -916,10 +965,10 @@ sequence~08.
     Strategy & Seq 00 $P$ & Seq 00 $R$ & Seq 00 $F_1$ & Seq 08 $F_1$ \\
     \midrule
     Baseline (HDBSCAN, MCS \num{10}) & 0.984 & 0.739 & \textbf{0.844} & \textbf{0.829} \\
-    BEV clustering (res \SI{0.30}{\metre})   & 0.993 & 0.640 & 0.779 &, \\
+    BEV clustering (res \SI{0.30}{\metre})   & 0.993 & 0.640 & 0.779 &- \\
     Higher MCS \num{20}                       & 0.976 & 0.755 & 0.852 & 0.801 \\
     Fragment merge (\SI{1.5}{\metre}, \num{30}\,pt) & 0.931 & 0.755 & 0.834 & 0.815 \\
-    Adaptive HDBSCAN (\num{30}/\num{15}/\num{10}) & 0.935 & 0.748 & 0.831 &, \\
+    Adaptive HDBSCAN (\num{30}/\num{15}/\num{10}) & 0.935 & 0.748 & 0.831 &- \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -931,7 +980,7 @@ diagnosis of Section~\ref{sec:split-analysis}:
   \item Higher minimum cluster size (MCS \num{20}) is the most instructive.
     It is the only variant to improve $F_1$ on sequence~00
     (\num{0.844}~$\rightarrow$~\num{0.852}), by discouraging the small splinter
-    clusters. But it does not generalise: on the held out sequence~08 it drops to
+    clusters. But it does not generalise: on the held-out sequence~08 it drops to
     $F_1$~\num{0.801}, below the \num{0.829} baseline, because a larger
     minimum also erases genuinely sparse distant cars. The sequence-00 gain was
     over-fitting.
@@ -939,7 +988,7 @@ diagnosis of Section~\ref{sec:split-analysis}:
     \SI{1.5}{\metre}) raises sequence-00 recall to \num{0.755} but loses precision
     (\num{0.984}~$\rightarrow$~\num{0.931}), because the same proximity rule also
     fuses nearby non-car structure (walls, poles) into oversized clusters. On
-    held out data the precision loss cancels the recall gain
+    held-out data the precision loss cancels the recall gain
     ($F_1$~\num{0.815}~$<$~\num{0.829}).
   \item Distance adaptive HDBSCAN (a larger minimum cluster size near the
     ego, smaller far away) introduces boundary artefacts at the ring transitions and
@@ -950,9 +999,9 @@ diagnosis of Section~\ref{sec:split-analysis}:
     in height, and morphological cleanup destroys sparse distant clusters.
   \item Temporal aggregation, accumulating object points over three
     consecutive frames before clustering, to densify sparse cars, collapses the
-    pipeline ($F_1$~\num{0.073}, recall \num{0.039}).\footnote{Source:
-    \texttt{docs/session\_history.md} (2026-06 exploratory session). The
-    \texttt{temporal\_window} feature was implemented and then fully reverted, so
+    pipeline ($F_1$~\num{0.073}, recall \num{0.039}).\footnote{Source: an
+    exploratory session (June~2026). The
+    temporal-window feature was implemented and then fully reverted, so
     this result is on the pre-promotion baseline and was not re-run under the
     research freeze; it is reported here in prose, not in Table~\ref{tab:strategies},
     for that reason, and its value is the mechanism below rather than the exact
@@ -964,11 +1013,11 @@ diagnosis of Section~\ref{sec:split-analysis}:
   \item Lowering the cluster size thresholds to admit sparser groups
     produced no change in true positives at all: the binding constraint is cluster
     quality, not the count threshold, so relaxing the threshold merely admits more
-    noise (\texttt{docs/session\_history.md}).
+    noise (same exploratory session).
 \end{itemize}
 
-The failure modes are strategy specific, over-fitting, precision loss, ring
-artefacts, projection ambiguity, a reshaped clustering landscape, but they share
+The failure modes are strategy-specific (over-fitting, precision loss, ring
+artefacts, projection ambiguity, a reshaped clustering landscape), but they share
 a limit. The two strategies that reassemble after the split (fragment merge, and to
 a lesser extent the proximity-based part of the adaptive scheme) run into the fact
 that density-based clustering has no notion of objectness: once a dense car is
@@ -979,7 +1028,7 @@ form, a larger minimum size, a different clusterer, per ring parameters,
 pre-clustering accumulation, avoid the reassembly trap but hit the same wall from
 the other side: any single global density criterion that is loose enough to keep a
 split car whole is also loose enough to fuse a close pair, so a sequence-00 gain
-becomes a held out loss. The one lever that helped, changing the clustering
+becomes a held-out loss. The one lever that helped, changing the clustering
 resolution (Section~\ref{sec:resolution-fix}), is also a formation change; it
 works not by escaping this limit but by happening to sit at a resolution that closes
 intra-car gaps before it starts closing inter-car ones. Initially, the recall appeared
@@ -1037,7 +1086,7 @@ hard limit'' was partly a resolution artefact, not a fundamental property of
 the approach: the strategies of Section~\ref{sec:repairs} genuinely do fail, but none
 of them tried this particular resolution setting, and changing it recovered part of
 the loss. The standing recommendation is therefore
-\texttt{cluster\_voxel\_size}~$=\SI{0.10}{\metre}$ in production, not ``accept
+a clustering voxel size of \SI{0.10}{\metre} in production, not ``accept
 \num{0.74}.''
 
 A smaller structural limit does remain, and it is architectural. Coarsening the voxel
@@ -1053,7 +1102,7 @@ analysis locates the ceiling precisely. It lies in the clustering stage; it is s
 rather than classification or merging; and it is lower than first claimed. The analysis
 also maps which repairs cannot move it and which one can.
 
-\subsubsection{Recall Analysis: Summary}
+\subsubsection{The Clustering Bottleneck: A Handoff to Completion}
 \label{sec:recall-summary}
 
 The recall shortfall is clustering bound, not classifier bound: the classifier and
@@ -1080,62 +1129,6 @@ to the limitations and future work discussion of Chapter~\ref{ch:conclusion}.
 % recap and limitations are carried in Chapter~\ref{ch:conclusion} (Established
 % Results and Their Reach; Limitations and Discussion).
 
-\subsection{Runtime Evaluation}
-\label{sec:results-runtime}
-
-Table~\ref{tab:runtime} breaks the per frame cost down by stage, measured over
-the full sequence~08 under the final (promoted) configuration
-(\num{4068} timed frames, RTX~3070~Ti / Ryzen~7~7800X3D;
-per stage figures from \texttt{timing\_seq08\_full\_n4068\_combined.json}). The breakdown shows where
-the time goes. The two classical geometric stages, ground plane RANSAC and,
-above all, HDBSCAN clustering, dominate, together taking roughly
-\SI{68}{\percent} of the frame. Adding preprocessing and the geometric filter,
-the classical CPU stages account for about \SI{94}{\percent}, leaving the single
-learned component, the classifier, at only $\sim$\SI{5.4}{\percent} (the
-centroid/Hungarian tracker is a classical assignment step, not learned). The
-classifier is \SI{33.7}{\milli\second} for the $\sim$\num{45} clusters in a frame
-($\sim$\SI{0.75}{\milli\second} each) and the tracker is negligible.
-
-\begin{table}[H]
-  \centering
-  \caption[Per frame runtime by stage]{Per-frame runtime by stage on the full
-    sequence under the final (promoted) configuration (\num{4068} timed frames; mean ms).
-    Percentages are of the \SI{623.5}{\milli\second} total.}
-  \label{tab:runtime}
-  \begin{tabular}{lcc}
-    \toprule
-    Stage & Mean (ms) & Share \\
-    \midrule
-    Data load                       & 0.7   & 0.1\% \\
-    Preprocessing (z filter, denoise, voxel) & 125.9 & 20.2\% \\
-    Ground removal (RANSAC)         & 56.2  & 9.0\% \\
-    Clustering (HDBSCAN)            & 370.4 & 59.4\% \\
-    Geometric filter                & 36.2  & 5.8\% \\
-    Classification                  & 33.7  & 5.4\% \\
-    Tracking                        & 0.3   & 0.1\% \\
-    \midrule
-    Total                           & 623.5 & 100\% ($\approx$1.6 fps) \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-The promoted configuration is itself the product of a runtime optimisation that
-targeted the dominant classical stages directly: reducing the
-RANSAC iteration count and coarsening the clustering voxel to \SI{0.10}{\metre}
-cut the per frame total by roughly a third, from a pre-optimisation
-\SI{921.3}{\milli\second} to \SI{623.5}{\milli\second} on the full sequence
-(\SI{650.6}{\milli\second} on the stride-20 sample). The coarser voxel also
-improved detection, so it is the promoted configuration used throughout
-this chapter. A sub-\SI{400}{\milli\second} target was shown to be unreachable
-through the authorised optimisation tiers: the post-ground object cloud is
-intrinsically sparse, so coarser voxelisation compresses it little and the Python
-HDBSCAN retains a floor of $\sim$\SI{185}{\milli\second}. The achieved
-operating point was accepted, real-time operation being out of scope (user
-decision, \num{2026}-07-23). Point completion, when it runs, adds
-$\sim$\SI{13}{\milli\second} per completed car on top of detection and is not part
-of the detection budget above.
-
-
 %% ===== merged from sec_5_recall_bottleneck.tex ===== %%
 
 % The Recall Bottleneck (folds under Chapter 4 as a section, not a chapter of its own).
@@ -1159,7 +1152,7 @@ of the detection budget above.
 \label{sec:completion-evaluation}
 
 This section evaluates the completion half of the pipeline: the completion
-results across synthetic fidelity, real data plausibility, and reference free
+results across synthetic fidelity, real data plausibility, and reference-free
 fidelity (Section~\ref{sec:results-completion}), followed by the ablations
 that isolate each completion choice (Section~\ref{sec:abl-completion}).
 
@@ -1174,7 +1167,7 @@ distribution (Section~\ref{sec:results-synthetic}). On real LiDAR no complete
 ground truth shape exists (Section~\ref{sec:bg-completion}), so the completion is judged
 two ways that need no self-made reference: an independent shape classifier tests whether
 the completed real clouds read as cars (Section~\ref{sec:results-plausibility}), the
-favorable real data signal; and the established reference free fidelity metrics are
+favorable real data signal; and the established reference-free fidelity metrics are
 reported with the caveat that they reward under-completion
 (Section~\ref{sec:results-fidelity}). The scope of the resulting claim is stated plainly in
 Section~\ref{sec:results-completion-scope}.
@@ -1184,8 +1177,8 @@ Section~\ref{sec:results-completion-scope}.
 
 Trained on the KITTI-like synthetic partials of Section~\ref{sec:completion-kittilike}
 (input \num{256} points, target the dense mesh sample), the completion network
-(\texttt{pcn\_kitti\_best.pth}) reaches a best validation Chamfer loss of \num{0.1246}. On
-a held out synthetic set, where the complete CAD shape is the ground truth, it produces
+reaches a best validation Chamfer loss of \num{0.1246}. On
+a held-out synthetic set, where the complete CAD shape is the ground truth, it produces
 clean cars rather than blobs: Chamfer distance \SI{0.16}{\meter} and
 F-score@\SI{0.1}{\meter} \num{0.76}. These are established metrics against an established
 ground truth (ShapeNet), and they confirm the network has learned the partial-to-complete
@@ -1198,7 +1191,7 @@ next two subsections address.
 On real cars there is no complete shape to score against, so we adopt the plausibility
 protocol of Chen et al.~\cite{chen2020unpaired}: an independent shape classifier,
 trained on complete shape data disjoint from the completion network's training set, judges
-whether each completed cloud reads as a car. The judge is a PointNet++ (single scale
+whether each completed cloud reads as a car. The judge is a PointNet++ (single-scale
 grouping) trained from scratch on ModelNet40, whose CAD models are drawn from a different
 repository than the ShapeNet cars PCN was trained on, so a car accepted by the judge is not
 an artefact of shared training data. Chen et al.\ use a ModelNet40-trained judge for exactly
@@ -1306,10 +1299,10 @@ heading sign). Re-scoring every completed cloud with an added \SI{180}{\degree} 
 changes acceptance by only \num{0.009}, so the residual heading ambiguity does not affect the
 result.
 
-\subsubsection{Reference Free Fidelity and Its Caveat}
+\subsubsection{Reference-Free Fidelity and Its Caveat}
 \label{sec:results-fidelity}
 
-The field's established reference free metrics score a completion by how closely it reproduces
+The field's established reference-free metrics score a completion by how closely it reproduces
 its own observed input: the unidirectional Chamfer and Hausdorff distances (UCD, UHD;
 Section~\ref{sec:th-distances}), applied to real KITTI cars by Chen et
 al.~\cite{chen2020unpaired} and P2C~\cite{cui2023p2c}. Computed on the seq-08 cars
@@ -1350,7 +1343,7 @@ synthetic shapes (Chamfer \SI{0.16}{\meter}, F@\SI{0.1}{\meter} \num{0.76}), but
 performance is not a real data claim. On real LiDAR the favorable evidence is the
 independent classifier plausibility: completion lifts car acceptance from \num{0.253} to
 \num{0.785}, reaching the static accumulation shape ceiling, consistently across all eleven
-sequences and for moving as well as static cars. The reference free fidelity metrics do not
+sequences and for moving as well as static cars. The reference-free fidelity metrics do not
 credit the completion, and are reported as such rather than omitted. The claim the thesis
 makes is therefore this and no more: on real automotive LiDAR, learned completion produces
 shapes an independent classifier accepts as cars far more often than the raw partials, and as
@@ -1360,7 +1353,7 @@ per car length estimate's fixed prior fallback on tracks with fewer than five ga
 frames (Section~\ref{sec:completion-length}). On the seq-08 output this fallback is used by a
 non-trivial fraction of tracks, and is revisited in the discussion.
 
-\subsection{Ablation Studies}
+\subsection{Completion Ablation Studies}
 \label{sec:abl-completion}
 
 These ablations isolate the effect of each completion pipeline choice; they vary one
@@ -1369,14 +1362,21 @@ completion, with the completion network itself unchanged.
 
 \paragraph{Inference normalisation:} PCN is trained in a canonical car frame, so a real
 partial must be mapped into that frame before completion
-(Section~\ref{sec:completion-normalisation}). The importance of this step is the
-semantics map lesson of Section~\ref{sec:completion-inferencebug} made concrete: with the
+(Section~\ref{sec:completion-normalisation}). The importance of this step is stark: with the
 canonical frame normalisation, the completed clouds are recognisably car-shaped and
 correctly oriented. With a naive alternative, aligning the partial to a 3D PCA frame and
 normalising by its own centroid and radius, the same checkpoint produces mis-oriented,
 mis-scaled blobs, because the 3D PCA picks an arbitrary principal axis rather than gravity.
 The blob-versus-car difference is entirely a normalisation effect, not a network one, since
 the checkpoint is identical.
+
+\paragraph{Sim-to-real fine-tuning (negative result):}
+Initial attempts to run PCN on real cars produced structureless blobs. This was initially
+attributed to a domain gap, but sim-to-real remedies (LiDAR noise augmentation and real
+data fine-tuning) failed to recover car geometry. The blobs were caused entirely by the
+input distribution and the inference normalisation described above, not the network weights.
+Fine-tuning PCN on mined real pairs is therefore reported as a negative result and was
+dropped from the pipeline.
 
 \paragraph{Input quality gate:} The L-shape gate decides whether a detected car reaches
 completion as a clean single object cluster (Section~\ref{sec:completion-lshape}). It
@@ -1395,7 +1395,7 @@ far end under-extension on the longest cars remains, characterised rather than e
 and is carried to the discussion.
 
 \paragraph{Completion architecture (PCN vs.\ PoinTr):} Swapping the completion network
-holds the rest of the pipeline fixed. On held out synthetic cars PoinTr's edge over PCN is
+holds the rest of the pipeline fixed. On held-out synthetic cars PoinTr's edge over PCN is
 small (Chamfer \SI{0.161}{}$\to$\SI{0.153}{\meter}), a difference too small to justify the
 heavier model, and the residual real data gap is a centroid estimation limit that is
 architecture independent. PCN is therefore kept off the shelf; the completion result is set
