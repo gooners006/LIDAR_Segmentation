@@ -1,0 +1,97 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="D7 simplified classifier" id="d7_classifier">
+    <mxGraphModel dx="2076" dy="1160" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1680" pageHeight="420" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="cl" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#9AA0A6;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="one cluster" vertex="1">
+          <mxGeometry height="90" width="160" x="20" y="165" as="geometry" />
+        </mxCell>
+        <mxCell id="g1" parent="1" style="rounded=1;arcSize=5;html=1;fillColor=none;strokeColor=#9AA0A6;strokeWidth=2;dashed=1;dashPattern=8 6;" value="" vertex="1">
+          <mxGeometry height="150" width="965" x="225" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="g2" parent="1" style="rounded=1;arcSize=5;html=1;fillColor=none;strokeColor=#9AA0A6;strokeWidth=2;dashed=1;dashPattern=8 6;" value="" vertex="1">
+          <mxGeometry height="150" width="965" x="225" y="245" as="geometry" />
+        </mxCell>
+        <mxCell id="gl1" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=20;fontStyle=1;labelBackgroundColor=#FFFFFF;fontFamily=Segoe UI;fontColor=#3E4C59;" value="Point branch" vertex="1">
+          <mxGeometry height="24" width="220" x="235" y="18" as="geometry" />
+        </mxCell>
+        <mxCell id="gl2" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=20;fontStyle=1;labelBackgroundColor=#FFFFFF;fontFamily=Segoe UI;fontColor=#3E4C59;" value="Box branch" vertex="1">
+          <mxGeometry height="24" width="220" x="235" y="233" as="geometry" />
+        </mxCell>
+        <mxCell id="b1" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 21px;&quot;&gt;&lt;b&gt;Normalise&lt;/b&gt;&lt;/span&gt;&lt;br&gt;512 points, unit sphere" vertex="1">
+          <mxGeometry height="110" width="210" x="245" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FDE6CC;strokeColor=#D9822B;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 21px;&quot;&gt;&lt;b&gt;Shared MLP&lt;/b&gt;&lt;/span&gt;&lt;br&gt;3 → 256-D" vertex="1">
+          <mxGeometry height="110" width="230" x="490" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="b3" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 21px;&quot;&gt;&lt;b&gt;Max pooling&lt;/b&gt;&lt;/span&gt;&lt;br&gt;per feature" vertex="1">
+          <mxGeometry height="110" width="170" x="755" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="d1" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#9AA0A6;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="shape feature&lt;br&gt;&lt;i&gt;256-D&lt;/i&gt;" vertex="1">
+          <mxGeometry height="80" width="210" x="960" y="65" as="geometry" />
+        </mxCell>
+        <mxCell id="b4" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 21px;&quot;&gt;&lt;b&gt;OBB features&lt;/b&gt;&lt;/span&gt;&lt;br&gt;extents, volume, aspect ratio, ..." vertex="1">
+          <mxGeometry height="110" width="210" x="245" y="265" as="geometry" />
+        </mxCell>
+        <mxCell id="b5" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FDE6CC;strokeColor=#D9822B;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 21px;&quot;&gt;&lt;b&gt;MLP&lt;/b&gt;&lt;/span&gt;&lt;br&gt;8 → 32-D" vertex="1">
+          <mxGeometry height="110" width="230" x="490" y="265" as="geometry" />
+        </mxCell>
+        <mxCell id="d2" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#9AA0A6;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="size feature&lt;br&gt;&lt;i&gt;32-D&lt;/i&gt;" vertex="1">
+          <mxGeometry height="80" width="210" x="960" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="b6" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FDE6CC;strokeColor=#D9822B;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 21px;&quot;&gt;&lt;b&gt;Classification head&lt;/b&gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="110" width="210" x="1230" y="155" as="geometry" />
+        </mxCell>
+        <mxCell id="out" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#9AA0A6;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="car / not-car" vertex="1">
+          <mxGeometry height="80" width="200" x="1480" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="why1" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=19;fontStyle=1;fontFamily=Segoe UI;fontColor=#D9822B;" value="order-invariant: shared MLP + max pooling" vertex="1">
+          <mxGeometry height="28" width="360" x="610" y="196" as="geometry" />
+        </mxCell>
+        <mxCell id="lc" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="" vertex="1">
+          <mxGeometry height="24" width="24" x="1440" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="lct" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=19;fontFamily=Segoe UI;fontColor=#3E4C59;" value="classical (training-free)" vertex="1">
+          <mxGeometry height="24" width="230" x="1472" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="ll" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FDE6CC;strokeColor=#D9822B;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="" vertex="1">
+          <mxGeometry height="24" width="24" x="1440" y="354" as="geometry" />
+        </mxCell>
+        <mxCell id="llt" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=19;fontFamily=Segoe UI;fontColor=#3E4C59;" value="learned" vertex="1">
+          <mxGeometry height="24" width="230" x="1472" y="354" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="cl" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=18;fontFamily=Segoe UI;fontStyle=1;labelBackgroundColor=#FFFFFF;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="b1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="cl" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=18;fontFamily=Segoe UI;fontStyle=1;labelBackgroundColor=#FFFFFF;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="b4" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="b1" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=18;fontFamily=Segoe UI;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="b2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="b2" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=18;fontFamily=Segoe UI;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="b3" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="b3" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=18;fontFamily=Segoe UI;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="d1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="b4" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=18;fontFamily=Segoe UI;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="b5" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="b5" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=18;fontFamily=Segoe UI;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="d2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="d1" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=18;fontFamily=Segoe UI;fontStyle=1;labelBackgroundColor=#FFFFFF;edgeStyle=orthogonalEdgeStyle;rounded=1;entryX=0;entryY=0.25;entryDx=0;entryDy=0;" target="b6" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="d2" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=18;fontFamily=Segoe UI;fontStyle=1;labelBackgroundColor=#FFFFFF;edgeStyle=orthogonalEdgeStyle;rounded=1;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" target="b6" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="b6" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=18;fontFamily=Segoe UI;fontStyle=1;labelBackgroundColor=#FFFFFF;" target="out" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -186,11 +186,32 @@ Completed cars
    → "It's offline by design: the tracker looks at the whole sequence. Real-time was out of
    scope. Per-stage runtime is measured in §4.2.3." (Runtime numbers come in S4.)
 
+6. **"You said stacking frames can't give ground truth, but you stack frames for the
+   'static-accumulation ceiling'."** (added 2026-10-16)
+   → "Stacking a parked car gives a denser shape, but still from roughly the same side, so it
+   isn't a complete ground truth. We use it only as a reference ceiling for the judge (0.807,
+   N=140); no accumulated pseudo-ground truth enters the completion claim [ch5 §Ground Truth and
+   Dataset Assumptions]."
+
+7. **"Why is PointNet in your pipeline if end-to-end networks are the problem?"** (added
+   2026-10-16; slide 1.2 deliberately names RangeNet++, Cylinder3D, PointPillars, CenterPoint,
+   not the PointNet family)
+   → "The problem isn't learning; it's one opaque network trained on dense labels. Our PointNet is
+   a small car/not-car classifier on one cluster at a time, trained on auto-mined labels, so
+   its decision is one inspectable step."
+
+**Precision reminders from the 2026-10-16 retry:**
+- ShapeNet = synthetic **CAD meshes**, not scans. PCN trains on simulated LiDAR-style partial
+  views **rendered from** the meshes.
+- Seq 08 = the classifier's **validation** sequence, not an untouched test set (the final
+  classifier was selected on it), which is why LOSO exists (fold-08: 0.888 / 0.736).
+- No held-out test set because **sequences 11–21 have no public labels**.
+
 ---
 
 ## Part C — Diagrams D1–D3
 
-### Deck-wide conventions (set once in Canva and reuse)
+### Deck-wide conventions (D1 and D2 were drawn by Claude as SVG; their Canva steps below are kept only for reference)
 
 - **Colours:** blue `#DCE8F5` fill / `#2B5C8A` outline = classical; orange `#FDE6CC` /
   `#D9822B` = learned; red `#D7263D` = sensor and things to notice; grey `#9AA0A6` = unseen or
@@ -259,43 +280,112 @@ are never reached; there is a shadow behind the car.
 4. **Pros and cons** under each lane, using ✓ and ✗. **Keep "highest accuracy" as a ✓ on lane
    1.** Being honest on the slide disarms the accuracy question before it's asked.
 
-### D3 — Master pipeline (draw.io → SVG → Canva) — slides 5, 14, plus "you are here"
+### D3 — Master pipeline (draw.io, drawn by you) — slides 2.1 and THE END
 
-The thesis version is vertical. For a 16:9 slide, make it **horizontal**.
+*(Rewritten 2026-10-16 for the local deck. Canva and the "you are here" strip are gone.)*
 
-**Layout:**
+**What D3 must add over D2.** Slide 1.2 (D2) already shows the eight steps as a plain chain,
+so D3 shouldn't repeat it. D3 adds three things:
+1. **The two stages** from the thesis title and `fig:architecture`: *Detection*, then
+   *Completion*, with a data hand-off between them.
+2. **What flows along each arrow** (the I/O labels from `fig:pipeline` and
+   `fig:completion-pipeline`), so a committee member can point anywhere and ask "what's here?".
+3. **The method inside each box** (RANSAC, HDBSCAN, PointNet, PCN), so it works as the Q&A
+   anchor on THE END slide, which stays up for all 30 minutes of questions.
+
+Keep it at **eight steps**, the same as D2 and slide 2.1's key message ("Eight small steps from
+a raw scan to completed cars"). The thesis completion figure has six boxes; here they collapse
+into two, with "rotate back" folded into PCN's output label.
+
+**Layout: two rows, both read left to right.**
 ```
- (Raw scan) → ┌─ SEGMENTATION: points → clusters ─┐  ┌─ DETECTION: clusters → cars ─┐  ┌ COMPLETION ┐ → (Completed cars)
-              │ [Preprocess][Ground][Clustering]  │→ │ [Geo filter][Classifier][Track]│→ │ [Gate+norm][PCN] │
-              └───────────────────────────────────┘  └────────────────────────────────┘  └────────────┘
-               cleaned → non-ground → clusters        candidates → cars → tracked cars    partial → full car
+ ROW 1 ─ DETECTION ────────────────────────────────────────────────────────────────────────
+ (Raw scan) → ┌ Segmentation: points → clusters ┐   ┌ Detection: clusters → cars ┐
+              │ [Preprocess] [Ground   ] [Cluster-]│ → │ [Geometric] [Classifier] [Tracking] │ → (Car detections)
+              │ z·voxel·noise  removal    ing      │   │  filter     PointNet      centroid  │    boxes + track ids
+              └──────────────────────────────────┘   └───────────────────────────────┘         │
+               ↓cleaned      ↓non-ground ↓clusters      ↓candidates ↓car clusters ↓tracked cars    │
+                                                                                                │
+ ROW 2 ─ COMPLETION ───────────────────────────────────────────────────────────────── ┌───────┘
+   ┌ Canonical-frame prep ─────────────────────────┐   ┌ Completion ┐
+ → │ [Gate + normalise                             ]│ → │ [PCN       ]│ → (Completed cars)
+   │  L-shape gate · canonical pose · centre · scale│   │  256 → 4096 │    dense surface + box
+   └───────────────────────────────────────────────┘   └────────────┘
+     ↓256-point input                                    ↓car in sensor frame
 ```
+The hand-off arrow runs from *Car detections* (end of row 1) down and back to the start of
+row 2. Draw.io's elbow connector does this for you.
 
-**Steps in draw.io** (app.diagrams.net → "Device" storage → Blank diagram):
-1. **Grid.** View → tick Grid. Shapes snap to it, which keeps everything aligned.
-2. **First stage box.** From the left panel, drag a rounded rectangle. In the right panel
-   (Style): fill `#DCE8F5`, line `#2B5C8A`, line width 2. Double-click to type
-   "**Ground removal**", press Shift+Enter, then type "RANSAC plane" in a smaller font.
-3. **The other boxes.** Ctrl+D to duplicate and edit the text. Make the Classifier and PCN boxes
-   orange (`#FDE6CC` / `#D9822B`). Keep all boxes the **same size**: select them all, then in
-   Arrange set equal width and height.
-4. **Alignment.** Select a row → Arrange → Align → Middle, then Arrange → Distribute →
-   Horizontally.
-5. **Arrows.** Hover over a box, drag the small blue arrow onto the next box. Draw.io makes a
-   connector that stays attached when you move boxes.
-6. **Phase groups.** Drag a rectangle around each group, set fill to none and line style to
-   dashed, then Arrange → To Back. Put the phase label on its top edge.
-7. **Outputs.** Small grey italic text under each box: "→ non-ground points", etc. These are the
-   I/O contracts, copied from ch3 Fig `fig:pipeline`.
-8. **Ellipses for data.** Use ellipses for "Raw scan" and "Completed cars", with grey fill. The
-   convention is ellipse = data, box = processing.
-9. **Legend.** Bottom right: a blue square "classical (training-free)" and an orange square
-   "learned".
-10. **Export.** File → Export as → SVG, with "Transparent background" ticked. In Canva:
-    Uploads → upload the SVG. It stays sharp at any size.
-11. **"You are here" reuse.** On slides 6–12, shrink the SVG to a strip along the top and place
-    a semi-transparent red rounded rectangle over the current stage. Draw one diagram and use it
-    seven times. It also keeps a non-specialist audience oriented.
+**Box text** (name in bold; method underneath in a smaller font). Colour: blue = classical, orange = learned.
+
+| # | Box | Method line | Colour | Output label (grey italic, under the box) |
+|---|---|---|---|---|
+| 1 | **Preprocess** | height filter · voxel · denoise | blue | → cleaned points |
+| 2 | **Ground removal** | RANSAC plane | blue | → non-ground points |
+| 3 | **Clustering** | HDBSCAN @ 0.10 m | blue | → object clusters |
+| 4 | **Geometric filter** | oriented-box size gates | blue | → car candidates |
+| 5 | **Classifier** | PointNet, car / not-car | orange | → car clusters |
+| 6 | **Tracking** | centroid tracker + track vote | blue | → tracked cars |
+| 7 | **Gate + normalise** | L-shape gate · canonical pose · centre · scale | blue | → 256-point input |
+| 8 | **PCN** | 256 → 4096 points | orange | → car in sensor frame |
+
+Data nodes (grey ellipses): **Raw LiDAR scan**, **Car detections** (boxes + track ids), and
+**Completed cars** (dense surface + box). Small orange labels feeding the two learned boxes,
+as in D2: *auto-mined labels* → Classifier and *synthetic CAD shapes* → PCN.
+
+All of this is from ch3 (`fig:architecture`, `fig:pipeline`, `fig:completion-pipeline`). If you
+want to change a label, check it against those figures first.
+
+**Size and font (so it drops into the deck without rescaling).**
+- Canvas about **1680 × 560 px** (≈ 3:1). It fills THE END slot (1680 × 520) and sits with a
+  little margin on slide 2.1 (1680 × 740).
+- Font **Segoe UI**, the font D1/D2 actually rendered in (Be Vietnam Pro isn't installed).
+  Box names **24 px bold**, method lines **20 px**, output labels **20 px italic grey**, phase
+  labels **22 px bold**. On the slide, 1 px = 0.75 pt, so 20 px ≈ 15 pt, readable from the back
+  of the room.
+- Colours (same as D1/D2): blue `#DCE8F5` fill / `#2B5C8A` line; orange `#FDE6CC` / `#D9822B`;
+  data ellipses `#F3F4F6` / `#9AA0A6`; text `#1F2933`; arrows `#3E4C59`.
+
+**Steps in draw.io** (app.diagrams.net → Device → Blank diagram):
+1. **Page and grid.** File → Page setup → Custom, 1680 × 560. View → Grid on, so shapes snap.
+2. **One box, then copies.** Drag a rounded rectangle, about 190 × 100. Style: fill
+   `#DCE8F5`, line `#2B5C8A`, width 2. Double-click and type the name (bold, 24), Shift+Enter,
+   then the method line (20). Ctrl+D to duplicate for the other boxes. Recolour boxes 5 and 8
+   orange.
+3. **Equal sizes.** Select all eight boxes → Arrange → set the same width and height (box 7 is
+   the exception: make it about twice as wide, since it carries four operations).
+4. **Rows.** Row 1 = boxes 1–6; row 2 = boxes 7–8. Select a row → Arrange → Align → Middle, then
+   Distribute → Horizontally.
+5. **Data ellipses.** Raw scan at the far left of row 1, Car detections at the far right of
+   row 1, Completed cars at the far right of row 2.
+6. **Arrows.** Hover over a box and drag its blue arrow onto the next box, so connectors stay
+   attached when you move things. For the hand-off, connect *Car detections* → box 7 and set the
+   connector to **orthogonal** (Edit style → `edgeStyle=orthogonalEdgeStyle`). It will route
+   down and back.
+7. **Phase groups.** A dashed rectangle with no fill around boxes 1–3 (*Segmentation: points →
+   clusters*), 4–6 (*Detection: clusters → cars*), 7 (*Canonical-frame prep*) and 8
+   (*Completion*). Arrange → To Back. Put the label on the top edge.
+8. **Stage labels.** Left margin, bold: **DETECTION** for row 1 and **COMPLETION** for row 2.
+   These are the two stages of the thesis title.
+9. **Output labels.** Grey italic text under each box (table above).
+10. **Training-source labels.** Small orange text with a short arrow up into boxes 5 and 8.
+11. **Legend.** Bottom right: blue square "classical (training-free)", orange square "learned".
+12. **Save and export.**
+    - File → Save as → Device → `docs/defense/figures/d3_master_pipeline.drawio` (the editable
+      source).
+    - File → Export as → PNG: **Zoom 200%**, border 10, **transparent background off**. Save to
+      `docs/defense/assets/d3_master_pipeline.png`.
+    - Tell me when it's there: I'll wire it into slides 2.1 and THE END and check it at slide
+      size.
+
+**Self-check while drawing.** You should be able to answer each of these by pointing at D3:
+1. Why does the geometric filter come *before* the classifier, and not the other way round?
+   (Hint: it's cheap and removes most of the junk first. Geometric-only leaves 108,831 FP; the
+   classifier cuts that to 4,303 [`tab:ablation-stage`].)
+2. What's on the hand-off arrow, and why is the completion input a **single-frame** cluster,
+   not a stack of frames? [ch3 §Completion Targets]
+3. Why must box 7 come before PCN? Point to the two things the L-shape gate rejects
+   (fragments and merges) and say what would happen to PCN's output without it.
 
 ---
 

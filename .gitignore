@@ -25,7 +25,7 @@ scratchpad/*
 !docs/writing/thesis/*.pdf
 
 # Peer reference deck (not our work; kept locally only)
-docs/LVTN.pptx
+docs/defense/reference/LVTN.pptx
 
 # Downloaded templates
 docs/writing/ICTA_Word+Template/

@@ -4619,3 +4619,99 @@ previously-uncommitted Ch2/Ch4 restructure and Ch3 diagrams accumulated since co
 - User answers the S1 quiz; draws D1–D3 and sends screenshots.
 - Canva → PPTX/PDF export fidelity test.
 - S2 (preprocess, RANSAC, voxels, HDBSCAN → D4–D5), scheduled Oct 15.
+
+---
+
+# Session — 2026-10-16 (Defense prep: S2/S3 study, D3–D9 diagrams, deck fill + wording pass)
+
+> Long multi-day conversation (2026-10-14 → 10-16), compacted mid-way. Pre-compaction items
+> (Canva drop, Deck v2 restructure, S1 retry, D3, D4, S2 notes) are summarised from
+> `project_state.md` / the compaction summary; details may be incomplete.
+
+## What was done
+
+### Earlier in the conversation (from summary)
+- Canva dropped 2026-10-14; deck built locally by `docs/defense/scripts/build_deck.py` →
+  `docs/defense/deck_v2.pptx` (Deck v2, 61 slides, peer-deck I–IV structure).
+- All defense work moved into `docs/defense/` (Canva prompts → `archive/canva/`,
+  `LVTN_extracted.md` → `reference/`).
+- S1 quiz retry graded; D3 master pipeline (user, draw.io scaffold workflow) done.
+- S2 notes `s2_preprocessing_ground_clustering.md`; D4 = data figure
+  (`scripts/make_d4_ransac.py`, seq 08 frame 2500, bad try #2 1,334 vs best try #3 31,707);
+  S2 quiz graded (0.20 m grid never tested — notes corrected); S2 retry skipped by user.
+- Private RANSAC check (`scripts/ransac_300_vs_1000.py`, `ransac_convergence.py`,
+  `qa_backup/ransac_seq08.md`): 204/4071 seq-08 frames a wall wins; kept off the deck.
+- Slide 45 native tab:clustering + tab:splitrate; backup slide 55 "How HDBSCAN Works"
+  (`scripts/make_hdbscan_explainer.py`, toy data, real hdbscan).
+- S3 notes `s3_filter_classifier_mining.md`; new weak spot: classifier trained on clusters mined
+  before the 2026-07-23 config promotion (not re-mined) — kept off the deck.
+- Memory rule: weak spots never in deck slides or notes.
+
+### S3 quiz + spoken answers
+- Graded: concepts fine, numbers missing (0.199/0.773, 0.846/0.676, purity 0.75, 0.9285 vs
+  0.9225, cross-domain 0.000). S2 Q6 (why a car splits) mostly right.
+- Added S3 notes Part E: EN + VI spoken answers for PointNet order invariance, the box branch,
+  and why HDBSCAN splits a car. D6/D7 note sections rewritten; "stages 1–5" flagged as
+  sounding circular on slides.
+
+### Diagrams
+- D6 (user) checked: "stage 1-5" → "preprocess → geometric filter"; label clipping fixed.
+- D7 (user) checked: "Shared MLP 512 → 256-D" wrong (→ 3 → 256-D); "Share MLP" in the box branch
+  → plain "MLP 8 → 32-D"; professional terms (Shared MLP, Max pooling, Classification head).
+- D6 + D7 merged (user request) into `assets/d67_classifier_training.drawio(.png)` via
+  `scripts/make_d67_merged.py`: TRAINING lane → orange "trains" arrow → INFERENCE lane
+  (classifier frame). Inference input says "from our pipeline" (not "same", given the weak spot).
+- D5 regenerated: `scripts/make_d5_clusters.py`, same seq 08 frame 2500 as D4 (pipeline's own
+  preprocess / remove_ground / cluster_objects; 31,707 ground, 51,355 object points, 205
+  clusters, 1,478 noise; one-frame illustration). Replaces the thesis (b)+(c) crop.
+- D3 (user) updated: "Normalise", "track IDs"; two leftovers accepted ("@0.1m", "car/not-car" wrap).
+- D9: `scripts/make_d9_funnel.py` → `assets/d9_stage_funnel.png` (tab:ablation-stage verbatim:
+  TP/FP bars per stage, "≈104,000 false positives removed", "track filter wins back 1,968 true
+  positives").
+
+### Deck (all numbers from the submitted thesis; no re-runs)
+- Whole-deck wording pass (20 edits): "Experimental Evaluation" (ch4 title), "Experimental
+  Setup"; slide 16 track-filter rule (≥ half of frames vote car, per fig:tracker); slide 20 gate
+  → normalise order; slide 7 "class per point or box per object"; slide 48 PoinTr wording;
+  slides 50/51 card titles as noun phrases; slide 53 "Thank you. / Questions are welcome.";
+  removed an "Objective-2 weak spot" pointer from slide 8 notes.
+- "False alarm" → thesis term "false positives" (gloss "false detections"), chart + slide 30.
+- Slide 29 (3.3.1): D9 chart + native table Seq 08 (0.911/0.732/0.812) vs All 11 sequences
+  cross-validated (0.888/0.717/0.793). Held-out seq-08 row moved to speaker notes as a Q&A answer
+  (user: it invites questions).
+- Placeholders filled: slide 6 (literature table from ch2 §2.2), 11 (thesis fig 3.2 crop),
+  14 (fig 3.4 crop + all-gates table + P 0.199 / R 0.773), 15 (D6+D7), 22 (tab:dataset-roles,
+  tab:sensor-spec, tab:dataset), 44 (tab:ablation-stage), 47 (macro-F1 + tab:cross-domain).
+  New `scripts/crop_thesis_figure.py <fig num> <name>` crops TikZ figures from main.pdf.
+- Slide 44 subtitle corrected ("adding one stage at a time", per the thesis).
+
+### Housekeeping
+- Helper scripts moved from the session scratchpad into `docs/defense/scripts/`
+  (scaffolds, d67 merge, drawio_preview, deck_table, dump_deck, hdbscan_toy_stability);
+  memory rule `defense-scripts-in-repo` saved.
+- Student ID: deck's 24MSE13205 is official; thesis says MSE13205 — submitted, left as is.
+
+## Files changed
+- Modified: `.gitignore`, `docs/defense/deck_v2.pptx`, `docs/defense/outline.md`,
+  `docs/defense/s1_problem_data_framework.md`, `docs/defense/scripts/build_deck.py`,
+  `docs/project_state.md`
+- Renamed (staged): `docs/defense/canva_*_prompt*.md` → `docs/defense/archive/canva/`;
+  `docs/LVTN_extracted.md` → `docs/defense/reference/LVTN_extracted.md`
+- New (untracked): `docs/defense/s2_preprocessing_ground_clustering.md`,
+  `docs/defense/s3_filter_classifier_mining.md`, `docs/defense/qa_backup/` (RANSAC check);
+  `docs/defense/assets/` d2, d3 (.drawio + png), d4, d5, d6/d7 (.drawio + png),
+  d67_classifier_training (.drawio + png), d9_stage_funnel, hdbscan_explainer,
+  thesis_geo_filter, thesis_pipeline; `docs/defense/figures/d2_end_to_end_vs_modular.svg`;
+  `docs/defense/scripts/` crop_thesis_figure, d3_merge_completion_group, deck_table,
+  drawio_preview, dump_deck, hdbscan_toy_stability, make_d3_scaffold, make_d4_ransac,
+  make_d4_scaffold, make_d5_clusters, make_d67_merged, make_d6_d7_scaffold, make_d9_funnel,
+  make_hdbscan_explainer, ransac_300_vs_1000, ransac_convergence
+- Nothing committed (user: don't commit until asked).
+
+## Next
+- S4 (Oct 17): tracking + track filter, evaluation protocol (eligibility, IoU, LOSO), results,
+  recall analysis → D8 (user scaffold), D10 crop; S4-scope placeholders 16, 23, 26, 27, 30–33,
+  41, 42, 46.
+- Unverified quiz gaps (user skipped): S1 (annotation claim, seq 08 = validation, no held-out
+  set, PCN partials); S2 Q3b/Q5; S3 numbers.
+- Commit when the user asks.

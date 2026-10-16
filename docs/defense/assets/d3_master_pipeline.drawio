@@ -1,0 +1,151 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="D3 master pipeline" id="d3">
+    <mxGraphModel dx="2076" dy="1160" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1680" pageHeight="560" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="stage1" parent="1" style="text;html=1;horizontal=0;align=center;verticalAlign=middle;fontSize=22;fontStyle=1;fontFamily=Segoe UI;fontColor=#1F2933;" value="DETECTION" vertex="1">
+          <mxGeometry height="140" width="30" x="5" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="raw" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#9AA0A6;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="Raw LiDAR scan" vertex="1">
+          <mxGeometry height="80" width="120" x="50" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="g1" parent="1" style="rounded=1;arcSize=5;html=1;fillColor=none;strokeColor=#9AA0A6;strokeWidth=2;dashed=1;dashPattern=8 6;" value="" vertex="1">
+          <mxGeometry height="140" width="600" x="190" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="b1" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 22px;&quot;&gt;&lt;b&gt;Preprocess&lt;/b&gt;&lt;/span&gt;&lt;br&gt;height filter + voxel + denoise" vertex="1">
+          <mxGeometry height="110" width="170" x="205" y="65" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 22px;&quot;&gt;&lt;b&gt;Remove ground&lt;/b&gt;&lt;/span&gt;&lt;br&gt;RANSAC plane" vertex="1">
+          <mxGeometry height="110" width="170" x="405" y="65" as="geometry" />
+        </mxCell>
+        <mxCell id="b3" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 22px;&quot;&gt;&lt;b&gt;Cluster&lt;/b&gt;&lt;/span&gt;&lt;br&gt;HDBSCAN @0.1m" vertex="1">
+          <mxGeometry height="110" width="170" x="605" y="65" as="geometry" />
+        </mxCell>
+        <mxCell id="g2" parent="1" style="rounded=1;arcSize=5;html=1;fillColor=none;strokeColor=#9AA0A6;strokeWidth=2;dashed=1;dashPattern=8 6;" value="" vertex="1">
+          <mxGeometry height="140" width="600" x="830" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="b4" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 22px;&quot;&gt;&lt;b&gt;Geometric filter&lt;/b&gt;&lt;/span&gt;&lt;br&gt;box size gates" vertex="1">
+          <mxGeometry height="110" width="170" x="845" y="65" as="geometry" />
+        </mxCell>
+        <mxCell id="b5" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FDE6CC;strokeColor=#D9822B;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 22px;&quot;&gt;&lt;b&gt;Classify&lt;/b&gt;&lt;/span&gt;&lt;div&gt;PointNet, car/not-car&lt;/div&gt;" vertex="1">
+          <mxGeometry height="110" width="170" x="1045" y="65" as="geometry" />
+        </mxCell>
+        <mxCell id="b6" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 22px;&quot;&gt;&lt;b&gt;Track&lt;/b&gt;&lt;/span&gt;&lt;br&gt;centroid tracker + track vote" vertex="1">
+          <mxGeometry height="110" width="170" x="1245" y="65" as="geometry" />
+        </mxCell>
+        <mxCell id="det" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#9AA0A6;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="Car detection&lt;br&gt;&lt;i&gt;track IDs&lt;/i&gt;" vertex="1">
+          <mxGeometry height="110" width="200" x="1460" y="65" as="geometry" />
+        </mxCell>
+        <mxCell id="stage2" parent="1" style="text;html=1;horizontal=0;align=center;verticalAlign=middle;fontSize=22;fontStyle=1;fontFamily=Segoe UI;fontColor=#1F2933;" value="COMPLETION" vertex="1">
+          <mxGeometry height="140" width="30" x="5" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="g3" parent="1" style="rounded=1;arcSize=5;html=1;fillColor=none;strokeColor=#9AA0A6;strokeWidth=2;dashed=1;dashPattern=8 6;" value="" vertex="1">
+          <mxGeometry height="140" width="840" x="190" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="b7" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 22px;&quot;&gt;&lt;b&gt;Gate &amp;amp; Normalise&lt;/b&gt;&lt;/span&gt;&lt;br&gt;L-shape gate + canonical pose + scale" vertex="1">
+          <mxGeometry height="110" width="570" x="205" y="335" as="geometry" />
+        </mxCell>
+        <mxCell id="b8" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FDE6CC;strokeColor=#D9822B;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 22px;&quot;&gt;&lt;b&gt;Complete&lt;/b&gt;&lt;/span&gt;&lt;br&gt;PCN, 256 → 4096 points" vertex="1">
+          <mxGeometry height="110" width="170" x="845" y="335" as="geometry" />
+        </mxCell>
+        <mxCell id="done" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#9AA0A6;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="Completed cars&lt;br&gt;&lt;i&gt;dense 4096-point surface&lt;/i&gt;" vertex="1">
+          <mxGeometry height="110" width="240" x="1060" y="335" as="geometry" />
+        </mxCell>
+        <mxCell id="gl1" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=20;fontStyle=1;labelBackgroundColor=#FFFFFF;fontFamily=Segoe UI;fontColor=#3E4C59;" value="Segmentation: points → clusters" vertex="1">
+          <mxGeometry height="24" width="330" x="200" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="gl2" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=20;fontStyle=1;labelBackgroundColor=#FFFFFF;fontFamily=Segoe UI;fontColor=#3E4C59;" value="Detection: clusters → cars" vertex="1">
+          <mxGeometry height="24" width="290" x="840" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="gl3" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=20;fontStyle=1;labelBackgroundColor=#FFFFFF;fontFamily=Segoe UI;fontColor=#3E4C59;" value="Completion: partial car → full car" vertex="1">
+          <mxGeometry height="24" width="360" x="200" y="308" as="geometry" />
+        </mxCell>
+        <mxCell id="o1" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=19;fontStyle=2;fontFamily=Segoe UI;fontColor=#6B7280;" value="→ cleaned points" vertex="1">
+          <mxGeometry height="24" width="170" x="205" y="196" as="geometry" />
+        </mxCell>
+        <mxCell id="o2" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=19;fontStyle=2;fontFamily=Segoe UI;fontColor=#6B7280;" value="→ non-ground points" vertex="1">
+          <mxGeometry height="24" width="170" x="405" y="196" as="geometry" />
+        </mxCell>
+        <mxCell id="o3" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=19;fontStyle=2;fontFamily=Segoe UI;fontColor=#6B7280;" value="→ clusters" vertex="1">
+          <mxGeometry height="24" width="170" x="605" y="196" as="geometry" />
+        </mxCell>
+        <mxCell id="o4" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=19;fontStyle=2;fontFamily=Segoe UI;fontColor=#6B7280;" value="→ candidates" vertex="1">
+          <mxGeometry height="24" width="170" x="845" y="196" as="geometry" />
+        </mxCell>
+        <mxCell id="o5" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=19;fontStyle=2;fontFamily=Segoe UI;fontColor=#6B7280;" value="→ car clusters" vertex="1">
+          <mxGeometry height="24" width="170" x="1045" y="196" as="geometry" />
+        </mxCell>
+        <mxCell id="o6" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=19;fontStyle=2;fontFamily=Segoe UI;fontColor=#6B7280;" value="→ tracked cars" vertex="1">
+          <mxGeometry height="24" width="170" x="1245" y="196" as="geometry" />
+        </mxCell>
+        <mxCell id="o7" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=19;fontStyle=2;fontFamily=Segoe UI;fontColor=#6B7280;" value="→ 256-point input" vertex="1">
+          <mxGeometry height="24" width="570" x="205" y="466" as="geometry" />
+        </mxCell>
+        <mxCell id="o8" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=19;fontStyle=2;fontFamily=Segoe UI;fontColor=#6B7280;" value="→ 4096-point car" vertex="1">
+          <mxGeometry height="24" width="200" x="830" y="466" as="geometry" />
+        </mxCell>
+        <mxCell id="t5" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=19;fontStyle=1;fontFamily=Segoe UI;fontColor=#D9822B;" value="trained on: auto-mined SemanticKITTI labels" vertex="1">
+          <mxGeometry height="24" width="200" x="1070" y="6" as="geometry" />
+        </mxCell>
+        <mxCell id="t8" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=19;fontStyle=1;fontFamily=Segoe UI;fontColor=#D9822B;" value="trained on: synthetic ShapeNet cars" vertex="1">
+          <mxGeometry height="24" width="200" x="890" y="276" as="geometry" />
+        </mxCell>
+        <mxCell id="lc" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="" vertex="1">
+          <mxGeometry height="24" width="24" x="1330" y="372" as="geometry" />
+        </mxCell>
+        <mxCell id="lct" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=19;fontFamily=Segoe UI;fontColor=#3E4C59;" value="classical (training-free)" vertex="1">
+          <mxGeometry height="24" width="230" x="1362" y="372" as="geometry" />
+        </mxCell>
+        <mxCell id="ll" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FDE6CC;strokeColor=#D9822B;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="" vertex="1">
+          <mxGeometry height="24" width="24" x="1330" y="408" as="geometry" />
+        </mxCell>
+        <mxCell id="llt" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=19;fontFamily=Segoe UI;fontColor=#3E4C59;" value="learned" vertex="1">
+          <mxGeometry height="24" width="230" x="1362" y="408" as="geometry" />
+        </mxCell>
+        <mxCell id="e0" edge="1" parent="1" source="raw" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;" target="b1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="b1" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;" target="b2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="b2" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;" target="b3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="b3" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;" target="b4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="b4" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;" target="b5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="b5" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;" target="b6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="b6" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;" target="det">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="hand" edge="1" parent="1" source="det" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="b7">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1560" y="250" />
+              <mxPoint x="120" y="250" />
+              <mxPoint x="120" y="390" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="b7" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;" target="b8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="b8" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;" target="done">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="tr5" edge="1" parent="1" source="t5" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;strokeColor=#D9822B;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.735;entryY=0;entryDx=0;entryDy=0;" target="b5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="tr8" edge="1" parent="1" source="t8" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;strokeColor=#D9822B;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.853;entryY=0;entryDx=0;entryDy=0;" target="b8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
