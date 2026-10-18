@@ -4,8 +4,12 @@ Finds the page whose caption block starts with "Figure <num>:", takes the region
 last full-width body paragraph above the caption and the caption itself, tightens it to the
 drawings and text inside, and renders it. Vector TikZ figures come out sharp at any zoom.
 
-Usage: .venv/Scripts/python.exe docs/defense/scripts/crop_thesis_figure.py 3.4 geo_filter
+Usage: .venv/Scripts/python.exe docs/defense/scripts/crop_thesis_figure.py 3.4 geo_filter [top_trim [bottom_trim]]
        -> docs/defense/assets/thesis_geo_filter.png
+top_trim (PDF points, optional): drop that much from the top, for a short last body line that the
+full-width test misses. bottom_trim (PDF points, optional): drop that much from the bottom.
+3.7 is cut as `3.7 completion_pipeline 16 84`: drops a stray body line on top and the output
+ellipse + legend at the bottom (its 'dense surface + box' label: no box is ever output).
 """
 import sys
 from pathlib import Path
@@ -15,6 +19,8 @@ import pymupdf
 ROOT = Path(__file__).resolve().parents[3]
 PDF = ROOT / "docs/writing/thesis/main.pdf"
 num, name = sys.argv[1], sys.argv[2]
+TOP_TRIM = float(sys.argv[3]) if len(sys.argv) > 3 else 0.0
+BOTTOM_TRIM = float(sys.argv[4]) if len(sys.argv) > 4 else 0.0
 OUT = ROOT / f"docs/defense/assets/thesis_{name}.png"
 ZOOM, PAD = 4, 4  # 4x = 288 dpi; PAD in PDF points
 
@@ -40,6 +46,6 @@ for g in page.get_drawings():
     if r.y0 >= top - 1 and r.y1 <= cap_top + 1:
         region |= r
 assert not region.is_empty, "nothing found between paragraph and caption"
-clip = pymupdf.Rect(region.x0 - PAD, region.y0 - PAD, region.x1 + PAD, region.y1 + PAD)
+clip = pymupdf.Rect(region.x0 - PAD, region.y0 - PAD + TOP_TRIM, region.x1 + PAD, region.y1 + PAD - BOTTOM_TRIM)
 page.get_pixmap(matrix=pymupdf.Matrix(ZOOM, ZOOM), clip=clip, alpha=False).save(OUT)
 print(f"page {pno + 1}: clip {[round(v) for v in clip]} -> {OUT}")

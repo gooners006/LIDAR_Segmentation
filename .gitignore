@@ -27,6 +27,9 @@ scratchpad/*
 # Peer reference deck (not our work; kept locally only)
 docs/defense/reference/LVTN.pptx
 
+# Font-embedded deck export (regenerate with docs/defense/scripts/export_deck.ps1)
+docs/defense/deck_v2_embedded.pptx
+
 # Downloaded templates
 docs/writing/ICTA_Word+Template/
 docs/writing/lncs-template/

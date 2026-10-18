@@ -4715,3 +4715,91 @@ previously-uncommitted Ch2/Ch4 restructure and Ch3 diagrams accumulated since co
 - Unverified quiz gaps (user skipped): S1 (annotation claim, seq 08 = validation, no held-out
   set, PCN partials); S2 Q3b/Q5; S3 numbers.
 - Commit when the user asks.
+
+---
+
+# Session — 2026-10-18 (Defense prep: S4–S6, backups, Q&A bank, talk script, exports)
+
+> Long conversation, compacted mid-way. S4/S5 items are summarised from `project_state.md` as
+> written during the session; details may be incomplete. Some docs were stamped 2026-10-19 by
+> mistake; corrected to 2026-10-18 in this entry's commit.
+
+## What was done
+
+### S4 — tracking + evaluation (from project_state)
+- Notes `docs/defense/s4_tracking_evaluation_results.md`; slides 16, 23, 26, 27, 30–33, 41, 42,
+  46 filled; D8 tracking timeline (user draw.io) on 16; D10 split-car crop
+  (`scripts/make_d10_crop.py`) on 31; LOSO grid (`scripts/make_loso_grid.py`) on 27.
+- S4 quiz 5/7; gaps: recall denominator (≈ 0.55), LOSO argument, range-table caveat.
+- New weak spots (off deck): tracker 2 m gate vs fast cars (speculative); tracker uses dataset poses.
+
+### S5 — completion method (from project_state)
+- Notes `docs/defense/s5_completion_method.md`; 2.3 slides reordered to follow D11: 17 = D11 (★),
+  18 = D14 training partials, 19 = D15 check/turn/shift/size on car C, 20 = gate + constants.
+- New weak spots: PCN trained on car + bus + motorcycle; training rotation rolled cars about the
+  length axis; completion coverage (2,822 / 5,496) and length fallback 30%.
+- Fonts: Segoe UI everywhere (user decision; Be Vietnam Pro dropped). S5 quiz dropped by user.
+
+### S6 — completion evaluation
+- Notes `docs/defense/s6_completion_evaluation.md` (Parts A–E, traps 1–18).
+- Slides: 25 baselines table; 36 = D12a judge schematic (user draw.io from
+  `scripts/make_d12a_scaffold.py`) + D12b native chart (tab:plausibility 0.253 / 0.785 / 0.807);
+  37 = D16 synthetic example (`scripts/make_d16_synthetic_example.py`, median-CD car of 30 val
+  cars); 38 = tab:plausibility-seq + cards; 39 = tab:fidelity + cards; 48 = ablation table.
+- Judge alignment weak spot settled: `scripts/check_judge_aligned.py` →
+  `qa_backup/judge_aligned_rescore.json`; unaligned rerun reproduces 0.253 / 0.785; aligned
+  raw 0.311 → completed 0.852, McNemar 1,644 vs 117. Pre-registered reading: headline holds.
+- New weak spots: synthetic CD uses training placement; "96%" pairs subsets (say 93–96%); UCD
+  formula squared vs reported plain mean; real-data PCN fine-tuning never run (deck slide 48
+  corrected to "fine-tune on noisier simulated scans"; qa_bank Part 2).
+
+### Backups 56–61
+- 56 repair strategies (tab:strategies); 57 "Normalisation Ablation on a Real Car"
+  (`scripts/make_b57_normalisation_ablation.py`: car C, naive path from git `896ff9c` gives
+  5.05 × 3.47 × 2.64 m vs production 3.88 × 1.81 × 1.65 m, same checkpoint); 58 judge
+  independence; 59 UCD/UHD toy (`scripts/make_b59_ucd_uhd.py`); 60 IoU worked example;
+  61 tab:pipeline-config.
+
+### Q&A bank + planted hooks
+- `docs/defense/qa_bank.md`: Part 1 hooks H1–H5 (★ notes on slides 17, 26, 31, 36, 51 say a
+  line and stop, pointing to backup/support slides); Part 2 do-not-open list; Part 3 = 18
+  generalist questions with EN/VI answers and traps (non-specialist committee).
+
+### Talk script, timing, exports
+- `docs/defense/talk_script.md`: EN + VI for the 21 ★ slides; `build_deck.py add_vi_script`
+  appends each VI line to the slide's notes, asserting the title matches.
+- `scripts/talk_timing.py`: ≈ 10:00 (8:44–11:38) at ASSUMED 3.5 syll/s (3.0–4.0) vs 14:35
+  budget; no slide over. Pre-registered rehearsal rule (< 12:00 add 0:30; 12:00–14:50 keep;
+  > 14:50 cut).
+- `scripts/export_deck.ps1` → `deck_v2.pdf` (61 pages, Segoe UI embedded, checked with
+  pdfminer) + `deck_v2_embedded.pptx`. After PowerPoint was closed: rebuilt `deck_v2.pptx`
+  (text and notes identical to the temporary `deck_v2_new.pptx` on all 61 slides; 21 slides
+  carry VI notes), re-exported, deleted `deck_v2_new.pptx`.
+
+## Files changed
+- Modified: `.gitignore` (ignore `deck_v2_embedded.pptx`), `docs/defense/deck_v2.pptx`,
+  `docs/defense/outline.md`, `docs/defense/scripts/build_deck.py`,
+  `docs/defense/scripts/crop_thesis_figure.py`, `docs/project_state.md`,
+  `docs/session_history.md`
+- New: notes `s4_tracking_evaluation_results.md`, `s5_completion_method.md`,
+  `s6_completion_evaluation.md`, `qa_bank.md`, `talk_script.md`;
+  `qa_backup/judge_aligned_rescore.json`; `figures/completion_candidates*.{json,png}`;
+  `assets/` b57, b59, d8 (.drawio + png), d10, d11 (.drawio + png), d12a (.drawio + png), d13,
+  d14, d15, d16, loso_grid, thesis_bev_detections, thesis_bg_fidelity, thesis_bg_iou,
+  thesis_completion_pipeline, thesis_kitti_like_partial, thesis_lshape_gate, thesis_pcn;
+  `scripts/` check_completion_heading, check_judge_aligned, export_deck.ps1,
+  make_b57_normalisation_ablation, make_b59_ucd_uhd, make_d10_crop, make_d11_scaffold,
+  make_d12a_scaffold, make_d13_completion_example, make_d14_partials, make_d15_normalisation,
+  make_d16_synthetic_example, make_d8_scaffold, make_loso_grid, pick_completion_examples,
+  render_completion_candidates, talk_timing
+- Not committed (gitignored exports): `deck_v2.pdf`, `deck_v2_embedded.pptx`.
+
+## Results / findings
+- Aligned judge re-score (measured, not in thesis): raw 0.311 → completed 0.852; thesis 0.785
+  is conservative.
+- Talk length estimate ≈ 10:00 (assumed pace, not measured).
+
+## Next
+- Timed Vietnamese rehearsal; apply the pre-registered timing rule; record the real pace.
+- Mock defenses Oct 23–24 (hooks H1–H5 aloud, random Part 3 questions).
+- Optional S6 quiz. Defense 2026-10-25.

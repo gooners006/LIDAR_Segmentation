@@ -1,0 +1,108 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="D11 PCN training and inference" id="d11">
+    <mxGraphModel dx="1531" dy="967" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1560" pageHeight="640" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="lane1" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;fontFamily=Segoe UI;fontColor=#1F2933;" value="TRAINING &amp;nbsp;&lt;span style=&quot;font-weight:normal;font-size:19px;color:#6B7280&quot;&gt;offline, synthetic shapes only&lt;/span&gt;" vertex="1">
+          <mxGeometry height="30" width="900" x="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lane2" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;fontFamily=Segoe UI;fontColor=#1F2933;" value="INFERENCE &amp;nbsp;&lt;span style=&quot;font-weight:normal;font-size:19px;color:#6B7280&quot;&gt;on a real scan, weights frozen&lt;/span&gt;" vertex="1">
+          <mxGeometry height="30" width="900" x="20" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="mesh" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#9AA0A6;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="ShapeNet mesh&lt;br&gt;&lt;i&gt;complete shape&lt;/i&gt;" vertex="1">
+          <mxGeometry height="100" width="190" x="20" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="gen" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 21px;&quot;&gt;&lt;b&gt;Simulated LiDAR view&lt;/b&gt;&lt;/span&gt;&lt;br&gt;one HDL-64E viewpoint, 8 – 30m,&lt;br&gt;0.05m voxels, ground cut" vertex="1">
+          <mxGeometry height="130" width="290" x="250" y="65" as="geometry" />
+        </mxCell>
+        <mxCell id="pcn1" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FDE6CC;strokeColor=#D9822B;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 21px;&quot;&gt;&lt;b&gt;PCN&lt;/b&gt;&lt;/span&gt;&lt;br&gt;256 pts in → 1024 coarse → 4096 pts out" vertex="1">
+          <mxGeometry height="130" width="300" x="600" y="65" as="geometry" />
+        </mxCell>
+        <mxCell id="loss" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#3E4C59;strokeWidth=2;fontSize=18;fontFamily=Segoe UI;fontColor=#1F2933;" value="Chamfer&lt;br&gt;loss" vertex="1">
+          <mxGeometry height="150" width="210" x="960" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="tgt" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#9AA0A6;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="target:&lt;br&gt;&lt;i&gt;full mesh sample&lt;/i&gt;" vertex="1">
+          <mxGeometry height="100" width="220" x="1230" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="o1" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=18;fontStyle=2;fontFamily=Segoe UI;fontColor=#6B7280;" value="→ partial that looks like a real scan" vertex="1">
+          <mxGeometry height="26" width="290" x="250" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="real" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#9AA0A6;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="real car cluster&lt;br&gt;&lt;i&gt;one frame&lt;/i&gt;" vertex="1">
+          <mxGeometry height="100" width="190" x="20" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="gate" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 21px;&quot;&gt;&lt;b&gt;L-shape gate&lt;/b&gt;&lt;/span&gt;&lt;br&gt;length ≥ 2.7 m,&lt;br&gt;width ≤ 2.3 m" vertex="1">
+          <mxGeometry height="130" width="220" x="250" y="375" as="geometry" />
+        </mxCell>
+        <mxCell id="norm" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 21px;&quot;&gt;&lt;b&gt;Canonical frame&lt;/b&gt;&lt;/span&gt;&lt;br&gt;rotate · centre (width prior 1.9 m) ·&lt;br&gt;scale ÷ 1.137" vertex="1">
+          <mxGeometry height="130" width="270" x="510" y="375" as="geometry" />
+        </mxCell>
+        <mxCell id="pcn2" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FDE6CC;strokeColor=#D9822B;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 21px;&quot;&gt;&lt;b&gt;PCN&lt;/b&gt;&lt;/span&gt;&lt;br&gt;same weights" vertex="1">
+          <mxGeometry height="130" width="220" x="820" y="375" as="geometry" />
+        </mxCell>
+        <mxCell id="back" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="&lt;span style=&quot;font-size: 21px;&quot;&gt;&lt;b&gt;Rotate back&lt;/b&gt;&lt;/span&gt;&lt;br&gt;to the scan" vertex="1">
+          <mxGeometry height="130" width="200" x="1080" y="375" as="geometry" />
+        </mxCell>
+        <mxCell id="out" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#9AA0A6;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="completed car&lt;br&gt;&lt;i&gt;4096 points&lt;/i&gt;" vertex="1">
+          <mxGeometry height="100" width="200" x="1320" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="o2" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=18;fontStyle=2;fontFamily=Segoe UI;fontColor=#6B7280;" value="→ same frame as in training" vertex="1">
+          <mxGeometry height="26" width="270" x="510" y="510" as="geometry" />
+        </mxCell>
+        <mxCell id="why" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=20;fontStyle=1;fontFamily=Segoe UI;fontColor=#D9822B;" value="The bridge: training inputs look like real scans, and real scans are put into the training frame" vertex="1">
+          <mxGeometry height="30" width="1500" x="20" y="570" as="geometry" />
+        </mxCell>
+        <mxCell id="lc" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#2B5C8A;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="" vertex="1">
+          <mxGeometry height="24" width="24" x="1250" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="lct" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=18;fontFamily=Segoe UI;fontColor=#3E4C59;" value="classical (training-free)" vertex="1">
+          <mxGeometry height="24" width="230" x="1282" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="ll" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FDE6CC;strokeColor=#D9822B;strokeWidth=2;fontSize=19;fontFamily=Segoe UI;fontColor=#1F2933;" value="" vertex="1">
+          <mxGeometry height="24" width="24" x="1250" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="llt" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=18;fontFamily=Segoe UI;fontColor=#3E4C59;" value="learned" vertex="1">
+          <mxGeometry height="24" width="230" x="1282" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="mesh" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=17;fontFamily=Segoe UI;labelBackgroundColor=#FFFFFF;" target="gen" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="gen" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=17;fontFamily=Segoe UI;labelBackgroundColor=#FFFFFF;" target="pcn1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="pcn1" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=17;fontFamily=Segoe UI;labelBackgroundColor=#FFFFFF;" target="loss" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="tgt" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=17;fontFamily=Segoe UI;labelBackgroundColor=#FFFFFF;" target="loss" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="mesh" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=17;fontFamily=Segoe UI;labelBackgroundColor=#FFFFFF;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="tgt" value="sample">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="115" y="40" />
+              <mxPoint x="1340" y="40" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f1" edge="1" parent="1" source="real" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=17;fontFamily=Segoe UI;labelBackgroundColor=#FFFFFF;" target="gate" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f2" edge="1" parent="1" source="gate" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=17;fontFamily=Segoe UI;labelBackgroundColor=#FFFFFF;" target="norm" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f3" edge="1" parent="1" source="norm" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=17;fontFamily=Segoe UI;labelBackgroundColor=#FFFFFF;" target="pcn2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f4" edge="1" parent="1" source="pcn2" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=17;fontFamily=Segoe UI;labelBackgroundColor=#FFFFFF;" target="back" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f5" edge="1" parent="1" source="back" style="endArrow=block;endFill=1;html=1;strokeColor=#3E4C59;strokeWidth=3;fontSize=17;fontFamily=Segoe UI;labelBackgroundColor=#FFFFFF;" target="out" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="same" edge="1" parent="1" source="pcn1" style="endArrow=block;endFill=1;html=1;strokeColor=#D9822B;strokeWidth=3;dashed=1;fontSize=19;fontFamily=Segoe UI;fontStyle=1;fontColor=#D9822B;labelBackgroundColor=#FFFFFF;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="pcn2" value="same weights">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

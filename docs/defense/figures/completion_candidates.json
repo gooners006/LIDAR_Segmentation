@@ -1,0 +1,114 @@
+{
+ "rule": "raw rejected & completed accepted; raw points in [310, 1874] (P25-P75 of N=2822); seed 0",
+ "pool_size": 807,
+ "candidates": [
+  {
+   "label": "A",
+   "seq": "08",
+   "track": 19375,
+   "raw_points": 1413,
+   "mover": false,
+   "raw_carprob": 0.243,
+   "completed_carprob": 0.999
+  },
+  {
+   "label": "B",
+   "seq": "00",
+   "track": 1367,
+   "raw_points": 1034,
+   "mover": false,
+   "raw_carprob": 0.122,
+   "completed_carprob": 1.0
+  },
+  {
+   "label": "C",
+   "seq": "03",
+   "track": 192,
+   "raw_points": 1245,
+   "mover": false,
+   "raw_carprob": 0.013,
+   "completed_carprob": 1.0
+  },
+  {
+   "label": "D",
+   "seq": "06",
+   "track": 1803,
+   "raw_points": 600,
+   "mover": true,
+   "raw_carprob": 0.069,
+   "completed_carprob": 1.0
+  },
+  {
+   "label": "E",
+   "seq": "01",
+   "track": 640,
+   "raw_points": 937,
+   "mover": true,
+   "raw_carprob": 0.173,
+   "completed_carprob": 1.0
+  },
+  {
+   "label": "F",
+   "seq": "00",
+   "track": 12181,
+   "raw_points": 1590,
+   "mover": false,
+   "raw_carprob": 0.008,
+   "completed_carprob": 1.0
+  },
+  {
+   "label": "G",
+   "seq": "00",
+   "track": 19232,
+   "raw_points": 794,
+   "mover": false,
+   "raw_carprob": 0.006,
+   "completed_carprob": 1.0
+  },
+  {
+   "label": "H",
+   "seq": "00",
+   "track": 2774,
+   "raw_points": 908,
+   "mover": false,
+   "raw_carprob": 0.01,
+   "completed_carprob": 0.32
+  },
+  {
+   "label": "I",
+   "seq": "06",
+   "track": 4803,
+   "raw_points": 520,
+   "mover": false,
+   "raw_carprob": 0.006,
+   "completed_carprob": 1.0
+  },
+  {
+   "label": "J",
+   "seq": "08",
+   "track": 17037,
+   "raw_points": 767,
+   "mover": false,
+   "raw_carprob": 0.122,
+   "completed_carprob": 0.967
+  },
+  {
+   "label": "K",
+   "seq": "08",
+   "track": 30939,
+   "raw_points": 392,
+   "mover": false,
+   "raw_carprob": 0.165,
+   "completed_carprob": 0.597
+  },
+  {
+   "label": "L",
+   "seq": "00",
+   "track": 5306,
+   "raw_points": 471,
+   "mover": false,
+   "raw_carprob": 0.083,
+   "completed_carprob": 0.999
+  }
+ ]
+}

@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets"
 OUT = ROOT / "deck_v2.pptx"
 
-FONT = "Be Vietnam Pro"
+FONT = "Segoe UI"
 DARK = RGBColor(0x1F, 0x29, 0x33)     # bars + main text
 MUTED = RGBColor(0x6B, 0x72, 0x80)    # placeholder labels
 PH_FILL = RGBColor(0xF7, 0xF7, 0xF7)
@@ -361,6 +361,394 @@ def lay_problem(sl, _):
          align=PP_ALIGN.CENTER)
 
 
+def lay_eligibility(sl, _):
+    """3.1.2: ch4 §Target Eligibility rule and stride-20 counts, verbatim."""
+    w = X1 - X0 - GAP
+    wl = w * 0.45
+    xr = X0 + wl + GAP
+    text(sl, X0, Y0 + 20, wl, Y1 - Y0 - 40,
+         ["Ground truth: SemanticKITTI's own car and moving-car instances.",
+          "A car is scored only if at least 10 of its points survive preprocessing and ground removal.",
+          "With fewer points no clustering method can segment it: counting it would measure sensor "
+          "sparsity, not the pipeline."], 26, space_after=24)
+    rows = [["Seq 08 sample (204 frames)", "Car instances"],
+            ["Annotated", "2,332"],
+            ["Eligible (≥ 10 surviving points)", "1,737"],
+            ["Excluded", "25.5%"]]
+    yb = table(sl, xr, Y0 + 20, w - wl, rows, [2.2, 1.0], size=22, row_h=66, bold={(3, 1)})
+    rows = [["Recall measured against", "Recall"],
+            ["Eligible cars (headline)", "0.732"],
+            ["All annotated cars (inferred)", "≈ 0.55"]]
+    yb = table(sl, xr, yb + 40, w - wl, rows, [2.2, 1.0], size=22, row_h=66, bold={(1, 1)})
+    text(sl, xr, yb + 16, w - wl, 60, "0.732 × (1,737 / 2,332) ≈ 0.55", 22, color=MUTED)
+
+
+def lay_metrics(sl, _):
+    """3.2.2: thesis fig:bg-iou + ch4 §Evaluation Metrics; completion metric = ch4 §plausibility."""
+    w = X1 - X0 - GAP
+    wl = w * 0.58
+    xr = X0 + wl + GAP
+    ix, iy, iw, ih = image_fit(sl, ASSETS / "thesis_bg_iou.png", X0, Y0, wl, 520)
+    text(sl, X0, Y0 + 540, wl, Y1 - Y0 - 540,
+         ["Best overlap first, one-to-one: matched = TP, unmatched detection = FP, missed car = FN.",
+          "Counts are summed over every frame of the sequence."], 22, space_after=8)
+    card(sl, xr, Y0, w - wl, Y1 - Y0, "Completion: plausibility",
+         "An independent judge, a PointNet++ classifier trained on ModelNet40 shapes, labels each "
+         "completed car. Score = the share it calls a car.")
+
+
+def lay_loso(sl, _):
+    """3.2.3: LOSO grid (scripts/make_loso_grid.py) + tab:headline / tab:loso rows, verbatim."""
+    w = X1 - X0 - GAP
+    wl = w * 0.5
+    xr = X0 + wl + GAP
+    image_fit(sl, ASSETS / "loso_grid.png", X0, Y0, wl, Y1 - Y0)
+    rows = [["", "Precision", "Recall", "F1"],
+            ["Seq 08, final classifier", "0.911", "0.732", "0.812"],
+            ["Seq 08, blind fold", "0.888", "0.736", "0.805"],
+            ["All 11 folds, pooled", "0.888", "0.717", "0.793"]]
+    yb = table(sl, xr, Y0 + 40, w - wl, rows, [2.3, 1.2, 1.0, 0.9], size=22, row_h=72,
+               bold={(3, 0), (3, 1), (3, 2), (3, 3)})
+    text(sl, xr, yb + 30, w - wl, 260,
+         ["Each fold: 15 epochs, last checkpoint kept, no selection on the test sequence.",
+          "Choosing the final checkpoint on seq 08 bought about 2 precision points and no recall."],
+         22, space_after=12)
+
+
+def lay_recall_limit(sl, _):
+    """3.3.3: D10 (thesis fig:failure-zooms, frame-250 row) + split rate and recall by range
+    (ch4 §split analysis at 0.10 m; tab:distance recall), verbatim."""
+    ix, iy, iw, ih = image_fit(sl, ASSETS / "d10_split_car_frame250.png", X0, Y0, X1 - X0, 500)
+    rows = [["Range", "0–10 m", "10–20 m", "20–40 m", "40 m+"],
+            ["Cars split by clustering", "53.5%", "40.2%", "22.3%", "3.5%"],
+            ["Recall (per frame)", "0.787", "0.862", "0.550", "0.196"]]
+    table(sl, X0, iy + ih + 24, X1 - X0, rows, [2.4, 1, 1, 1, 1], size=22, row_h=60,
+          bold={(1, 1), (2, 2)})
+
+
+def lay_distance(sl, _):
+    """3.3.4: tab:distance, verbatim (stride-20, per frame, track filter off)."""
+    rows = [["Range (m)", "Precision", "Recall", "F1", "Mean IoU", "TP / FP / FN"],
+            ["0–10", "0.899", "0.787", "0.839", "0.902", "311 / 35 / 84"],
+            ["10–20", "0.869", "0.862", "0.866", "0.926", "432 / 65 / 69"],
+            ["20–40", "0.799", "0.550", "0.652", "0.934", "401 / 101 / 328"],
+            ["40+", "0.512", "0.196", "0.284", "0.943", "22 / 21 / 90"],
+            ["Pooled", "0.840", "0.671", "0.746", "0.923", "1,166 / 222 / 571"]]
+    yb = table(sl, X0, Y0 + 20, X1 - X0, rows, [1.2, 1.1, 1.0, 0.9, 1.1, 2.0], size=24, row_h=70,
+               bold={(2, 2)})
+    text(sl, X0, yb + 26, X1 - X0, 200,
+         ["Nearest cars: lower recall than 10–20 m despite more points, because half of them are split.",
+          "Beyond 20 m: ordinary sparsity. Per frame with the track filter off, so read it as a trend."],
+         24, space_after=10)
+
+
+def lay_runtime(sl, _):
+    """3.5.1: tab:runtime, verbatim."""
+    w = X1 - X0 - GAP
+    wl = w * 0.6
+    xr = X0 + wl + GAP
+    rows = [["Stage", "Mean (ms)", "Share"],
+            ["Data load", "0.7", "0.1%"],
+            ["Preprocessing", "125.9", "20.2%"],
+            ["Ground removal (RANSAC)", "56.2", "9.0%"],
+            ["Clustering (HDBSCAN)", "370.4", "59.4%"],
+            ["Geometric filter", "36.2", "5.8%"],
+            ["Classification", "33.7", "5.4%"],
+            ["Tracking", "0.3", "0.1%"],
+            ["Total", "623.5", "≈ 1.6 fps"]]
+    table(sl, X0, Y0, wl, rows, [2.4, 1.1, 1.1], size=22, row_h=78,
+          bold={(4, 0), (4, 1), (4, 2), (8, 0), (8, 1), (8, 2)})
+    text(sl, xr, Y0 + 40, w - wl, Y1 - Y0 - 80,
+         ["Full seq 08, 4,068 timed frames.",
+          "Classical CPU stages: about 94% of the time.",
+          "The classifier, the only learned detection stage: 5.4%.",
+          "Offline by design: real time is out of scope."], 24, space_after=20)
+
+
+def lay_runtime_opt(sl, _):
+    """3.5.2: ch3 §RANSAC (1000 -> 300) + ch4 §runtime evaluation, verbatim."""
+    rows = [["", "Before", "After"],
+            ["RANSAC iterations", "1,000", "300"],
+            ["Clustering grid", "0.05 m", "0.10 m"],
+            ["Time per scan (full seq 08)", "921.3 ms", "623.5 ms"]]
+    yb = table(sl, X0 + 200, Y0 + 20, X1 - X0 - 400, rows, [2.2, 1.2, 1.2], size=26, row_h=84,
+               bold={(3, 2)})
+    text(sl, X0 + 200, yb + 30, X1 - X0 - 400, 240,
+         ["About a third faster; the coarser grid also raised recall (0.710 → 0.732, slide 45).",
+          "Below 400 ms was not reachable: Python HDBSCAN alone has a floor of about 185 ms."],
+         24, space_after=12)
+
+
+def lay_iou_sensitivity(sl, _):
+    """3.6.3: tab:iou-sensitivity, verbatim."""
+    rows = [["IoU threshold", "Precision", "Recall", "F1", "Mean IoU", "TP / FP / FN"],
+            ["0.25", "0.914", "0.735", "0.815", "0.910", "25,660 / 2,421 / 9,262"],
+            ["0.30 (headline)", "0.911", "0.732", "0.812", "0.913", "25,568 / 2,513 / 9,354"],
+            ["0.50", "0.884", "0.711", "0.788", "0.927", "24,837 / 3,244 / 10,085"]]
+    yb = table(sl, X0, Y0 + 40, X1 - X0, rows, [1.6, 1.1, 1.0, 0.9, 1.1, 2.6], size=24, row_h=80,
+               bold={(2, 0), (2, 1), (2, 2), (2, 3)})
+    text(sl, X0, yb + 30, X1 - X0, 200,
+         ["F1 drops only 2.4 points from 0.30 to the strict 0.50: matched detections already overlap "
+          "at 0.913 on average.",
+          "Full seq 08, everything else frozen. Mean IoU is over matched detections only."],
+         24, space_after=10)
+
+
+def lay_lshape(sl, _):
+    """2.3.3: thesis fig:lshape-gate + tab:completion-config values (verbatim), grouped by the D15 steps."""
+    w = X1 - X0 - GAP
+    wl = w * 0.40
+    xr = X0 + wl + GAP
+    ix, iy, iw, ih = image_fit(sl, ASSETS / "thesis_lshape_gate.png", X0, Y0 + 40, wl, 300)
+    text(sl, X0, iy + ih + 40, wl, 240,
+         ["Fragments and merged cars never complete into a plausible car, so they are skipped, "
+          "not completed."], 22)
+    rows = [["Step", "Constant", "Value", "What it corrects"],
+            ["1 Check", "min. length", "2.7 m", "shorter: a fragment of a car"],
+            ["", "max. width", "2.3 m", "wider: two cars merged"],
+            ["2 Turn", "heading", "L-shape fit", "no constant: the fitted angle"],
+            ["3 Shift", "down-shift", "0.25 m", "ground cut lifts the middle"],
+            ["", "width prior", "1.9 m", "the hidden far side"],
+            ["", "car length", "track p90 + 0.12 m", "the hidden far end"],
+            ["", "length fallback", "4.14 m", "a track with < 5 good frames"],
+            ["4 Size", "radius correction", "÷ 1.137", "one-sided radius vs whole car"]]
+    table(sl, xr, Y0, w - wl, rows, [0.72, 1.2, 1.55, 2.0], size=19, row_h=74, align_left=4,
+          bold={(1, 0), (3, 0), (4, 0), (8, 0)})
+
+
+def mini_card(sl, x, y, w, h, head, body, size=22):
+    rect(sl, x, y, w, h, CARD_FILL)
+    text(sl, x + 24, y + 18, w - 48, h - 36,
+         [(head, {"bold": True, "size": size + 2, "space_after": 8}), (body, {"size": size})],
+         size, anchor=MSO_ANCHOR.MIDDLE)
+
+
+def lay_baselines(sl, _):
+    """3.2.1: ch4 §Baseline Methods + tab:positioning, as one comparison table."""
+    rows = [["Part", "Compared against", "Why"],
+            ["Detection stages", "each other: geometric filter → + classifier → + track filter",
+             "shows what each stage adds (slides 29, 44)"],
+            ["Detection vs supervised networks", "not compared head to head",
+             "they score all classes (mIoU, PQ) with dense per-point labels; we score cars by point F1"],
+            ["Completion", "the raw scan it started from", "the paired baseline completion must beat"],
+            ["Completion", "dense multi-frame scans of parked cars", "the shape-quality upper bound"],
+            ["Completion network", "PoinTr", "a heavier transformer alternative (slide 48)"]]
+    table(sl, X0, Y0 + 20, X1 - X0, rows, [1.5, 2.1, 2.6], size=22, row_h=104, align_left=3,
+          bold={(r, 0) for r in range(1, 6)})
+
+
+def lay_judge(sl, _):
+    """3.4.2: D12a (user draw.io) + D12b acceptance bars, tab:plausibility verbatim."""
+    from pptx.chart.data import CategoryChartData
+    from pptx.enum.chart import XL_CHART_TYPE, XL_LABEL_POSITION
+    w = X1 - X0 - GAP
+    wl = w * 0.5
+    xr = X0 + wl + GAP
+    if (ASSETS / "d12a_judge.drawio.png").exists():
+        image_fit(sl, ASSETS / "d12a_judge.drawio.png", X0, Y0, wl, Y1 - Y0)
+    else:
+        placeholder(sl, X0, Y0, wl, Y1 - Y0, "D12a judge schematic (user, draw.io)")
+    cd = CategoryChartData()
+    cd.categories = ["Raw scan", "Completed", "Dense reference"]
+    cd.add_series("Judged a car", (0.253, 0.785, 0.807))
+    gf = sl.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, px(xr), px(Y0), px(w - wl), px(560), cd)
+    ch = gf.chart
+    ch.has_legend = False
+    ch.has_title = True
+    ch.chart_title.text_frame.text = "Judged a car (acceptance)"
+    tp = ch.chart_title.text_frame.paragraphs[0].runs[0].font
+    tp.name, tp.size, tp.bold, tp.color.rgb = FONT, Pt(22), True, DARK
+    va = ch.value_axis
+    va.minimum_scale, va.maximum_scale, va.major_unit = 0, 1, 0.25
+    va.has_major_gridlines = True
+    va.major_gridlines.format.line.color.rgb = PH_LINE
+    va.tick_labels.font.size, va.tick_labels.font.name = Pt(18), FONT
+    va.tick_labels.number_format, va.tick_labels.number_format_is_linked = "0.00", False
+    ca = ch.category_axis
+    ca.tick_labels.font.size, ca.tick_labels.font.name = Pt(20), FONT
+    plot = ch.plots[0]
+    plot.gap_width = 60
+    plot.has_data_labels = True
+    dl = plot.data_labels
+    dl.number_format, dl.number_format_is_linked = "0.000", False
+    dl.position = XL_LABEL_POSITION.OUTSIDE_END
+    dl.font.size, dl.font.bold, dl.font.name = Pt(22), True, FONT
+    for pt, rgb in zip(plot.series[0].points, ("2B5C8A", "D9822B", "9AA0A6")):
+        pt.format.fill.solid()
+        pt.format.fill.fore_color.rgb = RGBColor.from_string(rgb)
+    text(sl, xr, Y0 + 590, w - wl, 150,
+         ["2,822 real cars, all 11 sequences; dense reference: 140 parked cars.",
+          "1,615 cars rejected as a raw scan are accepted once completed; 115 go the other way."],
+         21, space_after=10)
+
+
+def lay_synthetic(sl, _):
+    """3.4.3: D16 (scripts/make_d16_synthetic_example.py) + ch4 §synthetic fidelity numbers, verbatim."""
+    ix, iy, iw, ih = image_fit(sl, ASSETS / "d16_synthetic_example.png", X0, Y0, X1 - X0, 560)
+    rows = [["Held-out synthetic cars", "Chamfer distance ↓", "F-score @ 0.1 m ↑"],
+            ["PCN", "0.16 m", "0.76"]]
+    yb = table(sl, X0 + 260, iy + ih + 24, X1 - X0 - 520, rows, [2.0, 1.4, 1.4], size=22, row_h=58,
+               bold={(1, 1), (1, 2)})
+    text(sl, X0 + 260, yb + 16, X1 - X0 - 520, 50,
+         "The network itself works; real scans have no true model, so they are judged separately (slide 36).",
+         20, italic=True, color=MUTED)
+
+
+def lay_plaus_robust(sl, _):
+    """3.4.4: tab:plausibility-seq verbatim + ch4 §plausibility robustness checks, verbatim."""
+    rows = [["Seq", "00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10"],
+            ["Cars", "926", "96", "329", "48", "59", "258", "164", "213", "518", "141", "70"],
+            ["Raw scan", "0.30", "0.07", "0.20", "0.13", "0.24", "0.33", "0.11", "0.26", "0.31", "0.13", "0.03"],
+            ["Completed", "0.78", "0.89", "0.82", "0.65", "0.86", "0.74", "0.86", "0.72", "0.80", "0.70", "0.83"]]
+    yb = table(sl, X0, Y0, X1 - X0, rows, [1.7] + [1] * 11, size=21, row_h=66,
+               bold={(3, c) for c in range(12)})
+    text(sl, X0, yb + 14, X1 - X0, 40,
+         "Acceptance by sequence. The completion constants were set on seq 08; the gain holds on all eleven.",
+         20, italic=True, color=MUTED)
+    cards = [("Paired test", "1,615 cars flip to accepted, 115 the other way (McNemar p ≈ 0)"),
+             ("Moving cars", "accepted 0.837 (602 tracks): as plausible as parked ones"),
+             ("Front and back swapped", "acceptance changes by only 0.009"),
+             ("Not just density", "parked cars: car probability 0.730 vs dense reference 0.728")]
+    ch = min(Y1 - (yb + 80), 220)
+    for (x, w), (h, b) in zip(split(4), cards):
+        mini_card(sl, x, (yb + 80 + Y1 - ch) / 2, w, ch, h, b, size=22)
+
+
+def lay_completion_analysis(sl, _):
+    """3.4.5: tab:fidelity verbatim + ch4 §Scope of the Completion Claim."""
+    w = X1 - X0 - GAP
+    wl = w * 0.5
+    xr = X0 + wl + GAP
+    text(sl, X0, Y0, wl, 50, "Distance to the scan itself (seq 08, 39 cars)", 24, bold=True)
+    rows = [["Cloud", "UCD (m) ↓", "UHD max (m) ↓"],
+            ["Raw scan", "0.000", "0.000"],
+            ["Mirrored scan", "0.000", "0.000"],
+            ["Completed", "0.090", "0.286"]]
+    yb = table(sl, X0, Y0 + 70, wl, rows, [1.6, 1.1, 1.3], size=22, row_h=72)
+    text(sl, X0, yb + 24, wl, 260,
+         ["Any cloud that contains the scan scores a perfect 0, so these metrics cannot credit the "
+          "hidden side.",
+          "Hence the independent judge (slide 36)."], 22, space_after=12)
+    hc = (Y1 - Y0 - 2 * 30) / 3
+    cards = [("Plausible", "Acceptance 0.253 → 0.785, on every sequence, moving and parked cars."),
+             ("At the ceiling", "Accepted almost as often as dense multi-frame scans of parked cars: 0.785 vs 0.807."),
+             ("Scoped claim", "Plausible car shapes on real LiDAR; not exact geometry, which no real "
+                              "ground truth can score.")]
+    for i, (h, b) in enumerate(cards):
+        mini_card(sl, xr, Y0 + i * (hc + 30), w - wl, hc, h, b, size=22)
+
+
+def lay_strategies(sl, _):
+    """Backup: tab:strategies verbatim + the two prose-only strategies (ch4 §Limits of the Repair Strategies)."""
+    rows = [["Strategy", "Seq 00 P", "Seq 00 R", "Seq 00 F1", "Seq 08 F1"],
+            ["Baseline (HDBSCAN, min. cluster size 10)", "0.984", "0.739", "0.844", "0.829"],
+            ["Bird's-eye-view clustering (0.30 m)", "0.993", "0.640", "0.779", "–"],
+            ["Higher min. cluster size (20)", "0.976", "0.755", "0.852", "0.801"],
+            ["Fragment merge (1.5 m, 30 points)", "0.931", "0.755", "0.834", "0.815"],
+            ["Distance-adaptive HDBSCAN (30 / 15 / 10)", "0.935", "0.748", "0.831", "–"]]
+    yb = table(sl, X0, Y0, X1 - X0, rows, [3.2, 1, 1, 1, 1], size=22, row_h=66,
+               bold={(1, 3), (1, 4), (3, 3), (3, 4)})
+    text(sl, X0, yb + 28, X1 - X0, Y1 - yb - 28,
+         ["Higher min. cluster size wins on seq 00 but loses on seq 08: it erases sparse far cars (over-fitting).",
+          "Fragment merge gains recall but also fuses walls and poles: precision 0.984 → 0.931.",
+          "Also tried, in the text only: stacking 3 frames before clustering (F1 0.073); lower size thresholds (no new TP).",
+          "What worked instead: a coarser clustering grid, 0.05 → 0.10 m (slide 45)."], 22, space_after=10)
+
+
+def lay_judge_independent(sl, _):
+    """Backup: ch4 §Real Data Plausibility + findings #53/#54, as threat -> control."""
+    rows = [["Could the judge favour us?", "What rules it out"],
+            ["It learned from the same shapes as PCN", "Trained on ModelNet40, a different repository: it never saw a ShapeNet model"],
+            ["We graded our own work", "Not the pipeline's classifier: a separate PointNet++, trained from scratch"],
+            ["The judge is weak", "Test accuracy 0.9214, above a pass mark of 0.88 fixed in advance"],
+            ["It calls everything a car", "It rejects 3 in 4 raw scans (acceptance 0.253)"],
+            ["It just rewards dense clouds", "Dense real cars score 0.807; parked completions match them (car prob. 0.730 vs 0.728)"],
+            ["The reading was chosen after the fact", "Hypotheses and the meaning of every outcome were written before scoring"]]
+    table(sl, X0, Y0, X1 - X0, rows, [1.45, 2.6], size=22, row_h=100, align_left=2,
+          bold={(r, 0) for r in range(1, 7)})
+
+
+def lay_ucd_uhd(sl, _):
+    """Backup: toy figure (scripts/make_b59_ucd_uhd.py) + ch2 sec:th-distances, tab:fidelity."""
+    ix, iy, iw, ih = image_fit(sl, ASSETS / "b59_ucd_uhd.png", X0, Y0, X1 - X0, 560)
+    text(sl, X0 + 80, iy + ih + 30, X1 - X0 - 160, Y1 - (iy + ih + 30),
+         ["For each scan point, the distance to the nearest output point: UCD averages them, UHD takes the largest.",
+          "Real seq-08 cars: the raw scan scores 0.000, the completion UCD 0.090 m (slide 39). "
+          "Chen et al. pair UHD with a plausibility judge for this reason."], 22, space_after=10)
+
+
+def lay_iou_example(sl, _):
+    """Backup: ch2 eq. IoU + ch4 §Evaluation Metrics; worked example = S4 notes A4 [illustration]."""
+    w = X1 - X0 - GAP
+    wl = w * 0.36
+    xr = X0 + wl + GAP
+    text(sl, X0, Y0, wl, Y1 - Y0,
+         [("IoU = shared points ÷ all points of the two", {"bold": True}),
+          "1. Every detection–car pair with IoU ≥ 0.3 is a candidate.",
+          "2. Best IoU first; each detection and each car is used once.",
+          "3. Matched = true positive; extra detection = false positive; missed car = false negative.",
+          "4. Counted over every frame, then precision, recall, F1."], 22, space_after=16)
+    text(sl, xr, Y0, w - wl, 50, "One car of 400 points (illustration)", 24, bold=True)
+    rows = [["Case", "IoU", "Outcome"],
+            ["One cluster of 360 points, 340 on the car", "340 / (400 + 360 − 340) = 0.81", "1 TP"],
+            ["Split into 250 + 150 points", "0.625 and 0.375", "1 TP + 1 FP"],
+            ["Split into four of 100 points", "0.25 each, below 0.3", "1 FN (+ FPs)"]]
+    yb = table(sl, xr, Y0 + 70, w - wl, rows, [2.1, 1.9, 1.1], size=20, row_h=84, align_left=1)
+    text(sl, xr, yb + 24, w - wl, 200,
+         ["Seq 08: 25,568 TP, 2,513 FP, 9,354 FN → precision 0.911, recall 0.732, F1 0.812."], 22)
+
+
+def lay_pipeline_config(sl, _):
+    """Backup: tab:pipeline-config, verbatim, in two halves."""
+    w = X1 - X0 - GAP
+    half = w / 2
+    left = [["Stage", "Parameter", "Value"],
+            ["Preprocess", "z-filter threshold", "−2.0 m"],
+            ["", "voxel size", "0.05 m"],
+            ["", "denoise neighbours / std ratio", "20 / 2.0"],
+            ["", "voxel before denoise", "true"],
+            ["Ground", "RANSAC iterations", "300"],
+            ["", "inlier distance", "0.2 m"],
+            ["", "min. normal z", "0.5"],
+            ["Clustering", "method", "HDBSCAN"],
+            ["", "min. cluster size / min. samples", "10 / 5"],
+            ["", "clustering voxel size", "0.10 m"]]
+    right = [["Stage", "Parameter", "Value"],
+             ["Geometric", "min. points", "15"],
+             ["", "volume range", "[0.5, 50] m³"],
+             ["", "max. longest extent", "6.0 m"],
+             ["", "min. top two extents", "0.5 m / 0.4 m"],
+             ["", "max. height above ground", "1.5 m"],
+             ["", "max. vertical span", "1.8 m"],
+             ["", "max. aspect ratio", "6.0"],
+             ["Classifier", "model", "dual-branch PointNet"],
+             ["", "input points", "512"],
+             ["Tracker", "max. match distance", "2.0 m"],
+             ["", "max. disappeared frames", "5"],
+             ["", "min. track length", "2"],
+             ["", "min. known votes / ratio", "2 / 0.5"]]
+    rh = (Y1 - Y0) / len(right)
+    for x, rows, cw in ((X0, left, [1.1, 2.5, 1.2]), (X0 + half + GAP, right, [1.1, 2.0, 1.7])):
+        table(sl, x, Y0, half, rows, cw, size=18, row_h=rh, align_left=2,
+              bold={(r, 0) for r in range(1, len(rows))})
+
+
+def lay_completion_ablations(sl, _):
+    """3.6.5: ch4 §Completion Ablation Studies, one row per ablation."""
+    rows = [["Choice", "Tried instead", "Result"],
+            ["Car-frame normalisation", "3D PCA frame, own centre and radius",
+             "same network makes mis-oriented, mis-scaled blobs"],
+            ["KITTI-like training scans", "fine-tune on noisier simulated scans",
+             "did not recover car shape: dropped (negative result)"],
+            ["L-shape gate", "complete every car",
+             "on seq 08, every implausible completion came from a fragment or merge"],
+            ["Per-car length", "one fixed 4.14 m length",
+             "stretches compact cars, cuts long ones short"],
+            ["PCN", "PoinTr (transformer)", "Chamfer 0.161 → 0.153 m only: PCN kept"]]
+    table(sl, X0, Y0 + 20, X1 - X0, rows, [1.5, 1.9, 2.6], size=22, row_h=104, align_left=3,
+          bold={(r, 0) for r in range(1, 6)})
+
+
 # ---------------------------------------------------------------- slide builders
 def content(prs, n, section, title, key, layout, arg, note):
     sl = prs.slides.add_slide(prs.slide_layouts[6])
@@ -428,6 +816,27 @@ I, II, III, IV, BK = ("I. Introduction", "II. Proposed Methodology",
                       "III. Experimental Evaluation", "IV. Conclusion & Future Work", "Backup")
 T = lambda t, src: f"★ TALK {t} — source: {src}"     # noqa: E731
 S = lambda src: f"○ SUPPORT (skip in talk) — source: {src}"  # noqa: E731
+
+
+def add_vi_script(prs):
+    """Append each ★ slide's VI line from talk_script.md to its speaker notes (presenter view).
+    The script's '### <n> <title> (m:ss)' heading must match the deck: same number, same title."""
+    import re
+    blocks, cur = {}, None
+    for line in (ROOT / "talk_script.md").read_text(encoding="utf-8").splitlines():
+        m = re.match(r"### (\d+) (.+) \((\d+:\d\d)\)$", line)
+        if m:
+            cur = int(m[1])
+            blocks[cur] = {"title": m[2]}
+        elif cur and line.startswith("VI: "):
+            blocks[cur]["vi"] = line[4:]
+    for n, b in blocks.items():
+        sl = prs.slides[n - 1]
+        if n not in (1, 53):
+            title = next(sh.text_frame.text for sh in sl.shapes if sh.has_text_frame and sh.text_frame.text.strip())
+            assert title.upper() == b["title"].upper(), f"talk_script.md slide {n}: '{b['title']}' vs deck '{title}'"
+        tf = sl.notes_slide.notes_text_frame
+        tf.text = tf.text + "\n\nVI: " + b["vi"]
 
 
 def build():
@@ -507,22 +916,57 @@ def build():
                "Counts: 420,333 training clusters (seq 00-07, 09, 10), 130,394 validation (seq 08), "
                "about 21% car / 79% not-car."))
     C(II, "2.2.5 Tracking and Track Filter",
-      "Detections are linked into tracks across frames; a track is kept only if at least half of its frames vote car.",
-      lay_full, ["D8 tracking timeline"], T("0:30", "fig:tracker"))
+      "Detections are linked across frames; each track is kept or dropped as a whole, by vote.",
+      lay_image_or_ph, ("d8_tracking_timeline.drawio.png",
+                        "D8 tracking timeline (scaffold: assets/d8_tracking_timeline.drawio)"),
+      T("0:30", "D8; fig:tracker, ch3 §Multi-Frame Tracking, tab:pipeline-config tracker rows. Say: each "
+                "detection is linked to the nearest track within 2 metres, frame to frame. Then one decision "
+                "per track, not per frame: a track is a car if at least 2 and at least half of its frames vote "
+                "car. Top: a parked car the classifier misses once is kept in every frame, so recall goes up. "
+                "Bottom: a bush called a car once is dropped, so precision goes up. On seq 08: +1,968 true "
+                "positives and 1,790 fewer false positives (tab:ablation-stage). It uses the whole track, so "
+                "it is offline, like the rest of the system."))
     C(II, "2.3 Completion Pipeline",
-      "Each detected car is gated, normalised, given a length, and completed by PCN.",
-      lay_full, ["thesis fig:completion-pipeline (crop from main.pdf)"],
-      S("ch3 §object completion; fig:completion-pipeline"))
-    C(II, "2.3.1 Completion Network (PCN)",
-      "The completion network trains only on synthetic cars and must work on real scans it has never seen.",
-      lay_full, ["D11 PCN training and inference"], T("1:00", "fig:pcn"))
-    C(II, "2.3.2 Synthetic Training Partials",
-      "Training inputs are simulated LiDAR-style partial views of synthetic ShapeNet cars.",
-      lay_full, ["thesis fig:kitti-like-partial (fig61_partials PNG)"], S("fig:kitti-like-partial"))
-    C(II, "2.3.3 L-Shape Gate, Normalisation and Length",
-      "Each real cluster passes an L-shape gate, then is rotated and scaled into the network's training frame using an estimated car length.",
-      lay_two, ["thesis fig:lshape-gate (crop from main.pdf)", "table: tab:completion-config"],
-      S("fig:lshape-gate, tab:completion-config"))
+      "The network trains only on synthetic shapes but must work on real scans.",
+      lay_image_or_ph, ("d11_pcn.drawio.png", "D11 PCN training and inference (scaffold: assets/d11_pcn.drawio)"),
+      T("1:00", "D11; fig:pcn, ch3 §Completion Network, §Training Data, §Inference-Time Partial Normalisation. Say: PCN is "
+                "a standard encoder-decoder: it squeezes the partial into one shape code and grows a full car from it, 256 "
+                "points in, 4,096 out. It is trained only on synthetic ShapeNet meshes, so two things make it work on real "
+                "scans. First, the training inputs are simulated to look like a real scan: one laser viewpoint, 5 cm voxels, "
+                "the ground cut off (next slide). Second, at test time the real scan is checked, turned, shifted and sized "
+                "into exactly the frame the network trained in (slide 19). At first the network produced only blobs. "
+                "The fix was not more training. (Stop there.) HOOK H1 → backup 57; answer in qa_bank.md."))
+    C(II, "2.3.1 Synthetic Training Partials",
+      "Training inputs are simulated to look like real scans.",
+      lay_image, "d14_training_vs_real.png", S("D14 (scripts/make_d14_partials.py): illustration, not a result. "
+      "Panel 1 = the training code's own generator on the thesis fig:kitti-like-partial mesh (one HDL-64E view, 5 cm "
+      "voxels, 0.30 m ground cut); panel 2 = the complete-model sample PCN must output (ShapeNet meshes include the "
+      "interior, hence the seats); panel 3 = a real single-frame scan (car C, slide 35). Say: the simulated input has "
+      "the same one-sided view and scan lines as the real scan, so the network meets the same kind of input on the "
+      "road as in training. The network sees 256 of these points. ch3 §Training Data. If asked why not a simpler "
+      "render: an early dense pinhole render had no scan lines, no voxels and no ground cut, so it did not look like "
+      "LiDAR. Training: 100 epochs, Adam 1e-4, batch 8, best validation loss 0.1246."))
+    C(II, "2.3.2 Real Scan Normalisation",
+      "Before PCN, each real car is checked, turned, shifted and sized.",
+      lay_image, "d15_check_turn_shift_size.png",
+      S("D15 (scripts/make_d15_normalisation.py): the production geometry code on car C (seq 03, slides 18 and "
+        "35), the exact scan production completed. Illustration, not a result. 1 Check: L-shape fit 3.7 x 1.5 m, "
+        "inside the gate (at least 2.7 m long, at most 2.3 m wide). 2 Turn: length onto the training axis, gravity "
+        "up. 3 Shift: the scan's middle is not the car's middle; push 0.95 - 1.52/2 = 0.19 m away from the sensor "
+        "(1.9 m width prior), 0.23 m toward the unseen end, 0.25 m down for the ground cut. 4 Size: divide by the "
+        "largest distance / 1.137; points can poke past the circle, that's the correction. Then 256 points go into "
+        "PCN and the result is rotated back. Memory hook: check, turn, shift, size. ch3 §Object Completion, "
+        "§Inference-Time Partial Normalisation, tab:completion-config."))
+    C(II, "2.3.3 Gate and Normalisation Constants",
+      "How the gate decides, and what each constant corrects.",
+      lay_lshape, None, S("Close-up of slide 19's four steps. fig:lshape-gate (crop_thesis_figure.py 3.10 lshape_gate); "
+        "values = tab:completion-config verbatim, grouped by step. Where the numbers come from: 1.137 is the median "
+        "ratio of a one-sided partial's radius to the true radius, measured on synthetic cars; 4.14 m is the median "
+        "car length; 1.9 m a full car width; 0.25 m undoes the upward bias of the ground cut (ch3). "
+        "L-shape fit (Zhang 2017): try rectangle orientations 1 degree apart and keep the one whose edges the points "
+        "hug; longer side = length. On real data its heading is no better than PCA; it earns its place by catching "
+        "fragments and merges. Length: 90th percentile of the track's gate-passed fits + 0.12 m (a quantile, not the "
+        "maximum, so one bad fit can't set it); 4.14 m median prior if fewer than 5 frames pass."))
 
     # ---------------- III. EXPERIMENTAL EVALUATION (friend: sub-dividers 1..5; results 3.1 -> 3.1.x, 3.2 -> 3.2.x)
     D("III. Experimental Evaluation", "3.1 Dataset and Protocol")
@@ -533,22 +977,26 @@ def build():
         "sequence, not a test set; LOSO (3.2.3) is the leakage control."))
     C(III, "3.1.2 Target Eligibility and Ground Truth",
       "A car is scored only if enough of its points survive preprocessing.",
-      lay_full, ["eligibility rule + example"],
+      lay_eligibility, None,
       S("ch4 §eligibility — ≥10 surviving points; 25.5% of annotated cars excluded; "
         "recall vs ALL annotated cars ≈ 0.55 (ch4, ch5) vs 0.732 eligible"))
     SUB("3.2 Experimental Setup")
     C(III, "3.2.1 Baselines",
-      "Detection stages are compared by ablation, not against supervised detectors; "
-      "completion is compared with the raw partial, a dense reference, and PoinTr.",
-      lay_full, ["table: tab:positioning (why no head-to-head) + completion references"],
-      S("ch4 §baselines; tab:positioning"))
+      "What each part of the pipeline is compared against.",
+      lay_baselines, None,
+      S("ch4 §Baseline Methods; tab:positioning (ch2). Why no head-to-head with supervised networks: they "
+        "report all-class mIoU / panoptic quality and train on dense per-point labels; we report a car-only "
+        "point-level F1. Putting them in one column would compare numbers the metrics do not support; the "
+        "accuracy gap is real and stated in the thesis text. Completion has no external baseline on real "
+        "data, so it is compared with its own input (paired), a dense reference (upper bound) and PoinTr."))
     C(III, "3.2.2 Metrics",
       "Detections are matched to real cars by point overlap (IoU); completions are scored by an independent car classifier.",
-      lay_two, ["detection metrics: IoU matching", "completion metric: plausibility"],
-      T("0:30", "fig:bg-iou; ch4 §metrics; ch4 §plausibility"))
+      lay_metrics, None,
+      T("0:30", "fig:bg-iou; ch4 §Evaluation Metrics; ch4 §plausibility. Say: a detection counts as a car when it shares at least 30% of its points with a real car (intersection over union); best overlap first, one-to-one. Matched is a true positive, an extra detection a false positive, a missed car a false negative, counted over every frame. For completion there is no ground truth, so an independent judge decides whether each output looks like a car (next section). Don't explain why 0.3. HOOK H2 → slide 46; answer in qa_bank.md."))
     C(III, "3.2.3 Data Split: Leave-One-Sequence-Out",
       "Train on ten sequences, test on the eleventh, and repeat for every sequence.",
-      lay_full, ["LOSO diagram"], S("ch4 §splits; tab:loso"))
+      lay_loso, None,
+      S("ch4 §Dataset Splits, §LOSO; tab:loso, tab:headline (scripts/make_loso_grid.py). Fold-08 and the final classifier share data, architecture and the 15-epoch regime; they differ only in which epoch is kept. Pooled sums the counts (0.717); the macro mean of the 11 folds is 0.632 ± 0.119, pulled down by the small, sparse seqs 01 and 04. Seq 00 fold: P 0.921 / R 0.758 / F1 0.831."))
     SUB("3.3 Detection Results")
     C(III, "3.3.1 Overall Detection Results", "F1 0.812 on seq 08 (0.793 cross-validated), and each stage has a measurable job.",
       lay_results, None,
@@ -563,39 +1011,81 @@ def build():
                "precision points and no recall (tab:headline)."))
     C(III, "3.3.2 Detections on a Real Frame",
       "One seq-08 frame: found cars, false detections and missed cars.",
-      lay_full, ["thesis seq08_bev_detections.png"], S("fig:bev-detections"))
+      lay_image, "thesis_bev_detections.png",
+      S("fig:bev-detections (thesis seq08_bev_detections.png, unchanged). False positives about 0.6 per frame (2,513 / 4,071)."))
     C(III, "3.3.3 What Limits Recall",
       "Clustering splits cars into fragments; the classifier is not the limit.",
-      lay_full, ["D10 = thesis seq08_failure_zooms.png, frame-250 row (split car)"],
-      T("1:00", "tab:split, fig:failure-zooms"))
-    C(III, "3.3.4 Accuracy vs Range", "Recall falls with distance as cars get sparser.",
-      lay_full, ["table: accuracy by distance"], S("tab:distance"))
+      lay_recall_limit, None,
+      T("1:00", "D10 = fig:failure-zooms frame-250 row (scripts/make_d10_crop.py); split rate by range = ch4 §split analysis (0.10 m grid); recall by range = tab:distance. Say: the geometric stage alone already finds 77% of cars, more than the full pipeline, so the classifier is not what limits recall. The limit is clustering: a third of cars are split into pieces (33.7%, tab:splitrate). Here a parked car is broken up; one thin slice is detected but overlaps the car too little, so this one car costs a false positive and a miss. Splits are worst close by: half of the cars within 10 m, so near-range recall is lower than at 10 to 20 m. We tried six ways to repair the splitting; only one worked: a coarser clustering grid, recall 0.710 to 0.732. (Don't list the others.) HOOK H3 → backup 56; answer in qa_bank.md."))
+    C(III, "3.3.4 Accuracy vs Range", "Recall peaks at 10–20 m: near cars get split, far cars are too sparse.",
+      lay_distance, None, S("tab:distance, verbatim; split rates from ch4 §split analysis. Stride-20 sample, per frame, track filter off (striding breaks the tracker), so pooled recall 0.671 is not the 0.732 headline. Mean IoU of matched cars rises with range: the far cars found are compact single clusters."))
     C(III, "3.3.5 Detection Result Analysis", "What each detection stage contributes, and where it fails.",
-      lay_cards_ph, ["geometric filter", "classifier", "track filter"], S("ch4 §result analysis"))
+      lay_cards_text, [("Clustering", "The recall limit: a third of cars are split into pieces."),
+                       ("Geometric filter", "Keeps most cars (recall 0.773), but 4 in 5 detections are junk."),
+                       ("Classifier", "The precision step: removes about 104,000 false positives."),
+                       ("Track filter", "Wins back 1,968 true positives and drops 1,790 false positives.")],
+      S("ch4 §Result Analysis, tab:ablation-stage, tab:splitrate (33.7% split at 0.10 m). Neither the classifier nor the tracker can create a detection, so recall can never exceed the 0.773 of the geometric stage. Precision-saturated (about 0.6 FP per frame), recall-limited."))
     SUB("3.4 Completion Results")
-    C(III, "3.4.1 Judging Completion Without Ground Truth",
-      "Distance metrics reward doing nothing, so an independent judge decides whether each output looks like a car.",
-      lay_two, ["D12 judge schematic", "acceptance bar chart"],
-      T("1:30", "D12; tab:plausibility, fig:plausibility"))
-    C(III, "3.4.2 Completion Examples: Raw vs Completed", "The same real cars before and after completion.",
-      lay_full, ["thesis completion_shape_08.png"], S("fig:completion-shape, fig:plausibility"))
+    C(III, "3.4.1 Completion Example: One Real Car",
+      "A single-frame scan sees one corner of the car; completion fills in the hidden sides.",
+      lay_image, "d13_completion_example.png",
+      T("0:30", "D13 (scripts/pick_completion_examples.py, render_completion_candidates.py); "
+                "concept: fig:completion-shape. Picked by a fixed rule, not by eye: among the cars the "
+                "judge rejects as a raw scan and accepts once completed, with a typical number of input "
+                "points (middle half of all 2,822), 12 drawn at random; this is one of them. Rotated so "
+                "the length runs left-right, for display only. Say: blue is what the sensor saw in one "
+                "frame, orange is what the network adds. Next slide: how we know the orange is a plausible car "
+                "without ground truth."))
+    C(III, "3.4.2 Judging Completion Without Ground Truth",
+      "With no true shape on real cars, an independent judge decides what looks like a car.",
+      lay_judge, None,
+      T("1:00", "D12a (user, draw.io; scripts/make_d12a_scaffold.py) + D12b = tab:plausibility, verbatim; "
+                "ch4 §Real Data Plausibility; protocol of Chen et al. 2020. Say: on a real car there is no "
+                "true complete shape to measure against, and measuring distance to the scan itself rewards "
+                "doing nothing (the raw scan scores a perfect zero, slide 39). So, as Chen et al. do, we ask "
+                "an independent judge: a separate program trained on a different collection of 3D models. "
+                "(Don't list why it's fair.) Every cloud gets the same preparation and the judge says car or not. Raw single-frame "
+                "scans: judged a car 25% of the time. Completed: 79%. Dense multi-frame scans of parked cars, "
+                "the best real shapes we have: 81%. Completion brings single-frame cars almost to the level "
+                "of the best real shapes. Paired on the same cars: 1,615 switch to accepted, 115 the other way. "
+                "HOOK H4 → backup 58 (and 59 if asked why distance rewards doing nothing); answer in qa_bank.md. "
+                "Judge test accuracy 0.9214 (pass mark 0.88): keep for the answer, not the talk."))
     C(III, "3.4.3 Synthetic Fidelity",
       "On held-out synthetic cars, the network reproduces the complete shape.",
-      lay_two, ["synthetic examples", "CD and F-score"], S("ch4 §synthetic fidelity"))
+      lay_synthetic, None,
+      S("ch4 §Synthetic Fidelity; D16 = scripts/make_d16_synthetic_example.py: a car from PCN's validation "
+        "split (never trained on), picked by a fixed rule (the median-Chamfer car of the evaluated set), "
+        "not by eye; its own Chamfer 0.16 m / F 0.77 is that one car. Chamfer distance: average "
+        "nearest-point distance in both directions, added (metres). F-score @ 0.1 m: harmonic mean of the "
+        "share of output points within 0.1 m of the true model and the share of the true model within "
+        "0.1 m of the output. Best validation loss 0.1246 (coarse + 0.5 × fine Chamfer, normalised units; "
+        "not the same number as 0.16 m)."))
     C(III, "3.4.4 Plausibility Robustness",
       "The plausibility gain holds on every sequence, for moving cars, and under a heading flip.",
-      lay_two, ["table: per-sequence plausibility", "movers / flip / McNemar"],
-      S("tab:plausibility-seq; ch4 §plausibility"))
+      lay_plaus_robust, None,
+      S("tab:plausibility-seq, verbatim; ch4 §plausibility (McNemar 1,615 vs 115; Wilcoxon on car "
+        "probability p ≈ 0; movers 0.837 / 0.801, N = 602; heading flip Δ 0.009; parked subset N = 2,220: "
+        "completed acceptance 0.770, car probability 0.730 vs ceiling 0.728, about 96% of the raw-to-ceiling "
+        "acceptance gap). Moving vs parked: by net centroid displacement of the track. PCN never saw any "
+        "real sequence, so consistency across all eleven is a generalisation result. Why 'not just "
+        "density': the dense reference is dense AND correctly shaped, so matching it means the completed "
+        "shapes are car-like, not merely dense."))
     C(III, "3.4.5 Completion Result Analysis",
-      "Where completion helps, and where it stays flat.",
-      lay_cards_ph, ["strengths", "limitations", "vs dense reference"], S("ch4 §scope of the completion claim; ch5"))
+      "What the completion evidence shows, and what it does not claim.",
+      lay_completion_analysis, None,
+      S("tab:fidelity, verbatim (UHD p95 column left out: 0.000 / 0.000 / 0.183); ch4 §Reference-Free "
+        "Fidelity, §Scope of the Completion Claim. UCD: for each scan point, the distance to the nearest "
+        "point of the cloud, averaged; UHD: the largest such distance. Direction scan → cloud, per-car "
+        "medians, as Chen et al. and P2C apply them. Mirrored = the scan plus its mirror copy: it contains "
+        "the scan, so it also scores 0. This is why the unpaired completion literature pairs these metrics "
+        "with a plausibility term."))
     SUB("3.5 Runtime Evaluation")
     C(III, "3.5.1 Runtime by Stage",
       "The pipeline runs offline; the classical CPU stages dominate the time per scan.",
-      lay_full, ["table: runtime per stage"], S("tab:runtime"))
+      lay_runtime, None, S("tab:runtime, verbatim (RTX 3070 Ti / Ryzen 7 7800X3D). Classifier 33.7 ms for about 45 clusters, about 0.75 ms each. Completion adds about 13 ms per completed car, outside this budget."))
     C(III, "3.5.2 Runtime Optimisation",
       "Fewer RANSAC iterations and a coarser clustering voxel cut the time per scan by about a third.",
-      lay_full, ["before vs after optimisation"], S("ch4 §runtime evaluation (921.3 → 623.5 ms)"))
+      lay_runtime_opt, None, S("ch3 §RANSAC (1,000 → 300 iterations); ch4 §runtime evaluation (921.3 → 623.5 ms full seq; 650.6 ms on the stride-20 sample). The post-ground cloud is already sparse, so a coarser grid compresses it little; Python HDBSCAN keeps a floor of about 185 ms."))
     SUB("3.6 Ablation Study")
     C(III, "3.6.1 Stage Ablation", "Adding one filtering stage at a time shows what each contributes.",
       lay_stage_ablation, None,
@@ -609,8 +1099,8 @@ def build():
         "(56 → 284), so we expect more fused cars; 0.20 m was NOT tested, say 'expect', not 'found'. "
         "If asked 'did you tune DBSCAN's radius?': yes, an epsilon sweep; the best fixed radius "
         "(Euclidean, 0.4 m) reaches F1 0.800 on seq 00, still below HDBSCAN's 0.835 (ch4 §clustering)."))
-    C(III, "3.6.3 IoU-Threshold Sensitivity", "How the results change with the matching threshold.",
-      lay_full, ["table: IoU sensitivity"], S("tab:iou-sensitivity"))
+    C(III, "3.6.3 IoU-Threshold Sensitivity", "F1 moves by under 3 points between IoU 0.25 and 0.50.",
+      lay_iou_sensitivity, None, S("tab:iou-sensitivity, verbatim. 0.5 is the usual box threshold; ours is point-level. Pre-registered: a threshold-sensitive result would have been reported as a finding, not tuned away."))
     C(III, "3.6.4 Synthetic Pretraining",
       "Synthetic pretraining adds nothing once enough real clusters are mined.",
       lay_pretraining, None,
@@ -618,9 +1108,16 @@ def build():
         "tab:cross-domain. Don't mix the metrics: 0.9285 is macro-F1 (mean of car and not-car F1), 0.885 is "
         "car-class F1. Why keep it in the thesis: it changes the recipe, so it is reported as a negative result."))
     C(III, "3.6.5 Completion Ablations",
-      "Input quality and normalisation matter more than the network: PoinTr improves synthetic Chamfer distance only from 0.161 to 0.153 m.",
-      lay_full, ["five ablations: normalisation · sim-to-real fine-tuning (negative) · L-shape gate · length · PCN vs PoinTr"],
-      S("ch4 §completion ablations (sec:abl-completion)"))
+      "Input quality and normalisation matter more than the choice of network.",
+      lay_completion_ablations, None,
+      S("ch4 §Completion Ablation Studies (sec:abl-completion), one row each. Normalisation: identical "
+        "checkpoint, only the input frame differs, so the blob-vs-car gap is a normalisation effect. "
+        "Fine-tuning: the early blobs were blamed on a domain gap, so PCN was fine-tuned on LiDAR-like "
+        "simulated scans (noise augmentation, a virtual Velodyne; findings #16, #17, #19): still blobs, "
+        "because the cause was the input frame. Real-data fine-tuning was never run: it is future work (slide 52); do not say it was tried. Gate: its cost is some usable cars "
+        "rejected. Length: a residual far-end shortfall on the longest cars remains (ch5). PoinTr: same "
+        "held-out synthetic cars; the remaining real-data gap is centre estimation, which no network "
+        "fixes."))
 
     # ---------------- IV. CONCLUSION & FUTURE WORK (friend: 1 summary, 2 limitations, 3 discussion & future)
     D("IV. Conclusion & Future Work")
@@ -636,7 +1133,9 @@ def build():
                        ("Recall ceiling", "0.773 before any learned stage"),
                        ("Plausibility only", "Fidelity metrics do not corroborate the completion gain"),
                        ("Offline", "623.5 ms per frame; real time is out of scope")],
-      T("0:30", "ch5 §limitations (disc-architectural, disc-completion-scope, disc-eval-validity)"))
+      T("0:30", "ch5 §limitations (disc-architectural, disc-completion-scope, disc-eval-validity). Say the four "
+               "titles with their numbers; on Offline say only '623.5 ms per frame, offline by design' and move on. "
+               "HOOK H5 → slides 41–42; answer in qa_bank.md."))
     C(IV, "4.3 Discussion & Future Work", "Three next steps, each scoped by a finding.",
       lay_cards_text, [("Real-time variant", "A native or GPU HDBSCAN implementation"),
                        ("Real-data fine-tuning", "Close the synthetic-to-real gap for completion"),
@@ -667,10 +1166,52 @@ def build():
         "Precision if pressed: the 'radius' is the mutual reachability distance max(core a, core b, "
         "distance a-b), and 'longest' is stability, lifetime measured in 1/radius and summed over points; "
         "groups under 10 points are noise. ch2 §density-based clustering; S2 notes A4."))
-    for t in ["Repair Strategies and Why They Fail", "The Normalisation Bug",
-              "Is the Judge Independent?", "Fidelity Metrics: UCD and UHD",
-              "Worked Example: IoU Matching", "Pipeline Configuration"]:
-        C(BK, t, None, lay_full, [t], S("backup"))
+    C(BK, "Repair Strategies and Why They Fail",
+      "Each repair either over-fits seq 00 or trades precision for recall.",
+      lay_strategies, None,
+      S("backup for 'did you try to fix the splitting?'. tab:strategies, verbatim; ch4 §Limits of the Repair "
+        "Strategies. Pre-promotion seq-00 baseline (0.05 m grid), so the baseline F1 0.844 is not the final "
+        "pipeline. Shared limit: density clustering has no notion of objectness, so no proximity or size rule "
+        "can tell 'rejoin two pieces of one car' from 'keep two adjacent cars apart'. Resolution worked because "
+        "0.10 m closes gaps inside a car before it closes gaps between cars."))
+    C(BK, "Normalisation Ablation on a Real Car",
+      "Same network, same scan: only the frame the scan is put in differs.",
+      lay_image, "b57_normalisation_ablation.png",
+      S("backup for 'why the four geometry steps?' or 'why not fine-tune on real data?'. ch4 §Completion "
+        "Ablation Studies, Inference normalisation + Sim-to-real fine-tuning. Figure: "
+        "scripts/make_b57_normalisation_ablation.py, car C (fixed in advance), checkpoint pcn_kitti_best on both "
+        "sides; left = the original path verbatim (scan's own centroid and radius, 3D PCA, longest axis as X), "
+        "right = the production output. Left output spans about 5.1 × 3.5 × 2.6 m, right 3.9 × 1.8 × 1.7 m "
+        "(illustration, not a thesis number). Say: the network was never the problem; the input frame was. "
+        "Early blobs were first blamed on the synthetic-to-real gap, but retraining on more realistic "
+        "simulated scans did not help; putting the scan in the training frame did."))
+    C(BK, "Is the Judge Independent?",
+      "Each way the judge could favour us, and what rules it out.",
+      lay_judge_independent, None,
+      S("backup for any challenge to slide 36. ch4 §Real Data Plausibility; Chen et al. 2020 use a "
+        "ModelNet40 judge for the same reason. Pre-registration and the 0.88 gate: written before scoring. "
+        "ModelNet40 has no truck, bus or van class, so 'car' is not split with near-vehicle classes."))
+    C(BK, "Fidelity Metrics: UCD and UHD",
+      "They compare the output with its own scan, so a copy of the scan scores best.",
+      lay_ucd_uhd, None,
+      S("backup for 'why not the standard metrics?'. ch2 sec:th-distances, fig:bg-fidelity (redrawn as a toy, "
+        "scripts/make_b59_ucd_uhd.py, numbers are the toy's own); tab:fidelity. Used on KITTI cars by Chen et "
+        "al. 2020 (UHD) and P2C 2023 (UCD). Reported in the thesis, with the caveat that they reward "
+        "under-completion."))
+    C(BK, "Worked Example: IoU Matching",
+      "A detection counts as a car when it shares at least 30% of the points.",
+      lay_iou_example, None,
+      S("backup for 'how exactly is a detection matched?'. ch2 eq. IoU; ch4 §Evaluation Metrics; fig:bg-iou "
+        "(slide 26). Worked example = illustration (S4 notes A4). A split car costs twice: a missed car and "
+        "often a false detection. Counts are per frame, micro-averaged."))
+    C(BK, "Pipeline Configuration",
+      "Every number in the thesis comes from these frozen values.",
+      lay_pipeline_config, None,
+      S("backup for 'what parameters?'. tab:pipeline-config, verbatim . Fixed before "
+        "evaluation; nothing tuned on the reported results. Completion constants: slide 20 "
+        "(tab:completion-config)."))
+
+    add_vi_script(prs)
 
     out = OUT
     try:
