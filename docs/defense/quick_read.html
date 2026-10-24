@@ -163,7 +163,7 @@ h2 { font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; colo
     <div><dt>Headline, seq 08 (P / R / F1)</dt><dd>0.911 / 0.732 / 0.812<small>mIoU 0.913</small></dd></div>
     <div><dt>Leave-one-sequence-out, 11 seqs</dt><dd>0.888 / 0.717 / 0.793<small>blind fold-08 F1 0.805</small></dd></div>
     <div><dt>Seq 00 (quote the fold, not 0.838)</dt><dd>0.921 / 0.758 / 0.831</dd></div>
-    <div><dt>Recall over all annotated cars</dt><dd>≈ 0.55<small>0.73 counts cars with ≥ 10 points</small></dd></div>
+    <div><dt>Recall over all annotated cars</dt><dd>≈ 0.55<small>0.73 counts cars with ≥ 10 points after preprocessing (voxelized, not raw)</small></dd></div>
     <div><dt>False positives per stage</dt><dd>108,831 → 4,303 → 2,513</dd></div>
     <div><dt>Recall per stage (geo → +clf → +track)</dt><dd>0.773 → 0.676 → 0.732</dd></div>
     <div><dt>Cars split by clustering / merged</dt><dd>33.7% / 0.8%<small>53.5% split at 0–10 m</small></dd></div>
@@ -191,6 +191,16 @@ h2 { font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; colo
     <div class="qrow"><p class="q">"Recall 0.73: a quarter missed?"</p><span class="chip">31–32</span></div>
     <p class="l en"><b>EN</b><span>A measured limit, not a tuning failure. The classifier isn't the bottleneck: the geometric stage alone finds 77%. What we report is right 91% of the time. Over all annotated cars, about 0.55.</span></p>
     <p class="l vi"><b>VI</b><span>Đây là giới hạn đã đo, không phải do tinh chỉnh kém. Bộ phân loại không phải điểm nghẽn: riêng bước hình học đã tìm được 77%. Những gì hệ thống báo cáo đúng 91%. Tính trên tất cả xe được gán nhãn thì khoảng 0,55.</span></p>
+    <div class="sub2">
+      <p class="tag">"Ten points raw or voxelized?" — after preprocessing</p>
+      <p class="l en"><b>EN</b><span>Points after preprocessing: 5 cm voxels, denoising, ground removal, the cloud clustering sees. Under ten there, no method can cluster it. Some had more raw points, so we also report about 0.55 over every annotated car.</span></p>
+      <p class="l vi"><b>VI</b><span>Là các điểm sau tiền xử lý: voxel 5 cm, khử nhiễu, loại mặt đất, đúng đám mây bước phân cụm nhìn thấy. Dưới mười điểm thì không phương pháp nào phân cụm được. Một số xe có nhiều điểm hơn trong bản quét gốc, nên chúng em báo cáo thêm khoảng 0,55 trên tất cả xe được gán nhãn.</span></p>
+    </div>
+    <div class="sub2">
+      <p class="tag">If pressed "preprocessing loses cars you don't count?"</p>
+      <p class="l en"><b>EN</b><span>Yes, some: about 15% of cars with ten or more raw points drop below ten. That's a real front-end cost, and why we put 0.55 next to 0.73.</span></p>
+      <p class="l vi"><b>VI</b><span>Đúng, có một phần: khoảng 15% số xe có từ mười điểm trở lên trong bản quét gốc bị giảm xuống dưới mười. Đó là cái giá thật của phần đầu hệ thống, và vì thế chúng em đặt 0,55 cạnh 0,73.</span></p>
+    </div>
   </div>
 
   <div class="item">
@@ -325,6 +335,7 @@ h2 { font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; colo
     <div><p class="no">"96% of the gap"</p><p class="ok">"93 to 96%"</p></div>
     <div><p class="no">seq 00 F1 0.838 · "100 frames"</p><p class="ok">fold-00 0.831 · "an earlier, shorter run"</p></div>
     <div><p class="no">"a learned stage would find more"</p><p class="ok">keep "probably"</p></div>
+    <div><p class="no">"ten points in the scan"</p><p class="ok">"ten points after preprocessing"</p></div>
   </div>
 </section>
 

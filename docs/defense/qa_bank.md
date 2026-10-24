@@ -269,13 +269,32 @@ the slide to jump to, and the trap behind it. Numbers are from the thesis unless
   far, sparse cars, or near cars split into pieces by clustering. The classifier isn't the bottleneck:
   the geometric stage alone already finds 77%. And what it does report is right 91% of the time.
   Against all annotated cars, including those with almost no points, recall is about 0.55; the 0.73
-  counts cars with at least ten points left."
+  counts cars with at least ten points after preprocessing."
 - VI: "Với một hệ thống không cần nhãn mới, đây là một giới hạn đã được đo, không phải do tinh chỉnh kém.
   Phần lớn các xe bị bỏ sót là xe ở xa, thưa điểm, hoặc xe ở gần bị phân cụm tách thành nhiều mảnh. Bộ phân
   loại không phải là điểm nghẽn: riêng bước hình học đã tìm được 77%. Và những gì hệ thống báo cáo thì đúng
   91%. Tính trên tất cả các xe được gán nhãn, kể cả xe gần như không có điểm, độ phủ khoảng 0,55; con số
-  0,73 tính trên các xe còn ít nhất mười điểm."
+  0,73 tính trên các xe còn ít nhất mười điểm sau tiền xử lý."
 - Trap: give the 0.55 yourself if the denominator comes up (S4 quiz gap).
+- Follow-up "ten points raw or voxelized?" (2026-10-25): **after preprocessing** (z-filter, 5 cm voxels,
+  denoising, ground removal; `src/evaluate.py` `m.sum() >= 10` on the object cloud; ch4
+  §sec:eval-targets). Never say "ten points in the scan".
+  - EN: "Points after preprocessing: the 5-centimetre voxels, denoising and ground removal, the same
+    cloud the clustering sees. A car with fewer than ten points there can't be clustered by any
+    method. Some of those cars did have more points in the raw scan, so we also report recall against
+    every annotated car: about 0.55."
+  - VI: "Là các điểm sau tiền xử lý: voxel 5 cm, khử nhiễu và loại mặt đất, đúng đám mây mà bước phân
+    cụm nhìn thấy. Xe còn dưới mười điểm ở đó thì không phương pháp phân cụm nào tách được. Một số xe
+    trong đó có nhiều điểm hơn trong bản quét gốc, nên chúng em cũng báo cáo độ phủ trên tất cả xe được
+    gán nhãn: khoảng 0,55."
+- If pressed "so preprocessing loses cars you don't count?": thesis stride-20 seq 08: 2,332 annotated
+  → 2,033 with ≥ 10 raw points → 1,737 eligible; 14.6% of the raw-≥10 cars drop out in preprocessing.
+  - EN: "Yes, some: about 15% of cars with ten or more raw points drop below ten after
+    preprocessing. That's a real cost of the front end, and it's why we put 0.55 next to 0.73
+    instead of reporting only the higher number."
+  - VI: "Đúng, có một phần: khoảng 15% số xe có từ mười điểm trở lên trong bản quét gốc bị giảm xuống
+    dưới mười sau tiền xử lý. Đó là cái giá thật của phần đầu hệ thống, và vì thế chúng em đặt 0,55 cạnh
+    0,73 thay vì chỉ báo cáo con số cao hơn."
 
 **Q14. "Why is sequence 01 so poor?"** → slide 51
 - EN: "It's the highway: cars are mostly far away and recall collapses with range, about 0.2 beyond 40
