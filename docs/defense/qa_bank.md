@@ -18,7 +18,7 @@ leaving the obvious "why / how?" unanswered. Each hook leads to a slide with a s
 |---|---|---|---|---|
 | H1 | 17, 2.3 Completion | "At first the network produced only blobs. The fix was not more training." | "So what was the fix?" | **57** |
 | H2 | 26, 3.2.2 Metrics | "A detection counts when it shares at least 30% of its points with a real car." | "Why 30%? Isn't that lenient?" | **46** |
-| H3 | 31, 3.3.3 Recall | "We tried six ways to repair the splitting; only one worked." | "What did you try?" | **56** |
+| H3 | 31, 3.3.3 Recall | "Six repairs for the splitting failed; one change worked." | "What did you try?" | **56** |
 | H4 | 36, 3.4.2 Judge | "We ask an independent judge, a separate program trained on different 3D models." | "How can one program judge another? Is it fair?" | **58** (59) |
 | H5 | 51, 4.2 Limitations | "623.5 ms per frame, offline by design." | "Could it run in real time?" | **41–42** |
 
@@ -35,10 +35,20 @@ leaving the obvious "why / how?" unanswered. Each hook leads to a slide with a s
   chính bản quét, và lấy hướng dài nhất làm trục chính, không giống cách mạng được huấn luyện. Vì vậy
   ngay cả một mạng tốt cũng nhận đầu vào khó hiểu và trả về một khối mờ. Đây là cùng một mạng, cùng một
   bản quét: bên trái là hệ toạ độ cũ, bên phải là bốn bước hình học của chúng tôi. Vấn đề chưa bao giờ
-  nằm ở mạng, mà ở hệ toạ độ đầu vào. Đó cũng là lý do tinh chỉnh trên dữ liệu thật không giúp được gì."
+  nằm ở mạng, mà ở hệ toạ độ đầu vào. Đó cũng là lý do tinh chỉnh trên các bản quét mô phỏng chân thực hơn không giúp được gì."
 - Follow-up "why not just train it on rotated cars?": "We could, but then the network has to learn
   orientation as well as shape from the same data. Putting the scan in a fixed frame is free and exact,
   and it worked."
+- Follow-up "how did you find it?" (2026-10-24): own it; it was our integration mistake (#26), not
+  something the modular design detected. Never cite it as a modularity win (Q19).
+  - EN: "That one was our own mistake. When we connected the network to real scans, we normalised
+    them differently from how it was trained. Once we matched the training frame exactly, the same
+    network produced cars. The lesson is to check that training and inference conventions match
+    before integrating anything, and we now do that as a rule."
+  - VI: "Đó là lỗi của chính chúng em. Khi nối mạng với các bản quét thật, chúng em chuẩn hoá đầu vào
+    khác với cách mạng được huấn luyện. Khi đưa về đúng hệ toạ độ lúc huấn luyện, cùng một mạng đã cho
+    ra hình chiếc xe. Bài học là phải kiểm tra quy ước giữa huấn luyện và suy luận khớp nhau trước khi
+    tích hợp, và giờ chúng em làm việc đó thành quy tắc."
 
 ### H2 — "Why 30%?" → slide 46
 
@@ -58,14 +68,25 @@ leaving the obvious "why / how?" unanswered. Each hook leads to a slide with a s
   with distance, a bird's-eye-view clusterer, stacking several frames, and lower size thresholds. Each
   failed for a clear reason. The bigger minimum helped on sequence 00 but hurt on 08, because it also
   erases small, distant cars. Merging nearby pieces also merges cars with walls and poles, so precision
-  fell. The one that worked was clustering on a 10-centimetre grid instead of 5: recall 0.710 to 0.732.
+  fell. What did work was clustering on a 10-centimetre grid instead of 5: recall 0.710 to 0.732.
   It closes the small gaps inside a car before it closes the gaps between two cars."
 - VI: "Sáu cách: tăng kích thước cụm tối thiểu, gộp các mảnh ở gần nhau, tham số thay đổi theo khoảng
   cách, phân cụm nhìn từ trên xuống, chồng nhiều khung hình, và hạ ngưỡng kích thước. Mỗi cách thất bại
   vì một lý do rõ ràng. Tăng kích thước tối thiểu giúp ở chuỗi 00 nhưng làm kém đi ở chuỗi 08, vì nó cũng
-  xoá mất các xe nhỏ ở xa. Gộp các mảnh gần nhau cũng gộp xe với tường và cột, nên độ chính xác giảm. Cách
-  duy nhất hiệu quả là phân cụm trên lưới 10 cm thay vì 5 cm: độ phủ tăng từ 0,710 lên 0,732. Nó lấp
+  xoá mất các xe nhỏ ở xa. Gộp các mảnh gần nhau cũng gộp xe với tường và cột, nên độ chính xác giảm. Thay
+  đổi hiệu quả là phân cụm trên lưới 10 cm thay vì 5 cm: độ phủ tăng từ 0,710 lên 0,732. Nó lấp
   những khe nhỏ bên trong một chiếc xe trước khi lấp khe giữa hai chiếc xe."
+- Follow-up "slide 56 shows seq 08 F1 0.829, above your 0.812 headline?" (2026-10-24):
+  - EN: "That table is an earlier version of the pipeline: the old 5-centimetre grid and a different
+    classifier checkpoint. It compares the repairs against each other, row by row; it isn't comparable
+    with the headline, which is the final pipeline on the full sequence."
+  - VI: "Bảng đó là một phiên bản cũ hơn của hệ thống: lưới 5 cm cũ và một checkpoint bộ phân loại khác.
+    Bảng dùng để so sánh các cách sửa với nhau, theo từng hàng; không so sánh được với kết quả chính, vốn
+    là hệ thống cuối cùng trên toàn bộ chuỗi."
+  - Thesis caption says "pre-promotion baseline" (ch4 tab:strategies). Inferred, not verified: the seq-08
+    row (0.956 / 0.731 / 0.829) equals the 100-frame pretrained-checkpoint run in findings.md #25
+    exactly, so it is likely a 100-frame number. Don't volunteer "100 frames"; if asked, "an early,
+    shorter evaluation run".
 - Follow-up "why not an even coarser grid?": merges grow as the grid coarsens (56 → 284 cars fused
   at 0.10 m); 0.20 m was not tested, so say "we expect", not "we found".
 
@@ -303,3 +324,81 @@ the slide to jump to, and the trap behind it. Numbers are from the thesis unless
   chỉnh mạng hoàn thiện trên dữ liệu thật; và kiểm chứng xem xe đã hoàn thiện có cho hộp bao tốt hơn khi
   phát hiện hay không."
 - Trap: "fine-tuning on real data" is future work, never "tried" (Part 2).
+
+### E. The modular design (2026-10-24)
+
+**Q19. "You built it modular to see where it fails. What did that actually reveal?"** → slides 31, 33
+(29, 44, 41)
+- EN: "Two concrete things, plus one practical one. First, recall is limited by clustering, not by
+  the classifier. After the geometric stage alone, 77% of cars are already found, more than the full
+  pipeline keeps. And a third of cars are split into pieces by clustering, while fewer than 1% are
+  merged. So we knew improving the classifier could not raise recall, and we fixed clustering instead:
+  a coarser grid took recall from 0.710 to 0.732. Second, each stage's job can be measured: the
+  classifier cuts false positives from about 109 thousand to 4,300, and the track filter to 2,500. And
+  per-stage timing shows clustering takes 59% of the runtime, so that's where real-time work has to
+  start."
+- VI: "Có hai phát hiện cụ thể và một ý thực tế. Thứ nhất, độ phủ bị giới hạn bởi bước phân cụm, không
+  phải bộ phân loại. Chỉ sau bước hình học, 77% số xe đã được tìm thấy, nhiều hơn cả hệ thống hoàn chỉnh
+  giữ lại. Và một phần ba số xe bị phân cụm tách thành nhiều mảnh, trong khi chưa đến 1% bị gộp. Vì vậy
+  chúng em biết cải thiện bộ phân loại không thể tăng độ phủ, và sửa ở bước phân cụm: lưới thô hơn giúp
+  độ phủ tăng từ 0,710 lên 0,732. Thứ hai, vai trò của từng bước đo được: bộ phân loại giảm dương tính
+  giả từ khoảng 109 nghìn xuống 4.300, bộ lọc theo vết xuống 2.500. Và đo thời gian từng bước cho thấy
+  phân cụm chiếm 59% thời gian chạy, nên muốn chạy thời gian thực thì phải bắt đầu từ đó."
+- Trap: **never cite the PCN normalisation fix here**; it was our own bug (H1 follow-up). Don't claim
+  per-car blame ("we know where each missed car was lost"); the thesis measures rates and per-stage
+  recall. Numbers: tab:ablation-stage (FP 108,831 → 4,303 → 2,513), tab:splitrate (33.7% split, 0.8%
+  merged), tab:runtime (370.4 ms, 59.4%).
+- Follow-up "end-to-end networks can be ablated too":
+  - EN: "Ablation tells you which component matters. Here every stage outputs points we can compare
+    directly with the labels, so we can measure how many cars are already split right after
+    clustering, and how much recall is left after each stage."
+  - VI: "Ablation cho biết thành phần nào quan trọng. Ở đây mỗi bước cho ra các điểm có thể so trực tiếp
+    với nhãn, nên chúng em đo được bao nhiêu xe đã bị tách ngay sau bước phân cụm, và độ phủ còn lại sau
+    từng bước."
+- Follow-up "you found the splitting; why not fix it fully?" → slide 56:
+  - EN: "Six repairs failed for the same reason: density clustering has no notion of an object. No
+    distance or size rule can tell two pieces of one car from two cars parked side by side. That's a
+    limit of the method and our future work."
+  - VI: "Sáu cách sửa đều thất bại vì cùng một lý do: phân cụm theo mật độ không có khái niệm vật thể.
+    Không quy tắc khoảng cách hay kích thước nào phân biệt được hai mảnh của một xe với hai xe đỗ sát
+    nhau. Đó là giới hạn của phương pháp và là hướng phát triển tiếp."
+- Follow-up "what's the downside of modular?" → slide 33 (say it before they push):
+  - EN: "Errors carry forward. The classifier and tracker can't create detections, so recall can never
+    exceed the 0.773 of the geometric stage."
+  - VI: "Lỗi dồn từ bước trước sang bước sau. Bộ phân loại và bộ theo vết không tạo thêm được phát hiện,
+    nên độ phủ không bao giờ vượt quá 0,773 của bước hình học."
+
+**Q20. "If the geometric stage is the limit, was it the right call to put it first?"** → slides 29, 33
+(15, 41)
+- EN: "For the question this thesis asks, yes, and we measured the price. Three reasons. It needs no
+  labels at all, which is the point of the thesis. It turns over a hundred thousand points into a few
+  dozen candidate clusters per scan, so the classifier stays small and fast. And those clusters are what
+  we mine the classifier's training labels from: without that first step there is nothing to label
+  automatically. The price is that recall can't go above what clustering finds, 0.773. A learned
+  first step would probably find more cars, but it needs a label on every point, which is exactly
+  what we set out to avoid. And the limit isn't fixed: changing the clustering grid alone raised
+  recall from 0.710 to 0.732."
+- VI: "Với câu hỏi mà luận văn đặt ra thì đúng, và chúng em đã đo cái giá của nó. Có ba lý do. Bước này
+  hoàn toàn không cần nhãn, đó chính là mục tiêu của luận văn. Nó biến hơn một trăm nghìn điểm thành
+  vài chục cụm ứng viên mỗi lần quét, nên bộ phân loại nhỏ và nhanh. Và chính các cụm đó là nguồn để
+  khai thác nhãn huấn luyện cho bộ phân loại: không có bước đầu tiên này thì không có gì để gán nhãn tự
+  động. Cái giá là độ phủ không thể cao hơn những gì bước phân cụm tìm được, 0,773. Một bước đầu dùng học
+  máy có lẽ sẽ tìm được nhiều xe hơn, nhưng cần nhãn cho từng điểm, đúng thứ mà chúng em muốn tránh. Và
+  giới hạn này không cố định: chỉ riêng việc đổi lưới phân cụm đã nâng độ phủ từ 0,710 lên 0,732."
+- Count check: seq 08 has ~222 clusters per frame after clustering, ~31 after the geometric filter
+  (903,901 / 127,654 over 4,071 frames); the runtime table's ~45 is the classifier's per-frame load.
+  Say "a few dozen".
+- Precision of the premise: the limit is **clustering** (splitting), not "geometry" as a whole; the
+  geometric filter's job is to keep cars, and geometric-only recall 0.773 is the highest of any stage.
+- Trap: "a learned first step would probably find more" is an expectation, not measured; keep
+  "probably". Don't call geometry-first optimal for accuracy. Don't bring up the RANSAC wall frames
+  (project_state weak spots).
+- Follow-up "you already use SemanticKITTI labels; why not train a segmentation network on them?":
+  - EN: "That's a valid alternative, but then it's the fully supervised setting we compare against, not
+    the one we study. Our design only needs one car-or-not label per cluster, and we never train on
+    point-level labels. The question here is how far you get without them."
+  - VI: "Đó là một hướng hợp lý, nhưng khi đó nó trở thành bài toán học có giám sát đầy đủ mà chúng em
+    dùng để so sánh, không phải bài toán chúng em nghiên cứu. Thiết kế của chúng em chỉ cần một nhãn xe
+    hay không phải xe cho mỗi cụm, và không bao giờ huấn luyện trên nhãn từng điểm. Câu hỏi ở đây là đi
+    được bao xa khi không có chúng."
+  - Trap: don't claim cluster labels "could come from cheap clicking"; not tested.

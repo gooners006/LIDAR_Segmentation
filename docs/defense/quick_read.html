@@ -1,0 +1,375 @@
+<title>Defense Quick Read</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one narrow reading column, sticky section bar, priority order top to bottom (hooks → numbers → questions → never say → if pressed). */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --fg: #141922;
+  --muted: #5a6475;
+  --line: #dbe0e8;
+  --accent: #2b55c6;
+  --accent-soft: #e6ecfb;
+  --vi: #7a4b0e;
+  --warn: #b0261c;
+  --warn-soft: #fbeceb;
+  --font-body: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1218; --surface: #171b23; --fg: #e5e9f0; --muted: #98a2b3; --line: #2a303b;
+    --accent: #8eaaff; --accent-soft: #1d2640; --vi: #e8b46a; --warn: #ff8f86; --warn-soft: #321a1a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1218; --surface: #171b23; --fg: #e5e9f0; --muted: #98a2b3; --line: #2a303b;
+  --accent: #8eaaff; --accent-soft: #1d2640; --vi: #e8b46a; --warn: #ff8f86; --warn-soft: #321a1a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body);
+  font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 720px; margin: 0 auto; display: grid; gap: 28px; }
+header { padding-top: 20px; display: grid; gap: 6px; }
+h1 { font-size: 1.6rem; line-height: 1.2; margin: 0; font-weight: 700; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0; font-size: 0.9rem; }
+.rules { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.rules span { font-size: 0.8rem; background: var(--accent-soft); color: var(--accent); padding: 3px 9px; border-radius: 999px; font-weight: 500; }
+nav {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  border-bottom: 1px solid var(--line); padding-block: 8px;
+  display: flex; gap: 14px; overflow-x: auto; scrollbar-width: none;
+}
+nav a { color: var(--muted); text-decoration: none; font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
+nav a:hover, nav a:focus-visible { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+section { display: grid; gap: 12px; scroll-margin-top: 52px; }
+h2 { font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 0; font-weight: 600; }
+.item { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: grid; gap: 7px; min-width: 0; }
+.qrow { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; }
+.q { font-weight: 600; margin: 0; min-width: 0; }
+.chip { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 6px; white-space: nowrap; flex-shrink: 0; }
+.plant { margin: 0; font-style: italic; color: var(--muted); font-size: 0.92rem; }
+.l { margin: 0; display: grid; grid-template-columns: 2.1em 1fr; gap: 4px; }
+.l b { font-family: var(--font-mono); font-size: 0.7rem; padding-top: 3px; letter-spacing: 0.04em; }
+.en b { color: var(--accent); }
+.vi b { color: var(--vi); }
+.vi span { color: var(--fg); }
+.sub2 { border-top: 1px dashed var(--line); padding-top: 7px; display: grid; gap: 5px; }
+.sub2 .tag { font-size: 0.8rem; color: var(--muted); font-weight: 600; margin: 0; }
+.nums { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.nums div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 8px 14px; border-top: 1px solid var(--line); align-items: baseline; }
+.nums div:first-child { border-top: 0; }
+.nums dt { color: var(--muted); font-size: 0.88rem; min-width: 0; }
+.nums dd { margin: 0; font-family: var(--font-mono); font-size: 0.86rem; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.nums small { display: block; font-family: var(--font-body); font-weight: 400; color: var(--muted); font-size: 0.75rem; }
+.never { border: 1px solid var(--warn); background: var(--warn-soft); border-radius: 8px; overflow: hidden; }
+.never div { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); }
+.never div:first-child { border-top: 0; }
+.never p { margin: 0; padding: 8px 12px; font-size: 0.88rem; min-width: 0; }
+.never .no { color: var(--warn); text-decoration: line-through; text-decoration-thickness: 1px; }
+.never .head p { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; color: var(--muted); text-decoration: none; }
+.note { color: var(--muted); font-size: 0.85rem; margin: 0; }
+@media (max-width: 460px) {
+  .never div { grid-template-columns: 1fr; }
+  .never .ok { padding-top: 0; }
+  .never .head { display: none; }
+}
+</style>
+
+<div class="wrap">
+<header>
+  <h1>Defense Quick Read</h1>
+  <p class="sub">25 Oct 2026 · 15 min talk + 30 min Q&amp;A · English slides, Vietnamese speech</p>
+  <div class="rules">
+    <span>Jump: type slide number + Enter</span>
+    <span>Hook: say it, pause, move on</span>
+    <span>Not measured? Say "not tested"</span>
+  </div>
+</header>
+
+<nav aria-label="Sections">
+  <a href="#hooks">Hooks</a><a href="#numbers">Numbers</a><a href="#likely">Likely Qs</a><a href="#short">Short answers</a><a href="#never">Never say</a><a href="#pressed">If pressed</a>
+</nav>
+
+<section id="hooks">
+  <h2>Planted hooks · H1–H5</h2>
+
+  <div class="item">
+    <div class="qrow"><p class="q">H1 · slide 17 · "So what was the fix?"</p><span class="chip">→ 57</span></div>
+    <p class="plant">"At first the network produced only blobs. The fix was not more training."</p>
+    <p class="l en"><b>EN</b><span>The input frame was wrong, not the network. Check, turn, shift, size puts the scan in the frame it was trained in. Same network, same scan: blob → car.</span></p>
+    <p class="l vi"><b>VI</b><span>Vấn đề nằm ở hệ toạ độ đầu vào, không phải ở mạng. Kiểm tra, xoay, dời, chỉnh kích thước đưa bản quét về đúng hệ toạ độ lúc huấn luyện. Cùng một mạng, cùng một bản quét: từ khối mờ thành chiếc xe.</span></p>
+    <div class="sub2">
+      <p class="tag">If "how did you find it?" — own it</p>
+      <p class="l en"><b>EN</b><span>Our own mistake: we normalised real scans differently from training. Matching the training frame fixed it. Now we check conventions before integrating anything.</span></p>
+      <p class="l vi"><b>VI</b><span>Đó là lỗi của chính chúng em: chuẩn hoá bản quét thật khác với lúc huấn luyện. Đưa về đúng hệ toạ độ huấn luyện là sửa được. Giờ chúng em luôn kiểm tra quy ước trước khi tích hợp.</span></p>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">H2 · slide 26 · "Why 30%? Lenient?"</p><span class="chip">→ 46</span></div>
+    <p class="plant">"A detection counts when it shares at least 30% of its points with a real car."</p>
+    <p class="l en"><b>EN</b><span>We compare points, not boxes. At a strict 50%, F1 only drops from 0.812 to 0.788. Matched detections overlap their car by 0.91 on average.</span></p>
+    <p class="l vi"><b>VI</b><span>Vì chúng em so sánh theo điểm, không theo hộp bao. Với ngưỡng chặt 50%, F1 chỉ giảm từ 0,812 xuống 0,788. Các phát hiện được ghép cặp trùng với xe trung bình 0,91.</span></p>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">H3 · slide 31 · "What did you try?"</p><span class="chip">→ 56</span></div>
+    <p class="plant">"Six repairs for the splitting failed; one change worked."</p>
+    <p class="l en"><b>EN</b><span>A bigger minimum cluster size helped 00 but hurt 08: it erases far cars. Merging pieces also fuses cars with walls and poles. The 10 cm grid works because it closes gaps inside a car before gaps between cars.</span></p>
+    <p class="l vi"><b>VI</b><span>Tăng kích thước cụm tối thiểu giúp chuỗi 00 nhưng làm kém chuỗi 08, vì xoá mất xe ở xa. Gộp mảnh thì gộp luôn xe với tường và cột. Lưới 10 cm hiệu quả vì nó lấp khe bên trong một chiếc xe trước khi lấp khe giữa hai xe.</span></p>
+    <div class="sub2">
+      <p class="tag">If "slide 56 shows F1 0.829, above your 0.812?"</p>
+      <p class="l en"><b>EN</b><span>That table is an earlier pipeline: old grid, different classifier checkpoint. Read it row against row, not against the headline.</span></p>
+      <p class="l vi"><b>VI</b><span>Bảng đó là phiên bản cũ của hệ thống: lưới cũ, checkpoint bộ phân loại khác. So sánh các hàng với nhau, không so với kết quả chính.</span></p>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">H4 · slide 36 · "Is the judge fair?"</p><span class="chip">→ 58 (59)</span></div>
+    <p class="plant">"We ask an independent judge, a separate program trained on different 3D models."</p>
+    <p class="l en"><b>EN</b><span>It never saw our training data and isn't our classifier. It rejects three in four raw scans, yet accepts 81% of dense real scans. Its pass mark, 0.88, was fixed before scoring; it reached 0.92.</span></p>
+    <p class="l vi"><b>VI</b><span>Nó chưa từng thấy dữ liệu huấn luyện của chúng em và không phải bộ phân loại của chúng em. Nó từ chối ba trên bốn bản quét gốc, nhưng nhận 81% bản quét thật dày đặc. Ngưỡng đạt 0,88 được đặt trước khi chấm; nó đạt 0,92.</span></p>
+    <div class="sub2">
+      <p class="tag">If "why not just measure distance?" → 59</p>
+      <p class="l en"><b>EN</b><span>Measured against the scan itself, copying the scan scores a perfect zero.</span></p>
+      <p class="l vi"><b>VI</b><span>Nếu đo khoảng cách tới chính bản quét, chép nguyên bản quét đã được điểm tuyệt đối bằng không.</span></p>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">H5 · slide 51 · "Real time?"</p><span class="chip">→ 41–42</span></div>
+    <p class="plant">"623.5 ms per frame, offline by design."</p>
+    <p class="l en"><b>EN</b><span>Not today: 1.6 frames per second. 59% of the time is Python HDBSCAN; a native or GPU version is the direct path. A simpler, faster clusterer costs about ten points of recall.</span></p>
+    <p class="l vi"><b>VI</b><span>Hiện tại thì chưa: 1,6 khung hình mỗi giây. 59% thời gian là HDBSCAN viết bằng Python; bản mã gốc hoặc GPU là hướng trực tiếp. Thuật toán phân cụm đơn giản, nhanh hơn thì mất khoảng mười điểm độ phủ.</span></p>
+  </div>
+</section>
+
+<section id="numbers">
+  <h2>Numbers to never fumble</h2>
+  <dl class="nums">
+    <div><dt>Headline, seq 08 (P / R / F1)</dt><dd>0.911 / 0.732 / 0.812<small>mIoU 0.913</small></dd></div>
+    <div><dt>Leave-one-sequence-out, 11 seqs</dt><dd>0.888 / 0.717 / 0.793<small>blind fold-08 F1 0.805</small></dd></div>
+    <div><dt>Seq 00 (quote the fold, not 0.838)</dt><dd>0.921 / 0.758 / 0.831</dd></div>
+    <div><dt>Recall over all annotated cars</dt><dd>≈ 0.55<small>0.73 counts cars with ≥ 10 points</small></dd></div>
+    <div><dt>False positives per stage</dt><dd>108,831 → 4,303 → 2,513</dd></div>
+    <div><dt>Recall per stage (geo → +clf → +track)</dt><dd>0.773 → 0.676 → 0.732</dd></div>
+    <div><dt>Cars split by clustering / merged</dt><dd>33.7% / 0.8%<small>53.5% split at 0–10 m</small></dd></div>
+    <div><dt>Grid 5 → 10 cm, recall</dt><dd>0.710 → 0.732<small>+756 TP</small></dd></div>
+    <div><dt>Recall beyond 40 m · seq 01 precision</dt><dd>0.196 · 0.951</dd></div>
+    <div><dt>Match rule (points)</dt><dd>IoU ≥ 0.3<small>at 0.5: F1 0.788</small></dd></div>
+    <div><dt>Runtime</dt><dd>623.5 ms · 1.6 fps<small>clustering 370.4 ms (59.4%)</small></dd></div>
+    <div><dt>Judge acceptance: raw → completed · dense real</dt><dd>0.253 → 0.785 · 0.807<small>flips 1,615 vs 115 · "93 to 96% of the gap"</small></dd></div>
+    <div><dt>Judge accuracy (pass mark)</dt><dd>0.9214 (0.88)</dd></div>
+    <div><dt>Completion, synthetic</dt><dd>CD 0.16 m · F 0.76<small>256 points in, 4,096 out</small></dd></div>
+    <div><dt>Classifier training clusters</dt><dd>420,333<small>Stage A redundant: 0.9285 vs 0.9225 macro-F1</small></dd></div>
+  </dl>
+</section>
+
+<section id="likely">
+  <h2>Likely questions</h2>
+
+  <div class="item">
+    <div class="qrow"><p class="q">"Better than deep learning?"</p><span class="chip">5, 6, 25</span></div>
+    <p class="l en"><b>EN</b><span>On accuracy, no, and we don't claim it. The numbers aren't on the same scale. What we offer: no new hand labels, every stage inspectable, failures traceable to a cause.</span></p>
+    <p class="l vi"><b>VI</b><span>Về độ chính xác thì không, và chúng em không khẳng định điều đó. Các con số không cùng thang đo. Điều chúng em mang lại: không cần nhãn thủ công mới, mọi bước kiểm tra được, lỗi truy được nguyên nhân.</span></p>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">"Recall 0.73: a quarter missed?"</p><span class="chip">31–32</span></div>
+    <p class="l en"><b>EN</b><span>A measured limit, not a tuning failure. The classifier isn't the bottleneck: the geometric stage alone finds 77%. What we report is right 91% of the time. Over all annotated cars, about 0.55.</span></p>
+    <p class="l vi"><b>VI</b><span>Đây là giới hạn đã đo, không phải do tinh chỉnh kém. Bộ phân loại không phải điểm nghẽn: riêng bước hình học đã tìm được 77%. Những gì hệ thống báo cáo đúng 91%. Tính trên tất cả xe được gán nhãn thì khoảng 0,55.</span></p>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">"No annotation, but SemanticKITTI labels?"</p><span class="chip">15</span></div>
+    <p class="l en"><b>EN</b><span>Zero additional manual annotation. The existing labels are used automatically to mark which clusters are cars. Nobody drew a new label.</span></p>
+    <p class="l vi"><b>VI</b><span>Không cần thêm nhãn thủ công. Nhãn có sẵn được dùng tự động để đánh dấu cụm nào là xe. Không ai vẽ thêm nhãn mới.</span></p>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">"How do you know completion is correct?"</p><span class="chip">36, 37, 39</span></div>
+    <p class="l en"><b>EN</b><span>Exactly correct, we can't know on real data. What we can test: the judge accepts 25% of raw scans, 79% after completion, close to 81% for dense real scans. On synthetic cars, 0.16 m Chamfer.</span></p>
+    <p class="l vi"><b>VI</b><span>Chính xác tuyệt đối thì không thể biết trên dữ liệu thật. Điều kiểm chứng được: bộ đánh giá chấp nhận 25% bản quét gốc, 79% sau hoàn thiện, gần mức 81% của bản quét thật dày đặc. Trên xe tổng hợp: Chamfer 0,16 m.</span></p>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">"Tested on training data?"</p><span class="chip">27</span></div>
+    <p class="l en"><b>EN</b><span>No. Train on ten sequences, test on the eleventh, for all eleven: F1 0.793. The completion network never saw a real scan.</span></p>
+    <p class="l vi"><b>VI</b><span>Không. Huấn luyện trên mười chuỗi, kiểm thử trên chuỗi thứ mười một, lặp cho cả mười một: F1 0,793. Mạng hoàn thiện chưa từng thấy bản quét thật nào.</span></p>
+    <p class="note">Pressed on seq 08 picking the checkpoint: blind fold-08 F1 0.805.</p>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">"What did the modular design reveal?"</p><span class="chip">31, 33 · 29, 44, 41</span></div>
+    <p class="l en"><b>EN</b><span>Recall is limited by clustering, not the classifier, so we fixed clustering: 0.710 to 0.732. Each stage's job is measurable: false positives 109 thousand → 4,300 → 2,500. Clustering is 59% of runtime.</span></p>
+    <p class="l vi"><b>VI</b><span>Độ phủ bị giới hạn bởi phân cụm, không phải bộ phân loại, nên chúng em sửa ở phân cụm: 0,710 lên 0,732. Vai trò từng bước đo được: dương tính giả 109 nghìn → 4.300 → 2.500. Phân cụm chiếm 59% thời gian chạy.</span></p>
+    <p class="note">Never cite the PCN fix here: that was our own bug.</p>
+    <div class="sub2">
+      <p class="tag">Downside of modular? Say it before they push → 33</p>
+      <p class="l en"><b>EN</b><span>Errors carry forward: recall can never exceed the geometric stage's 0.773.</span></p>
+      <p class="l vi"><b>VI</b><span>Lỗi dồn từ bước trước sang bước sau: độ phủ không thể vượt 0,773 của bước hình học.</span></p>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">"If geometry is the limit, why put it first?"</p><span class="chip">29, 33</span></div>
+    <p class="l en"><b>EN</b><span>Right for this question, at a measured price. It needs no labels; it leaves a few dozen candidates per scan; and the clusters are what we mine the classifier's labels from. Price: recall can't exceed 0.773. A learned first step would probably find more, but it needs a label on every point.</span></p>
+    <p class="l vi"><b>VI</b><span>Đúng với câu hỏi của luận văn, và cái giá đã được đo. Không cần nhãn; chỉ còn vài chục cụm ứng viên mỗi lần quét; và chính các cụm là nguồn khai thác nhãn cho bộ phân loại. Cái giá: độ phủ không vượt quá 0,773. Bước đầu dùng học máy có lẽ tìm được nhiều xe hơn, nhưng cần nhãn cho từng điểm.</span></p>
+    <p class="note">The limit is clustering (splitting), not geometry as a whole.</p>
+    <div class="sub2">
+      <p class="tag">"Why not train a segmentation net on SemanticKITTI labels?"</p>
+      <p class="l en"><b>EN</b><span>Then it's the fully supervised setting we compare against. We only need one car-or-not label per cluster.</span></p>
+      <p class="l vi"><b>VI</b><span>Khi đó là bài toán có giám sát đầy đủ mà chúng em dùng để so sánh. Chúng em chỉ cần một nhãn xe hay không phải xe cho mỗi cụm.</span></p>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">"Why is sequence 01 so poor?"</p><span class="chip">51</span></div>
+    <p class="l en"><b>EN</b><span>It's the highway: cars are mostly far, recall about 0.2 beyond 40 m. It fails safe: precision 0.951.</span></p>
+    <p class="l vi"><b>VI</b><span>Đó là đường cao tốc: xe phần lớn ở xa, độ phủ khoảng 0,2 khi xa hơn 40 m. Nhưng thất bại an toàn: độ chính xác 0,951.</span></p>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">"Main contribution?"</p><span class="chip">8, 50</span></div>
+    <p class="l en"><b>EN</b><span>A modular framework that detects and completes occluded cars on real LiDAR, every stage inspectable; and doing it with zero additional manual annotation.</span></p>
+    <p class="l vi"><b>VI</b><span>Một khung hệ thống mô-đun phát hiện và hoàn thiện xe bị che trên LiDAR thật, kiểm tra được ở mọi bước; và làm được điều đó mà không cần thêm nhãn thủ công.</span></p>
+    <div class="sub2">
+      <p class="tag">If asked about objective 2 (evaluation method)</p>
+      <p class="l en"><b>EN</b><span>The method is Chen et al.'s; our part is an independent judge and a pass mark fixed in advance.</span></p>
+      <p class="l vi"><b>VI</b><span>Phương pháp là của Chen và cộng sự; phần của chúng em là bộ đánh giá độc lập và ngưỡng đạt đặt trước.</span></p>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">"What is it used for?"</p><span class="chip">4, 52</span></div>
+    <p class="l en"><b>EN</b><span>Self-driving perception: where cars are, how big, which way they face. Completion estimates the hidden side; whether that gives better boxes is our next step.</span></p>
+    <p class="l vi"><b>VI</b><span>Nhận thức cho xe tự lái: xe ở đâu, lớn cỡ nào, quay hướng nào. Hoàn thiện ước lượng phía bị che; kiểm chứng nó có cho hộp bao tốt hơn là bước tiếp theo.</span></p>
+  </div>
+</section>
+
+<section id="short">
+  <h2>Short answers</h2>
+
+  <div class="item">
+    <div class="qrow"><p class="q">Why HDBSCAN?</p><span class="chip">13, 45</span></div>
+    <p class="l en"><b>EN</b><span>Density changes with distance; HDBSCAN adapts. Fixed-radius methods: about ten points less recall.</span></p>
+    <p class="l vi"><b>VI</b><span>Mật độ điểm thay đổi theo khoảng cách; HDBSCAN thích ứng được. Phương pháp bán kính cố định: kém khoảng mười điểm độ phủ.</span></p>
+  </div>
+  <div class="item">
+    <div class="qrow"><p class="q">Two cars parked close?</p><span class="chip">45</span></div>
+    <p class="l en"><b>EN</b><span>Merges are rare, 0.8%. Splitting one car is the real problem, a third of cars.</span></p>
+    <p class="l vi"><b>VI</b><span>Gộp xe hiếm, 0,8%. Tách một xe thành nhiều mảnh mới là vấn đề chính, một phần ba số xe.</span></p>
+  </div>
+  <div class="item">
+    <div class="qrow"><p class="q">Why tracking?</p><span class="chip">16</span></div>
+    <p class="l en"><b>EN</b><span>One decision per object, not per frame. On seq 08 it wins back 1,968 correct detections and removes 1,790 false ones.</span></p>
+    <p class="l vi"><b>VI</b><span>Quyết định một lần cho mỗi vật thể, không theo từng khung hình. Trên chuỗi 08 lấy lại 1.968 phát hiện đúng và loại 1.790 phát hiện sai.</span></p>
+  </div>
+  <div class="item">
+    <div class="qrow"><p class="q">Why PointNet?</p><span class="chip">15</span></div>
+    <p class="l en"><b>EN</b><span>A cluster is an unordered set of points; PointNet ignores order. Small and fast: about 0.75 ms per cluster.</span></p>
+    <p class="l vi"><b>VI</b><span>Một cụm là tập điểm không có thứ tự; PointNet không phụ thuộc thứ tự. Nhỏ và nhanh: khoảng 0,75 ms mỗi cụm.</span></p>
+  </div>
+  <div class="item">
+    <div class="qrow"><p class="q">Why synthetic training for completion?</p><span class="chip">17–18</span></div>
+    <p class="l en"><b>EN</b><span>No real scan shows a whole car. 3D vehicle models give the full shape; we simulate what our sensor would see of them.</span></p>
+    <p class="l vi"><b>VI</b><span>Không bản quét thật nào thấy toàn bộ chiếc xe. Mô hình 3D phương tiện cho hình dạng đầy đủ; chúng em mô phỏng những gì cảm biến sẽ thấy.</span></p>
+  </div>
+  <div class="item">
+    <div class="qrow"><p class="q">Why only cars?</p></div>
+    <p class="l en"><b>EN</b><span>The most common road user. Other classes would follow the same recipe with their own models and priors; not tested.</span></p>
+    <p class="l vi"><b>VI</b><span>Đối tượng phổ biến nhất trên đường. Các lớp khác theo cùng cách làm với mô hình và tiên nghiệm riêng; chưa kiểm chứng.</span></p>
+  </div>
+  <div class="item">
+    <div class="qrow"><p class="q">KITTI is from 2012?</p></div>
+    <p class="l en"><b>EN</b><span>Still the standard benchmark with point-level labels. A new sensor would need re-simulation and re-checked thresholds; not tested.</span></p>
+    <p class="l vi"><b>VI</b><span>Vẫn là bộ chuẩn có nhãn từng điểm. Cảm biến mới cần mô phỏng lại và kiểm tra lại ngưỡng; chưa thử.</span></p>
+  </div>
+  <div class="item">
+    <div class="qrow"><p class="q">Night or rain?</p></div>
+    <p class="l en"><b>EN</b><span>Darkness is fine: LiDAR has its own laser. Rain and fog add noise; KITTI is good weather, so not tested, and I won't claim it.</span></p>
+    <p class="l vi"><b>VI</b><span>Trời tối không sao: LiDAR có tia laser riêng. Mưa, sương mù tạo nhiễu; KITTI thu khi trời tốt nên chưa kiểm tra, em không khẳng định.</span></p>
+  </div>
+  <div class="item">
+    <div class="qrow"><p class="q">More time?</p><span class="chip">52</span></div>
+    <p class="l en"><b>EN</b><span>A faster HDBSCAN for real time; fine-tuning completion on real data; testing whether completed cars give better boxes.</span></p>
+    <p class="l vi"><b>VI</b><span>HDBSCAN nhanh hơn để chạy thời gian thực; tinh chỉnh mạng hoàn thiện trên dữ liệu thật; kiểm chứng xe hoàn thiện có cho hộp bao tốt hơn.</span></p>
+  </div>
+</section>
+
+<section id="never">
+  <h2>Never say → say instead</h2>
+  <div class="never">
+    <div class="head"><p>Never</p><p>Instead</p></div>
+    <div><p class="no">"annotation-free", "unsupervised"</p><p class="ok">"zero additional manual annotation"</p></div>
+    <div><p class="no">"we fine-tuned on real data"</p><p class="ok">"on more realistic simulated scans"; real data is future work</p></div>
+    <div><p class="no">"modularity found the PCN problem"</p><p class="ok">"our own integration mistake"</p></div>
+    <div><p class="no">"tried six ways, only one worked"</p><p class="ok">"six repairs failed; one change worked"</p></div>
+    <div><p class="no">"completion improves detection"</p><p class="ok">"testing that is the next step"</p></div>
+    <div><p class="no">our F1 next to their mIoU</p><p class="ok">"not on the same scale"</p></div>
+    <div><p class="no">PCN "trained on cars"</p><p class="ok">"3D vehicle models"</p></div>
+    <div><p class="no">"ground removal always works"</p><p class="ok">"a rare fail-safe case"</p></div>
+    <div><p class="no">"96% of the gap"</p><p class="ok">"93 to 96%"</p></div>
+    <div><p class="no">seq 00 F1 0.838 · "100 frames"</p><p class="ok">fold-00 0.831 · "an earlier, shorter run"</p></div>
+    <div><p class="no">"a learned stage would find more"</p><p class="ok">keep "probably"</p></div>
+  </div>
+</section>
+
+<section id="pressed">
+  <h2>Only if pressed · never volunteer</h2>
+
+  <div class="item">
+    <p class="q">Judge orientation / alignment</p>
+    <p class="l en"><b>EN</b><span>Re-scored with every pair aligned: raw 0.311 → completed 0.852. The thesis number is the conservative one.</span></p>
+    <p class="l vi"><b>VI</b><span>Chấm lại khi xoay thẳng từng cặp: gốc 0,311 → hoàn thiện 0,852. Số trong luận văn là số thận trọng.</span></p>
+  </div>
+  <div class="item">
+    <p class="q">Cars seen from directly behind</p>
+    <p class="l en"><b>EN</b><span>The visible face is about 1.8 m, under the 2.7 m gate, so it's skipped as a fragment. Deliberately conservative.</span></p>
+    <p class="l vi"><b>VI</b><span>Mặt thấy được chỉ khoảng 1,8 m, dưới ngưỡng 2,7 m, nên bị bỏ qua như một mảnh. Chủ ý thận trọng.</span></p>
+  </div>
+  <div class="item">
+    <p class="q">How many cars get completed?</p>
+    <p class="l en"><b>EN</b><span>About half of car tracks; the rest fail the shape check or have too few points.</span></p>
+    <p class="l vi"><b>VI</b><span>Khoảng một nửa số vết xe; số còn lại không qua bước kiểm tra hình dạng hoặc quá ít điểm.</span></p>
+  </div>
+  <div class="item">
+    <p class="q">"Completed car = surface + box"?</p>
+    <p class="l en"><b>EN</b><span>The frame implies a box, but the evaluated output is the point cloud; boxes aren't scored.</span></p>
+    <p class="l vi"><b>VI</b><span>Hệ toạ độ ngầm định một hộp bao, nhưng đầu ra được đánh giá là đám mây điểm; hộp bao không được chấm.</span></p>
+  </div>
+  <div class="item">
+    <p class="q">Classifier clusters mined before the final config</p>
+    <p class="l en"><b>EN</b><span>Every number is measured with that checkpoint on the final pipeline, so they stand. Re-mining is untested.</span></p>
+    <p class="l vi"><b>VI</b><span>Mọi con số đều đo bằng checkpoint đó trên hệ thống cuối cùng, nên vẫn đúng. Khai thác lại chưa được thử.</span></p>
+  </div>
+  <div class="item">
+    <p class="q">Synthetic 0.16 m uses the true placement</p>
+    <p class="l en"><b>EN</b><span>That test isolates the network. Placement on real scans is judged end to end by the judge.</span></p>
+    <p class="l vi"><b>VI</b><span>Phép thử đó tách riêng mạng. Việc đặt vị trí trên bản quét thật được đánh giá toàn bộ qua bộ đánh giá.</span></p>
+  </div>
+  <div class="item">
+    <p class="q">"The thesis says you fine-tuned on real data"</p>
+    <p class="l en"><b>EN</b><span>The fine-tuning we ran was on more realistic simulated scans, while the input frame was still wrong. Real-data fine-tuning is the next step.</span></p>
+    <p class="l vi"><b>VI</b><span>Lần tinh chỉnh chúng em chạy là trên bản quét mô phỏng chân thực hơn, khi hệ toạ độ đầu vào vẫn còn sai. Tinh chỉnh trên dữ liệu thật là bước tiếp theo.</span></p>
+  </div>
+  <div class="item">
+    <p class="q">What did PCN train on?</p>
+    <p class="l en"><b>EN</b><span>3D vehicle models: mostly cars, plus buses and motorcycles.</span></p>
+    <p class="l vi"><b>VI</b><span>Mô hình 3D phương tiện: chủ yếu là xe ô tô, có thêm xe buýt và xe máy.</span></p>
+  </div>
+</section>
+</div>
