@@ -104,25 +104,18 @@ h2 { font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; colo
 </nav>
 
 <section id="hooks">
-  <h2>Planted hooks · H1–H5</h2>
-
-  <div class="item">
-    <div class="qrow"><p class="q">H1 · slide 17 · "So what was the fix?"</p><span class="chip">→ 57</span></div>
-    <p class="plant">"At first the network produced only blobs. The fix was not more training."</p>
-    <p class="l en"><b>EN</b><span>The input frame was wrong, not the network. Check, turn, shift, size puts the scan in the frame it was trained in. Same network, same scan: blob → car.</span></p>
-    <p class="l vi"><b>VI</b><span>Vấn đề nằm ở hệ toạ độ đầu vào, không phải ở mạng. Kiểm tra, xoay, dời, chỉnh kích thước đưa bản quét về đúng hệ toạ độ lúc huấn luyện. Cùng một mạng, cùng một bản quét: từ khối mờ thành chiếc xe.</span></p>
-    <div class="sub2">
-      <p class="tag">If "how did you find it?" — own it</p>
-      <p class="l en"><b>EN</b><span>Our own mistake: we normalised real scans differently from training. Matching the training frame fixed it. Now we check conventions before integrating anything.</span></p>
-      <p class="l vi"><b>VI</b><span>Đó là lỗi của chính chúng em: chuẩn hoá bản quét thật khác với lúc huấn luyện. Đưa về đúng hệ toạ độ huấn luyện là sửa được. Giờ chúng em luôn kiểm tra quy ước trước khi tích hợp.</span></p>
-    </div>
-  </div>
+  <h2>Planted hooks · H2–H5</h2>
 
   <div class="item">
     <div class="qrow"><p class="q">H2 · slide 26 · "Why 30%? Lenient?"</p><span class="chip">→ 46</span></div>
     <p class="plant">"A detection counts when it shares at least 30% of its points with a real car."</p>
-    <p class="l en"><b>EN</b><span>We compare points, not boxes. At a strict 50%, F1 only drops from 0.812 to 0.788. Matched detections overlap their car by 0.91 on average.</span></p>
-    <p class="l vi"><b>VI</b><span>Vì chúng em so sánh theo điểm, không theo hộp bao. Với ngưỡng chặt 50%, F1 chỉ giảm từ 0,812 xuống 0,788. Các phát hiện được ghép cặp trùng với xe trung bình 0,91.</span></p>
+    <p class="l en"><b>EN</b><span>Not tuned: set at the first evaluation, never changed. Yes, looser than 50%, so we re-ran at 50%: F1 0.812 → 0.788. Matches overlap their car by 0.91 on average, so they clear 50% easily too.</span></p>
+    <p class="l vi"><b>VI</b><span>Không tinh chỉnh: đặt từ lần đánh giá đầu tiên, không bao giờ đổi. Đúng là lỏng hơn 50%, nên chúng em chạy lại với 50%: F1 0,812 → 0,788. Các cặp ghép trùng với xe trung bình 0,91, nên cũng vượt 50% dễ dàng.</span></p>
+    <div class="sub2">
+      <p class="tag">If "then why not report 50%?"</p>
+      <p class="l en"><b>EN</b><span>Changing the threshold after seeing results would be tuning the metric. We fixed it first and reported 50% alongside.</span></p>
+      <p class="l vi"><b>VI</b><span>Đổi ngưỡng sau khi thấy kết quả là tinh chỉnh độ đo. Chúng em cố định từ đầu và báo cáo thêm ngưỡng 50%.</span></p>
+    </div>
   </div>
 
   <div class="item">
@@ -180,6 +173,47 @@ h2 { font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; colo
 
 <section id="likely">
   <h2>Likely questions</h2>
+
+  <div class="item">
+    <div class="qrow"><p class="q">"What's new versus existing pipelines?"</p><span class="chip">6, 7, 8</span></div>
+    <p class="l en"><b>EN</b><span>The parts aren't new, and we don't claim they are: cluster-plus-classifier detection, tracking and PCN all exist. What's new is the combination on real LiDAR, evaluated end to end; judging completion without a self-made reference; and measuring that clustering, not the classifier, limits recall.</span></p>
+    <p class="l vi"><b>VI</b><span>Các thành phần không mới, và chúng em không khẳng định là mới: phát hiện bằng phân cụm cộng bộ phân loại, theo vết và PCN đều đã có. Điểm mới là kết hợp chúng trên LiDAR thật, đánh giá từ đầu đến cuối; đánh giá bước hoàn thiện mà không cần mẫu tham chiếu tự tạo; và đo được rằng phân cụm, chứ không phải bộ phân loại, giới hạn độ phủ.</span></p>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">"Why modular, not end-to-end? The tradeoff?"</p><span class="chip">5, 33, 44</span></div>
+    <p class="l en"><b>EN</b><span>Every stage can be checked and measured on its own, and it needs no new hand labels. That's how we found that clustering limits recall. The price: errors carry forward, so recall can't exceed 0.773, and accuracy is below supervised networks; we don't claim to beat them.</span></p>
+    <p class="l vi"><b>VI</b><span>Mỗi bước có thể kiểm tra và đo riêng, và không cần nhãn thủ công mới. Nhờ vậy chúng em tìm ra phân cụm là thứ giới hạn độ phủ. Cái giá: lỗi dồn sang bước sau, nên độ phủ không vượt 0,773, và độ chính xác thấp hơn các mạng có giám sát; chúng em không khẳng định vượt chúng.</span></p>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">"How is occlusion defined? Synthetic or real?"</p><span class="chip">18, 36</span></div>
+    <p class="l en"><b>EN</b><span>Occlusion isn't labelled or measured; it's the side the sensor can't see from one viewpoint. Training is synthetic: 3D vehicle models scanned from one simulated laser position 8 to 30 m away, then the same 5 cm grid and ground cut as real data. Evaluation is real: KITTI scans, scored by the judge, 25% → 79%, dense real scans 81%. On synthetic cars: Chamfer 0.16 m.</span></p>
+    <p class="l vi"><b>VI</b><span>Che khuất không được gán nhãn hay đo trực tiếp; đó là phía cảm biến không nhìn thấy từ một góc nhìn. Huấn luyện là dữ liệu tổng hợp: mô hình 3D phương tiện được quét từ một vị trí laser mô phỏng cách 8 đến 30 m, rồi qua cùng lưới 5 cm và bước cắt mặt đất như dữ liệu thật. Đánh giá là trên dữ liệu thật: bản quét KITTI, chấm bằng bộ đánh giá, 25% → 79%, bản quét thật dày đặc 81%. Trên xe tổng hợp: Chamfer 0,16 m.</span></p>
+    <div class="sub2">
+      <p class="tag">"Why not measure the hidden side on real cars?"</p>
+      <p class="l en"><b>EN</b><span>No real scan has the whole car. Even many frames of a parked car hide the same side.</span></p>
+      <p class="l vi"><b>VI</b><span>Không bản quét thật nào có toàn bộ chiếc xe. Ngay cả nhiều khung hình của một xe đỗ cũng bị che cùng một phía.</span></p>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">"Do detection errors hurt completion?"</p><span class="chip">20, 48</span></div>
+    <p class="l en"><b>EN</b><span>They would, so a shape check sits in between: only clean, single-car clusters are completed. Without it, every implausible completion on seq 08 came from a split or merged cluster. Its cost: some good cars are rejected; about half of car tracks get completed. Swapping PCN for PoinTr changes nothing, so how far completion reaches is set by clustering.</span></p>
+    <p class="l vi"><b>VI</b><span>Có, nên giữa hai bước có một bước kiểm tra hình dạng: chỉ các cụm sạch, đúng một chiếc xe mới được hoàn thiện. Nếu bỏ bước này, mọi kết quả hoàn thiện không hợp lý trên chuỗi 08 đều đến từ cụm bị tách hoặc bị gộp. Cái giá: một số xe tốt bị từ chối; khoảng một nửa số vết xe được hoàn thiện. Thay PCN bằng PoinTr không thay đổi gì, nên phạm vi của bước hoàn thiện do bước phân cụm quyết định.</span></p>
+    <p class="note">A non-car false positive passing the check: not measured. Say "not measured".</p>
+  </div>
+
+  <div class="item">
+    <div class="qrow"><p class="q">"Baselines? Ablations? Failure cases?"</p><span class="chip">25, 44–48, 51</span></div>
+    <p class="l en"><b>EN</b><span>Detection: no head-to-head with supervised networks, the metrics differ. Instead each stage is switched off in turn: false positives 109 thousand → 4,300 → 2,500. Completion is compared with the raw scan (25%), dense real scans as the ceiling (81%), and PoinTr: Chamfer 0.161 → 0.153 m, too small a gain for a heavier model.</span></p>
+    <p class="l vi"><b>VI</b><span>Phát hiện: không so trực tiếp với các mạng có giám sát vì độ đo khác nhau. Thay vào đó, lần lượt tắt từng bước: dương tính giả 109 nghìn → 4.300 → 2.500. Bước hoàn thiện được so với bản quét gốc (25%), bản quét thật dày đặc làm mức trần (81%), và PoinTr: Chamfer 0,161 → 0,153 m, cải thiện quá nhỏ để dùng một mô hình nặng hơn.</span></p>
+    <div class="sub2">
+      <p class="tag">Failure cases</p>
+      <p class="l en"><b>EN</b><span>Split cars, a third, worst within 10 m. Far cars: recall 0.2 beyond 40 m. The highway: recall 0.336, precision still 0.951. Cars seen from directly behind are skipped. The longest cars complete slightly short.</span></p>
+      <p class="l vi"><b>VI</b><span>Xe bị tách, một phần ba, nhiều nhất trong phạm vi 10 m. Xe ở xa: độ phủ 0,2 khi xa hơn 40 m. Đường cao tốc: độ phủ 0,336, độ chính xác vẫn 0,951. Xe nhìn thẳng từ phía sau bị bỏ qua. Những xe dài nhất được hoàn thiện hơi ngắn.</span></p>
+    </div>
+  </div>
 
   <div class="item">
     <div class="qrow"><p class="q">"Better than deep learning?"</p><span class="chip">5, 6, 25</span></div>
@@ -343,6 +377,17 @@ h2 { font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; colo
   <h2>Only if pressed · never volunteer</h2>
 
   <div class="item">
+    <div class="qrow"><p class="q">Blobs / input frame / fine-tuning (was H1)</p><span class="chip">→ 57</span></div>
+    <p class="l en"><b>EN</b><span>The input frame was wrong, not the network. Check, turn, shift, size puts the scan in the frame it was trained in. Same network, same scan: blob → car.</span></p>
+    <p class="l vi"><b>VI</b><span>Vấn đề nằm ở hệ toạ độ đầu vào, không phải ở mạng. Kiểm tra, xoay, dời, chỉnh kích thước đưa bản quét về đúng hệ toạ độ lúc huấn luyện. Cùng một mạng, cùng một bản quét: từ khối mờ thành chiếc xe.</span></p>
+    <div class="sub2">
+      <p class="tag">If "how did you find it?" — own it</p>
+      <p class="l en"><b>EN</b><span>Our own mistake: we normalised real scans differently from training. Matching the training frame fixed it. Now we check conventions before integrating anything.</span></p>
+      <p class="l vi"><b>VI</b><span>Đó là lỗi của chính chúng em: chuẩn hoá bản quét thật khác với lúc huấn luyện. Đưa về đúng hệ toạ độ huấn luyện là sửa được. Giờ chúng em luôn kiểm tra quy ước trước khi tích hợp.</span></p>
+    </div>
+  </div>
+
+  <div class="item">
     <p class="q">Judge orientation / alignment</p>
     <p class="l en"><b>EN</b><span>Re-scored with every pair aligned: raw 0.311 → completed 0.852. The thesis number is the conservative one.</span></p>
     <p class="l vi"><b>VI</b><span>Chấm lại khi xoay thẳng từng cặp: gốc 0,311 → hoàn thiện 0,852. Số trong luận văn là số thận trọng.</span></p>
@@ -381,6 +426,11 @@ h2 { font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; colo
     <p class="q">What did PCN train on?</p>
     <p class="l en"><b>EN</b><span>3D vehicle models: mostly cars, plus buses and motorcycles.</span></p>
     <p class="l vi"><b>VI</b><span>Mô hình 3D phương tiện: chủ yếu là xe ô tô, có thêm xe buýt và xe máy.</span></p>
+  </div>
+  <div class="item">
+    <p class="q">Training only simulates self-occlusion</p>
+    <p class="l en"><b>EN</b><span>Each synthetic car is scanned alone, so training covers a car hiding its own far side, not a car partly hidden behind another object. How completion does on those cars wasn't measured separately.</span></p>
+    <p class="l vi"><b>VI</b><span>Mỗi xe tổng hợp được quét riêng lẻ, nên dữ liệu huấn luyện chỉ có trường hợp xe tự che phía xa của nó, không có xe bị vật khác che một phần. Kết quả hoàn thiện trên những xe đó chưa được đo riêng.</span></p>
   </div>
 </section>
 </div>

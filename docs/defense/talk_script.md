@@ -3,7 +3,7 @@
 The spoken script for every ★ slide, in English (to check the meaning) and Vietnamese (to say).
 Budgets are the deck's ★ timings. `scripts/talk_timing.py` estimates each slide's length from this
 file; `build_deck.py` copies each **VI** block into that slide's speaker notes (presenter view).
-Hooks H1–H5 (`qa_bank.md` Part 1) are marked ⚑: say the line, pause, move on.
+Hooks H2–H5 (`qa_bank.md` Part 1; H1 dropped 2026-10-25) are marked ⚑: say the line, pause, move on.
 Every number is from the thesis. Terms: precision = độ chính xác, recall = độ phủ (say the English
 word once in brackets the first time; correct to your department's usage).
 
@@ -57,8 +57,8 @@ EN: Each detection is linked to the nearest track within 2 metres, frame to fram
 VI: Mỗi phát hiện được nối với vết gần nhất trong phạm vi 2 mét, từ khung hình này sang khung hình kế tiếp. Sau đó quyết định một lần cho mỗi vết: đó là xe nếu ít nhất hai, và ít nhất một nửa số khung hình, bỏ phiếu là xe. Một chiếc xe đỗ bị bộ phân loại bỏ sót một lần vẫn được giữ; một bụi cây bị nhận nhầm là xe một lần thì bị loại. Trên chuỗi 08, bước này lấy lại gần 2.000 phát hiện đúng và loại bỏ gần 1.800 phát hiện sai.
 
 ### 17 2.3 Completion Pipeline (1:00)
-EN: Now completion. PCN is a standard encoder-decoder: it squeezes the half car into one shape code and grows a full car from it, 256 points in and 4,096 out. It is trained only on synthetic 3D models, so two things make it work on real scans. First, the training inputs are simulated to look like a real scan: one laser viewpoint, a 5-centimetre grid, the ground cut off. Second, at test time the real scan is checked, turned, shifted and sized into exactly the frame the network trained in. ⚑ At first the network produced only blobs. The fix was not more training.
-VI: Bây giờ là phần hoàn thiện. PCN là một mạng mã hoá–giải mã tiêu chuẩn: nó nén nửa chiếc xe thành một mã hình dạng, rồi dựng lại cả chiếc xe từ mã đó, 256 điểm vào và 4.096 điểm ra. Mạng chỉ được huấn luyện trên mô hình 3D tổng hợp, nên có hai điều giúp nó hoạt động trên bản quét thật. Thứ nhất, dữ liệu huấn luyện được mô phỏng để trông giống bản quét thật: một góc nhìn laser, lưới 5 cm, cắt bỏ mặt đất. Thứ hai, khi chạy thực tế, bản quét thật được kiểm tra, xoay, dịch và chỉnh tỉ lệ về đúng hệ toạ độ mà mạng đã học. ⚑ Lúc đầu, mạng chỉ cho ra những khối mờ. Cách sửa không phải là huấn luyện thêm.
+EN: Now completion. PCN is a standard encoder-decoder: it squeezes the half car into one shape code and grows a full car from it, 256 points in and 4,096 out. It is trained only on synthetic 3D models, so two things make it work on real scans. First, the training inputs are simulated to look like a real scan: one laser viewpoint, a 5-centimetre grid, the ground cut off. Second, at test time the real scan is checked, turned, shifted and sized into exactly the frame the network trained in.
+VI: Bây giờ là phần hoàn thiện. PCN là một mạng mã hoá–giải mã tiêu chuẩn: nó nén nửa chiếc xe thành một mã hình dạng, rồi dựng lại cả chiếc xe từ mã đó, 256 điểm vào và 4.096 điểm ra. Mạng chỉ được huấn luyện trên mô hình 3D tổng hợp, nên có hai điều giúp nó hoạt động trên bản quét thật. Thứ nhất, dữ liệu huấn luyện được mô phỏng để trông giống bản quét thật: một góc nhìn laser, lưới 5 cm, cắt bỏ mặt đất. Thứ hai, khi chạy thực tế, bản quét thật được kiểm tra, xoay, dịch và chỉnh tỉ lệ về đúng hệ toạ độ mà mạng đã học.
 
 ### 26 3.2.2 Metrics (0:30)
 EN: ⚑ A detection counts as a car when it shares at least 30% of its points with a real car. Best overlap first, one to one. A match is a true positive, an extra detection a false positive, a missed car a false negative, counted over every frame. For completion there is no ground truth, so an independent judge decides whether each output looks like a car.

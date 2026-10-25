@@ -19,6 +19,8 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Emu, Pt
 
+from notes_vi import SUPPORT_VI
+
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets"
 OUT = ROOT / "deck_v2.pptx"
@@ -817,10 +819,32 @@ I, II, III, IV, BK = ("I. Introduction", "II. Proposed Methodology",
 T = lambda t, src: f"★ TALK {t} — source: {src}"     # noqa: E731
 S = lambda src: f"○ SUPPORT (skip in talk) — source: {src}"  # noqa: E731
 
+# Extra speaker-note blocks per slide (for Q&A; not spoken), shown VI first: {slide: (VI, EN)}.
+MEANING_EN = """MEANING (not spoken; for questions)
+O1 Geometry-first detection: can mostly hand-written steps (RANSAC, HDBSCAN, size rules) plus two small learned ones find cars well, with every step checkable? F1 0.812 on seq 08, 0.793 across all 11 sequences; each stage's job is measured (false positives 108,831 → 4,303 → 2,513).
+O2 Completion on real LiDAR: no real car comes with its full shape, so there is no distance to a true shape to compute. Instead an independent classifier judges whether completed shapes look like cars (Chen et al.'s method; ours: the independent judge, pass mark fixed in advance): 25% → 79%, dense real scans 81%.
+O3 Transfer without new labels: two learned steps, two label sources, neither needs new manual work.
+ - Synthetic-only training: PCN never sees a real car in training; it learns from 3D vehicle models scanned by a simulated laser. Does it still work on real KITTI scans? By the judge, yes: 25% → 79%.
+ - Auto-mined supervision: the car / not-car classifier needs labelled examples. We replay our own pipeline on SemanticKITTI and label each cluster automatically from the existing per-point labels: car or not-car by majority, kept only if at least 75% pure. 420,333 clusters, no person involved.
+ - Transfer = tested on scans it was not trained on: leave-one-sequence-out F1 0.793.
+ - "Without new manual labels": the SemanticKITTI labels already existed (people made them); we add none. Say "zero additional manual annotation", never "annotation-free".
+C1 = O1 + O2 built and measured as one system. C2 = the answer to O3."""
 
-def add_vi_script(prs):
-    """Append each ★ slide's VI line from talk_script.md to its speaker notes (presenter view).
-    The script's '### <n> <title> (m:ss)' heading must match the deck: same number, same title."""
+MEANING_VI = """Ý NGHĨA (để nắm; không nói ra)
+MT1 Phát hiện dựa trên hình học: các bước chủ yếu viết tay (RANSAC, HDBSCAN, luật kích thước) cùng hai bước học máy nhỏ có tìm xe tốt không, mà mọi bước vẫn kiểm tra được? F1 0,812 trên chuỗi 08, 0,793 trên cả 11 chuỗi; vai trò từng bước đo được (dương tính giả 108.831 → 4.303 → 2.513).
+MT2 Hoàn thiện trên LiDAR thật: không xe thật nào có sẵn hình dạng đầy đủ, nên không tính được khoảng cách tới hình dạng chuẩn. Thay vào đó, một bộ phân loại độc lập đánh giá hình dạng hoàn thiện có giống xe không (phương pháp của Chen và cộng sự; phần của chúng em: bộ đánh giá độc lập, ngưỡng đạt đặt trước): 25% → 79%, bản quét thật dày đặc 81%.
+MT3 Chuyển giao không cần nhãn mới: hai bước học máy, hai nguồn nhãn, không nguồn nào cần làm thủ công thêm.
+ - Chỉ huấn luyện bằng dữ liệu tổng hợp: PCN không thấy xe thật nào khi huấn luyện; nó học từ mô hình 3D phương tiện được quét bằng laser mô phỏng. Nó có chạy được trên bản quét KITTI thật không? Theo bộ đánh giá thì có: 25% → 79%.
+ - Nhãn khai thác tự động: bộ phân loại xe / không phải xe cần ví dụ có nhãn. Chúng em chạy lại chính hệ thống trên SemanticKITTI và gán nhãn từng cụm tự động từ nhãn từng điểm có sẵn: xe hay không theo đa số, chỉ giữ cụm có độ thuần từ 75% trở lên. 420.333 cụm, không cần người gán.
+ - Chuyển giao = kiểm thử trên dữ liệu không dùng để huấn luyện: kiểm định chéo bỏ một chuỗi, F1 0,793.
+ - "Không cần nhãn thủ công mới": nhãn SemanticKITTI đã có sẵn (do người làm); chúng em không thêm nhãn nào. Nói "không cần thêm nhãn thủ công", không bao giờ nói "không dùng nhãn".
+ĐG1 = MT1 + MT2 được xây dựng và đo như một hệ thống. ĐG2 = câu trả lời cho MT3."""
+
+EXTRA_NOTES = {8: (MEANING_VI, MEANING_EN)}
+
+
+def read_talk_script():
+    """{slide: {title, en, vi}} from talk_script.md '### <n> <title> (m:ss)' blocks."""
     import re
     blocks, cur = {}, None
     for line in (ROOT / "talk_script.md").read_text(encoding="utf-8").splitlines():
@@ -828,15 +852,45 @@ def add_vi_script(prs):
         if m:
             cur = int(m[1])
             blocks[cur] = {"title": m[2]}
-        elif cur and line.startswith("VI: "):
-            blocks[cur]["vi"] = line[4:]
-    for n, b in blocks.items():
+        elif cur and line.startswith(("EN: ", "VI: ")):
+            blocks[cur][line[:2].lower()] = line[4:]
+    return blocks
+
+
+def compose_notes(n, meta, b):
+    """Speaker notes, Vietnamese first: VI script (+ VI extra), EN script (+ EN extra), then the
+    English planning line (talk marker, thesis source)."""
+    vi_x, en_x = EXTRA_NOTES.get(n, (None, None))
+    parts = ["VI: " + b["vi"], vi_x, "EN: " + b["en"], en_x, meta]
+    return "\n\n".join(x for x in parts if x)
+
+
+def compose_support_notes(n, meta):
+    """Support / backup / divider notes, Vietnamese first (notes_vi.py), then the English line."""
+    return "VI: " + SUPPORT_VI[n][1] + "\n\n" + meta
+
+
+def slide_title(sl):
+    return next(sh.text_frame.text for sh in sl.shapes if sh.has_text_frame and sh.text_frame.text.strip())
+
+
+def add_vi_script(prs):
+    """Write each ★ slide's VI + EN lines from talk_script.md, and each other slide's VI note from
+    notes_vi.py, into the speaker notes (presenter view). The script's '### <n> <title> (m:ss)'
+    heading, and notes_vi's title, must match the deck: same number, same title."""
+    for n, b in read_talk_script().items():
         sl = prs.slides[n - 1]
         if n not in (1, 53):
-            title = next(sh.text_frame.text for sh in sl.shapes if sh.has_text_frame and sh.text_frame.text.strip())
+            title = slide_title(sl)
             assert title.upper() == b["title"].upper(), f"talk_script.md slide {n}: '{b['title']}' vs deck '{title}'"
         tf = sl.notes_slide.notes_text_frame
-        tf.text = tf.text + "\n\nVI: " + b["vi"]
+        tf.text = compose_notes(n, tf.text, b)
+    for n, (want, _) in SUPPORT_VI.items():
+        sl = prs.slides[n - 1]
+        title = slide_title(sl).splitlines()[0]
+        assert title.upper() == want.upper(), f"notes_vi.py slide {n}: '{want}' vs deck '{title}'"
+        tf = sl.notes_slide.notes_text_frame
+        tf.text = compose_support_notes(n, tf.text)
 
 
 def build():
@@ -934,8 +988,8 @@ def build():
                 "points in, 4,096 out. It is trained only on synthetic ShapeNet meshes, so two things make it work on real "
                 "scans. First, the training inputs are simulated to look like a real scan: one laser viewpoint, 5 cm voxels, "
                 "the ground cut off (next slide). Second, at test time the real scan is checked, turned, shifted and sized "
-                "into exactly the frame the network trained in (slide 19). At first the network produced only blobs. "
-                "The fix was not more training. (Stop there.) HOOK H1 → backup 57; answer in qa_bank.md."))
+                "into exactly the frame the network trained in (slide 19). "
+                "Backup 57 only if asked about the input frame; answer in qa_bank.md."))
     C(II, "2.3.1 Synthetic Training Partials",
       "Training inputs are simulated to look like real scans.",
       lay_image, "d14_training_vs_real.png", S("D14 (scripts/make_d14_partials.py): illustration, not a result. "
@@ -1100,7 +1154,7 @@ def build():
         "If asked 'did you tune DBSCAN's radius?': yes, an epsilon sweep; the best fixed radius "
         "(Euclidean, 0.4 m) reaches F1 0.800 on seq 00, still below HDBSCAN's 0.835 (ch4 §clustering)."))
     C(III, "3.6.3 IoU-Threshold Sensitivity", "F1 moves by under 3 points between IoU 0.25 and 0.50.",
-      lay_iou_sensitivity, None, S("tab:iou-sensitivity, verbatim. 0.5 is the usual box threshold; ours is point-level. Pre-registered: a threshold-sensitive result would have been reported as a finding, not tuned away."))
+      lay_iou_sensitivity, None, S("tab:iou-sensitivity, verbatim. 0.3 was the evaluator default from the start, not tuned on results; the point is that the conclusion holds at 0.25 and 0.5 (H2, qa_bank.md). Don't say 'with boxes 50% is the rule': KITTI's car box benchmark uses 0.7. Pre-registered: a threshold-sensitive result would have been reported as a finding, not tuned away."))
     C(III, "3.6.4 Synthetic Pretraining",
       "Synthetic pretraining adds nothing once enough real clusters are mined.",
       lay_pretraining, None,

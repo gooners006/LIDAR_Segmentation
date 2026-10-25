@@ -9,20 +9,21 @@ Their questions will follow what a generalist notices. Part 1 plants that curios
 
 **Rules.** A hook is one sentence in the talk that states a result with a number and **stops**,
 leaving the obvious "why / how?" unanswered. Each hook leads to a slide with a strong, visual answer.
-- Five hooks, about one per section; more makes the talk sound evasive.
+- Four hooks (H2–H5; H1 dropped 2026-10-25, labels kept); more makes the talk sound evasive.
 - Say the line, pause a beat, move on. Never say "ask me later" or "I'll explain in the questions".
 - Nothing is hidden: every hook's answer is in the thesis; the talk just doesn't spend its seconds there.
 - Jump to the answer slide by number (type the number + Enter in slideshow).
 
 | # | Slide (when) | Planted line | Question it invites | Answer slide |
 |---|---|---|---|---|
-| H1 | 17, 2.3 Completion | "At first the network produced only blobs. The fix was not more training." | "So what was the fix?" | **57** |
 | H2 | 26, 3.2.2 Metrics | "A detection counts when it shares at least 30% of its points with a real car." | "Why 30%? Isn't that lenient?" | **46** |
 | H3 | 31, 3.3.3 Recall | "Six repairs for the splitting failed; one change worked." | "What did you try?" | **56** |
 | H4 | 36, 3.4.2 Judge | "We ask an independent judge, a separate program trained on different 3D models." | "How can one program judge another? Is it fair?" | **58** (59) |
 | H5 | 51, 4.2 Limitations | "623.5 ms per frame, offline by design." | "Could it run in real time?" | **41–42** |
 
-### H1 — "So what was the fix?" → slide 57
+### Slide 57 backup — "Why the four geometry steps?" (was hook H1; dropped from the talk 2026-10-25)
+
+No longer planted. Use only if someone asks about the input frame, the blobs, or fine-tuning.
 
 - EN (25 s): "The network expects a car in the same position, direction and size it saw in training.
   Our first version put each scan in a generic frame: its own centre, its own size, and its longest
@@ -52,14 +53,38 @@ leaving the obvious "why / how?" unanswered. Each hook leads to a slide with a s
 
 ### H2 — "Why 30%?" → slide 46
 
-- EN (20 s): "Because we compare points, not boxes. With boxes, 50% is the usual rule; with points,
-  30% already means the detection and the car share a large part of their points. We checked the
-  strict 50% as well: F1 only drops from 0.812 to 0.788. And the detections we match overlap their car
-  by 0.91 on average, far above either threshold."
-- VI: "Vì chúng tôi so sánh theo điểm, không theo hộp bao. Với hộp bao, ngưỡng thường dùng là 50%; còn
-  với điểm, 30% đã có nghĩa là phát hiện và chiếc xe chia sẻ phần lớn số điểm. Chúng tôi cũng đã kiểm tra
-  ngưỡng chặt 50%: F1 chỉ giảm từ 0,812 xuống 0,788. Và các phát hiện được ghép cặp trùng với xe trung
-  bình 0,91, cao hơn hẳn cả hai ngưỡng."
+Rewritten 2026-10-25: the old answer ("we compare points, not boxes") gave no actual reason for 30%.
+
+- The honest core: **30% was not derived or tuned.** It has been the evaluator default since `src/evaluate.py`
+  was first written (commit 16bb48a, 2026-04-06, `CONFIG["iou_threshold"] = 0.3`) and was never changed after results came
+  in. Don't invent a theoretical justification. The defence is that the choice doesn't matter.
+- Why it doesn't matter: the matched detections overlap their car by 0.913 on average (seq 08). They
+  are not borderline matches sitting just above 0.3, so moving the bar to 0.25 or 0.5 changes few
+  matches (tab:iou-sensitivity: F1 0.815 / 0.812 / 0.788).
+- EN (20 s): "We didn't tune 30%. It was set at our very first evaluation and never changed, so it
+  wasn't chosen to flatter the results. And yes, it's looser than the usual 50%. That's exactly why we
+  re-ran everything at 50%: F1 goes from 0.812 to 0.788, only 2.4 points. It barely matters because
+  the detections we match overlap their car by 0.91 on average. They aren't borderline cases just above
+  30%; they clear 50% easily too."
+- VI: "Chúng em không tinh chỉnh ngưỡng 30%. Ngưỡng này được đặt từ lần đánh giá đầu tiên và không bao
+  giờ thay đổi, nên nó không được chọn để làm kết quả đẹp hơn. Và đúng là nó lỏng hơn ngưỡng 50% thường
+  dùng. Chính vì vậy chúng em đã chạy lại toàn bộ với ngưỡng 50%: F1 từ 0,812 xuống 0,788, chỉ giảm 2,4
+  điểm. Ngưỡng gần như không ảnh hưởng vì các phát hiện được ghép cặp trùng với xe trung bình 0,91. Chúng
+  không phải những trường hợp sát ngưỡng, vừa qua 30%; chúng cũng vượt 50% dễ dàng."
+- Follow-up "then why not report 50%?":
+  - EN: "Changing the threshold after seeing results would be tuning the metric. We fixed it first,
+    and reported 50% alongside it."
+  - VI: "Đổi ngưỡng sau khi đã thấy kết quả thì chính là tinh chỉnh độ đo. Chúng em cố định ngưỡng từ
+    đầu, và báo cáo thêm kết quả ở ngưỡng 50%."
+- Follow-up "30% of which points?" (the planted line simplifies; IoU = shared ÷ union). Worked example:
+  car 100 points, detection 100 points, 46 shared → IoU = 46 ÷ 154 = 0.30. So at the threshold, a
+  same-size detection shares about half the car's points.
+  - EN: "It's shared points divided by all points of the two together. A detection the size of the car
+    has to share about half its points to reach 0.3."
+  - VI: "Đó là số điểm chung chia cho tổng số điểm của cả hai. Một phát hiện có cùng kích thước với xe
+    phải chung khoảng một nửa số điểm mới đạt 0,3."
+- Don't say "with boxes, 50% is the rule": for cars, KITTI's own 3D box benchmark uses 0.7, and a
+  specialist could pick that up.
 - Pre-registered: a threshold-sensitive result would have been reported as a finding, not tuned away.
 
 ### H3 — "What did you try?" → slide 56
@@ -363,7 +388,7 @@ the slide to jump to, and the trap behind it. Numbers are from the thesis unless
   độ phủ tăng từ 0,710 lên 0,732. Thứ hai, vai trò của từng bước đo được: bộ phân loại giảm dương tính
   giả từ khoảng 109 nghìn xuống 4.300, bộ lọc theo vết xuống 2.500. Và đo thời gian từng bước cho thấy
   phân cụm chiếm 59% thời gian chạy, nên muốn chạy thời gian thực thì phải bắt đầu từ đó."
-- Trap: **never cite the PCN normalisation fix here**; it was our own bug (H1 follow-up). Don't claim
+- Trap: **never cite the PCN normalisation fix here**; it was our own bug (slide 57 backup). Don't claim
   per-car blame ("we know where each missed car was lost"); the thesis measures rates and per-stage
   recall. Numbers: tab:ablation-stage (FP 108,831 → 4,303 → 2,513), tab:splitrate (33.7% split, 0.8%
   merged), tab:runtime (370.4 ms, 59.4%).
