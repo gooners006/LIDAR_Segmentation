@@ -11,10 +11,10 @@
 %   - completion claims scoped per the T9c outcome (PARTIALLY HOLDS) and to static cars
 %   - negative results (#40/#45 etc.) presented as findings, not apologised for; #37 as a
 %     metric-design lesson
-%   - every number traces to a finding / artifact (cited Finding~\#NN)
+%   - every number traces to a finding / artefact (cited Finding~\#NN)
 %   - the named limitations are all present: detection selection-exposure
 %     (bounded by LOSO cross-validation, Sec 4.1: precision-only, ~2 pts), the
-%     completion claim resting on plausibility alone (fidelity is unfavorable; synthetic
+%     completion claim resting on plausibility alone (fidelity is unfavourable; synthetic
 %     is not real data), the length-estimate fallback (#41), the SemanticKITTI
 %     label-quality assumption, the clustering-objectness ceiling (recall analysis, Ch 4),
 %     and the offline-runtime scope
@@ -22,7 +22,7 @@
 % Reframe (2026-09-12): main contribution = the modular detection-and-completion
 % framework; second = auto-mined supervision and synthetic completion (SemanticKITTI +
 % ShapeNet), requiring zero additional manual annotation. The
-% old self-made completion metric and box-reference evaluation are dropped; the favorable
+% old self-made completion metric and box-reference evaluation are dropped; the favourable
 % real data completion evidence is independent-classifier plausibility (Finding #54).
 %
 \chapter{Conclusion and Future Work}
@@ -37,8 +37,7 @@ validity of the evaluation, the scope of the completion claims, the ground truth
 assumptions, and the architectural and operational limits. Finally, it turns the
 most consequential boundaries into future work (Section~\ref{sec:conclusion-future}).
 Every weakness named here is measured elsewhere in the document and cross-referenced to
-the finding that quantifies it: a limitation the thesis names, quantifies, and bounds is
-defended; one a committee surfaces first is not.
+the section that quantifies it.
 
 \section{Conclusion}
 \label{sec:conclusion-rqs}
@@ -49,9 +48,9 @@ outcomes, whose reach is discussed in Section~\ref{sec:disc-what-holds}.
 
 \subsection{Principal Outcomes}
 
-This thesis demonstrates that a modular, geometry-first perception pipeline provides a viable and transparent alternative to opaque, data-hungry end-to-end deep learning networks for LiDAR vehicle detection. By combining classical geometric clustering with lightweight, learned discriminative models, the framework achieves strong detection performance on real-world datasets without requiring any dense, point-wise manual annotations. Importantly, this modular architecture preserves full inspectability at every stage, allowing performance bottlenecks—such as the recall ceiling imposed by density-based clustering fragmentation—to be explicitly diagnosed and addressed.
+This thesis demonstrates that a modular, geometry-first perception pipeline provides a viable and transparent alternative to opaque, data-hungry end-to-end deep learning networks for LiDAR vehicle detection. By combining classical geometric clustering with lightweight, learned discriminative models, the framework achieves strong detection performance on real-world datasets while requiring zero additional manual annotation. Importantly, this modular architecture preserves full inspectability at every stage, allowing performance bottlenecks—such as the recall ceiling imposed by density-based clustering fragmentation—to be explicitly diagnosed.
 
-Furthermore, the research establishes a robust and non-circular methodology for assessing point cloud completion on real-world data, where complete ground-truth references are inherently absent. By employing an independent shape classifier, the study proves that completion models trained exclusively on synthetic CAD shapes can successfully generalize to real LiDAR occlusions, producing genuinely car-plausible shapes rather than merely reproducing observed surfaces. Ultimately, these outcomes validate the broader potential of synthetic-only training and auto-mined supervision to alleviate the severe data annotation bottlenecks currently limiting autonomous driving perception.
+Furthermore, the research establishes a robust and non-circular methodology for assessing point cloud completion on real-world data, where complete ground-truth references are inherently absent. By employing an independent shape classifier, the study shows that a completion model trained exclusively on synthetic CAD shapes produces car-plausible shapes on real LiDAR occlusions, rather than merely reproducing observed surfaces. This is evidence of plausibility, not of geometric fidelity: the claim is bounded in Section~\ref{sec:disc-completion-scope}. Ultimately, these outcomes validate the broader potential of synthetic-only training and auto-mined supervision to alleviate the severe data annotation bottlenecks currently limiting autonomous driving perception.
 
 \subsection{Diagnostic and Operational Findings}
 \label{sec:completion-inferencebug}
@@ -87,10 +86,10 @@ PointNet, PCN) into a coherent, reproducible system, evaluated end to end. The s
 auto-mined supervision and synthetic completion, an approach requiring zero additional
 manual annotation. It is built on SemanticKITTI (real scans for detection, mining, and
 evaluation) and ShapeNet (synthetic complete shapes for completion training), and its
-real data completion quality is assessed with an independent classifier so that no
+real-data completion quality is assessed with an independent classifier so that no
 self-made reference is involved. Two diagnostic findings sit alongside
 them, the clustering-bound recall account and the redundancy of synthetic pretraining,
-together with the reproducibility infrastructure and documented negative result lines.
+together with the reproducibility infrastructure and the documented negative results.
 
 \section{Limitations and Discussion}
 \label{sec:disc-limitations}
@@ -98,15 +97,15 @@ together with the reproducibility infrastructure and documented negative result 
 \subsection{Reach and Generalisability}
 \label{sec:disc-what-holds}
 
-These reaches vary. The detection operating point is cross-validated across all eleven
+How far each result reaches varies. The detection operating point is cross-validated across all eleven
 sequences (Section~\ref{sec:eval-loso}), and the plausibility gain likewise appears on every
 sequence, so both halves transfer beyond the tuning sequence. The recall diagnosis is an
 inductive result from the labelled sequences, mechanistic but not a proven invariant, and the
 tuned completion constants (the length prior, the estimate quantile, the geometric
-thresholds) are sequence derived and should be re-checked on a new sensor. For practice, three
+thresholds) are sequence-derived and should be re-checked on a new sensor. For practice, three
 readings follow. First, the interpretable detector, requiring zero additional manual
 annotation, is a viable choice where labelling budget or inspectability outweighs peak
-recall, provided the domain is a dense scene. Second, independent classifier plausibility is
+recall, provided the domain is a dense scene. Second, independent-classifier plausibility is
 a reusable, non-circular way to assess real LiDAR completion where no complete ground truth
 exists. Third, because input quality, not model choice, governs whether completion is usable,
 effort is better spent on segmentation than on swapping architectures. These reaches are bounded by the limitations set out next.
@@ -114,8 +113,8 @@ effort is better spent on segmentation than on swapping architectures. These rea
 \subsection{Validity of the Evaluation}
 \label{sec:disc-eval-validity}
 
-Detection is cross-validated, and the selection exposure is precision only. SemanticKITTI
-labels only sequences \numrange{00}{10}, so no labelled sequence can be reserved as a
+Detection is cross-validated, and the selection exposure is precision-only. SemanticKITTI
+labels only sequences 00--10, so no labelled sequence can be reserved as a
 conventional held-out detection test set, and the final classifier was historically selected
 on sequence~08. Leave-one-sequence-out cross-validation (Section~\ref{sec:eval-loso}) bounds
 the exposure: the fold-08 classifier matches its recall (\num{0.736} versus \num{0.732}) and
@@ -123,37 +122,37 @@ loses only about two precision points (\num{0.888} versus \num{0.911}). The sele
 therefore touched precision, not the clustering imposed recall ceiling (\num{0.773}) that accounts for
 most missed cars. The completion evaluation is guarded on two fronts. It is
 non-circular: the plausibility judge is trained on ModelNet40, a shape repository
-disjoint from the ShapeNet cars the completion network learned from, so an accepted car is not
+disjoint from the ShapeNet vehicles the completion network learned from, so an accepted car is not
 an artefact of shared training data, and the completion network never saw a real LiDAR
 sequence. And it generalises: the acceptance gain is not a single held-out replication
 but appears on all eleven labelled sequences (Section~\ref{sec:results-plausibility}), with
-the tuning sequence~08 unremarkable among them. One asymmetry remains: the favorable
+the tuning sequence~08 unremarkable among them. One asymmetry remains: the favourable
 evidence is plausibility alone; the established fidelity metrics do not corroborate it,
-because they reward under-completion, and synthetic fidelity is not a real data claim.
+because they reward under-completion, and synthetic fidelity is not a real-data claim.
 
 \subsection{Scope of the Completion Claims}
 \label{sec:disc-completion-scope}
 
-The completion claim is deliberately bounded. The favorable real data evidence is a single
-established instrument, independent classifier plausibility, and it measures whether a
+The completion claim is deliberately bounded. The favourable real data evidence is a single
+established instrument, independent-classifier plausibility, and it measures whether a
 completed cloud reads as a car, not metric surface accuracy against a complete shape, which
 no real LiDAR reference can supply. The established reference-free fidelity metrics do not
 corroborate it, so the claim rests on plausibility alone and must not be read as a
-surface reconstruction accuracy claim. Plausibility scores only clean, gate passed clusters,
+surface reconstruction accuracy claim. Plausibility scores only clean, gate-passed clusters,
 and whether a car reaches completion as one is decided upstream by the clustering that caps
 recall: the L-shape input gate rejects fragments and merges that would otherwise complete
 implausibly (Section~\ref{sec:abl-completion}), whereas swapping PCN for PoinTr changes the
 result not at all, so widening completion's reach is a segmentation problem, not a
 completion architecture one.
 
-Within that scope, two residuals bound the completed shape. The per car length estimate falls
-back to the \SI{4.14}{\metre} population prior on tracks with fewer than five gate passed
-frames, a non-trivial fraction of sequence-08 tracks, reintroducing some compact
+Within that scope, two residuals bound the completed shape. The per-car length estimate falls
+back to the \SI{4.14}{\metre} population prior on tracks with fewer than five gate-passed
+frames, \SI{23.0}{\percent} of completed sequence-08 tracks, reintroducing some compact
 overshoot there, on the sparsest, most distant cars where it matters least. Even with an
 unbiased estimate the completed cloud stays slightly short at the far end by an amount that
 scales with car length: a pre-registered fix removed this on normal and long cars but
-over-extended compacts, so the compensation is irreducibly length dependent and the far end
-remains the weakest covered region. Both residuals compound the model's synthetic only
+over-extended compacts, so the compensation is irreducibly length-dependent and the far end
+remains the weakest covered region. Both residuals compound the model's synthetic-only
 training, the source of the evaluation's independence, but also a synthetic-to-real gap
 (Section~\ref{sec:bg-completion}) behind the residual flatness of the sparsest real
 completions.
@@ -186,25 +185,31 @@ means a learned detector, a different system. The operational domain is dense sc
 \num{0.336} on the sparse highway sequence~01 against \num{0.758} on dense urban sequence~00.
 This is mostly because highway cars are distant and recall collapses with range (\num{0.196} beyond
 \SI{40}{\metre}), and partly because the front end was tuned on dense data. The failure
-is nonetheless a conservative miss, not a false alarm (sequence~01 precision \num{0.951}). The system is
-offline by design, running at about \SI{623.5}{\milli\second} per frame
-(Section~\ref{sec:results-runtime}) with the $\leq\SI{400}{\milli\second}$ target unreachable
-through the authorised tiers, and real-time operation is out of scope. Finally, the centroid
-tracker feeds the per car length estimate and drives its fixed prior fallback but is never
+is nonetheless a conservative miss, not a false alarm (sequence~01 precision \num{0.957}). The system is
+offline by design, running at about \SI{623.5}{\milli\second} per frame, or about \num{1.6} frames
+per second against the sensor's \SI{10}{\hertz}
+(Section~\ref{sec:results-runtime}), with the $\leq\SI{400}{\milli\second}$ target unreachable
+through the optimisations evaluated, and real-time operation is out of scope. The scope is
+also narrow in two further ways. Detection is car-only: the classifier is binary and the
+evaluation counts only the two SemanticKITTI car classes, so pedestrians, cyclists, and other
+vehicle types are neither detected nor scored, and no result here extends to them. Ground
+removal assumes a single global plane (Section~\ref{sec:pipeline-ground}), which holds on the
+flat urban sequences used here; its behaviour on strong slopes was not measured. Finally, the centroid
+tracker feeds the per-car length estimate and drives its fixed prior fallback but is never
 scored as a tracker (no MOTA or IDF1), so its contribution to that fallback is unmeasured.
 
 % Conclusion moved to the top of this chapter (Section~\ref{sec:conclusion-rqs}) to
 % mirror the Conclusion-first order; the Established Results discussion is folded into
 % Limitations and Discussion above. Honesty-phrasing rules (personal_agenda P1) still
-% apply: favorable real data completion evidence = independent-classifier plausibility
-% alone (#54), fidelity unfavorable, movers complete as plausibly as statics, negatives
+% apply: favourable real data completion evidence = independent-classifier plausibility
+% alone (#54), fidelity unfavourable, movers complete as plausibly as statics, negatives
 % as findings.
 
 \section{Future Work}
 \label{sec:conclusion-future}
 
-The limitations above named the boundaries of the present results. Three of them are the natural next
-steps, each already scoped by a finding rather than left open.
+The limitations above named the boundaries of the present results. Four of them are the natural next
+steps.
 
 \paragraph{A real-time variant:} The pipeline runs offline at roughly
 \SI{623.5}{\milli\second} per scan (Section~\ref{sec:results-runtime}), dominated by the
@@ -217,18 +222,25 @@ radius. A real-time variant must therefore preserve the HDBSCAN algorithm via a 
 implementation, or replace the front end with a learned detector, rather than trade measured
 recall for speed.
 
-\paragraph{Real data fine-tuning for completion:} The completion model was trained on
+\paragraph{Real-data fine-tuning for completion:} The completion model was trained on
 synthetic KITTI-like partials only, which is at once the source of the evaluation's
-independence and a ceiling on real data crispness: on the sparsest, most one-sided inputs the
+independence and a ceiling on real-data crispness: on the sparsest, most one-sided inputs the
 completions stay flat, which traces to the remaining synthetic-to-real
-domain gap. Closing it would call for real data fine-tuning, which is itself a documented
-negative result line in this project; it is a contingency
-direction, to be attempted only with the leakage controls that make real data supervision
+domain gap. Closing it would call for real-data fine-tuning, which is itself a documented
+negative result in this project; it is a contingency
+direction, to be attempted only with the leakage controls that make real-data supervision
 safe.
+
+\paragraph{A wider operational scope:} The car-only, flat-ground scope can be widened stage by
+stage, which is the practical gain of the modular design. A multi-class classifier would
+extend detection to other road users, a grid-based ground model such as
+Patchwork++~\cite{lee2022patchworkpp} would remove the single-plane assumption, and an
+IoU-based tracker such as SORT~\cite{bewley2016sort} would replace the centroid association.
+None of these has been tested here.
 
 \paragraph{Downstream detection utility:} The plausibility result establishes that completed
 clouds read as cars, but not yet that completion improves a downstream perception task. The
-field's other real data payoff for completion is a measured improvement in 3D detection
+field's other real-data payoff for completion is a measured improvement in 3D detection
 precision from feeding completed clouds to a detector (Ren et
 al.~\cite{ren2022selfsupervised}). Wiring the completed cars into an oriented box estimator
 and measuring whether detection improves would turn the plausibility signal into a

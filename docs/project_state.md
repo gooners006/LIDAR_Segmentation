@@ -1,18 +1,69 @@
 # Project State
 
-Last updated: 2026-10-18
+Last updated: 2026-10-30
 
 > **Full chronological record: `docs/session_history.md`.** This file holds current state only.
 > Experiment detail lives in `docs/findings.md`.
 
-## PHASE: THESIS DEFENSE PREP — thesis SUBMITTED
+## PHASE: POST-DEFENSE REVISIONS — final copy due 2026-10-31
+
+**Defense held 2026-10-25.** Committee comments, verbatim:
+
+> Nhược điểm: Recall detection còn hạn chế (~0.73) do phụ thuộc clustering cổ điển. Hệ thống
+> offline, tốc độ thấp (~1.6 fps). Phạm vi hẹp (chỉ lớp car, mặt đất bằng phẳng). Claim về
+> completion chủ yếu là plausibility, chưa đạt geometric fidelity thật sự.
+> Cần rà soát lại lỗi chính tả tiếng anh, tài liệu tham khảo, hình ảnh và công thực toán. Các
+> công thức xem được dùng trong bài phần nào. Tài liệu tham khảo có tham chiếu chính xác không.
+
+**Revision plan (user approved 2026-10-30).** Weaknesses are not re-engineered; the thesis only
+has to state each limit openly. Revisions: (1) label every formula and show where it is used;
+(2) verify all 31 references and their citations against the published record, add DOIs;
+(3) English spelling and grammar pass; (4) figure check; (5) state the car-only limit in Ch. 5
+if missing; (6) student ID → 24MSE13205. Submitted PDF stays untouched: build the revised copy
+with `latexmk -pdf -jobname=main_final main.tex` → `docs/writing/thesis/main_final.pdf`.
+
+**Revision status (2026-10-30, uncommitted):**
+- **Formulas:** 14 numbered equations (all ch2) now labelled and referenced from ch3/ch4;
+  `tab:formula-usage` maps each to its use. Eq. CD and UCD changed from squared to plain distance
+  to match the code and the reported metres. Duplicate IoU in ch4 removed.
+- **References:** all 31 checked against Crossref (metadata, authors); DOIs added. Fixed: PCN is
+  3DV 2018, Ren is ICME 2022, P2C uses ScanNet not KITTI, meanCD is not accumulation-only, ICCV 2021
+  pages use the IEEE/DOI numbering. Added 4 uncited sources: ModelNet40, Patchwork++, SORT, Hungarian.
+  Lim & Park's abstract could not be read, so the sentence citing it is unverified.
+- **Language:** spell check of the PDF found no real misspellings; British spelling unified; comma
+  splices and internal jargon ("promoted", "user decision", "authorised tiers") removed.
+  Hyphenation left as the 2026-09-14 minimalist decision.
+- **Figures:** `seq08_bev_detections`, `seq08_failure_zooms`, `seq08_timeseries` predated the
+  2026-09-14 height-gate fix and used the wrong checkpoint; rebuilt with `stage_b_scratch_best.pth`.
+  `completion_shape_08`, `fig61` partials and `plausibility_acceptance` redrawn. Scripts:
+  `docs/writing/thesis/figures/scripts/make_*.py`, outputs `*_final.png`; old PNGs kept.
+- **Limits stated:** car-only and flat-ground added to ch5 and ch3 summary; ~1.6 fps stated; ch5
+  future work gains "a wider operational scope"; "proves" replaced in Principal Outcomes.
+- **Other corrections:** seq 01 precision 0.951 → 0.957; fallback 23.0% (119/518) stated; wall
+  fail-safe 5.0% (204/4071) replaces "rare"; OBB contradiction ch2 vs ch3 resolved; "two research
+  questions" → objectives; "no real labels" → "no additional manual annotation".
+- **User decisions 2026-10-30, applied:** judge harmonisation text corrected and the aligned
+  re-score added (0.311 → 0.852); ShapeNet counts corrected (4,790 models, 3,514 cars, plus buses
+  and motorcycles); training roll stated in ch3; gap figure now 93% (96% pooled); synthetic CD
+  placement stated; completion runs disclosed as predating the height-gate fix (generated
+  2026-09-10, fix 2026-09-14, effect not re-measured); adjective hyphens restored (188 places).
+- **User decision 2026-10-30, left as is:** the ch3/ch4/ch5 statements that real-data PCN
+  fine-tuning was a negative result. Findings #16/#17/#19 and the checkpoints show only simulated
+  partials were used, so the text still does not match the record. The recommendation to correct
+  it was declined.
+- **Time-series figure done 2026-10-30:** full seq 08 `evaluate.py` re-run reproduced TP 25568 /
+  FP 2513 / FN 9354 exactly. It also showed FP is not independent of cars in view (rolling r 0.348;
+  mean FP 0.32 under 5 cars, 1.10 at 15+), so "flat/independent" in ch4 became "low".
+- **Not verified:** Lim & Park's abstract (paywall/search); the sentence citing it describes
+  their method from the earlier draft. PointNet++ pages and the ICLR/KDD entries have no DOI.
+
+## Thesis and defense record
 
 - **Thesis submitted.** Source of truth for every defense claim: `docs/writing/thesis/`
   (`main.tex` → `ch1`–`ch5`; `main.pdf` built 2026-09-16). Title: *"A Modular Detection and
-  Completion Framework for Occluded Vehicles in Automotive LiDAR."* **No further manuscript
-  edits.** `ch0_abstract.tex` is NOT in the submitted PDF. Submitted state committed (`fb19c4f`).
-  Student ID: 24MSE13205 is official (deck); thesis says MSE13205 — fix only in a post-defense
-  final copy if asked.
+  Completion Framework for Occluded Vehicles in Automotive LiDAR."* Manuscript edits are limited
+  to the revision plan above. `ch0_abstract.tex` is NOT in the submitted PDF. Submitted state
+  committed (`fb19c4f`).
 - **Defense: 2026-10-25.** 15 min talk + 30 min Q&A. English slides, Vietnamese talk,
   non-specialist committee.
 - **All defense work lives in `docs/defense/`:** `outline.md` (plan of record + slide table +

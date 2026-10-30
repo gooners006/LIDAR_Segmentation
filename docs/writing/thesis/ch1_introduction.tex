@@ -9,13 +9,13 @@
 % old self-made coverage metric and the accumulated-box builder are dropped entirely
 % (no longer claimed or evaluated). Real data completion evidence is: synthetic CD/F
 % (network works) + independent-classifier plausibility (Chen 2020 style, the one
-% favorable real data signal, Finding #54) + reference-free fidelity reported with
+% favourable real data signal, Finding #54) + reference-free fidelity reported with
 % its under-completion caveat.
 %
 % Honesty-phrasing rules applied (personal_agenda P1):
 %   - recall is stated against its car-only, >=10-surviving-points denominator
-%   - the completion claim is scoped: favorable real data evidence = plausibility
-%     alone; fidelity is unfavorable and reported as such; synthetic is not real data
+%   - the completion claim is scoped: favourable real data evidence = plausibility
+%     alone; fidelity is unfavourable and reported as such; synthetic is not real data
 %   - negative results are named as findings, not buried
 %   - the detection headline is cross-validated (LOSO across 11 sequences)
 %
@@ -26,7 +26,7 @@
 \label{sec:intro-background}
 
 Autonomous driving depends on a perception system that can recover, several times a
-second, the three dimensional layout of the scene around the vehicle: where the other
+second, the three-dimensional layout of the scene around the vehicle: where the other
 road users are, how large they are, and which way they face. LiDAR is central to this
 task. It measures range directly, returning an unordered cloud of over a hundred
 thousand points per scan, largely invariant to lighting and carrying the metric depth
@@ -39,9 +39,9 @@ against.
 The dominant paradigm is to train a deep network end to end on annotated scans:
 point-based segmentation networks~\cite{Qi_2017_CVPR,NIPS2017_d8bf84be,Hu_2020_CVPR},
 projection- and voxel-based models~\cite{10.1109/ICRA.2018.8462926,milioto2019rangenet++,zhu2021cylindrical},
-single pass object detectors~\cite{lang2019pointpillars,yin2021centerpoint}, and
+single-pass object detectors~\cite{lang2019pointpillars,yin2021centerpoint}, and
 panoptic models~\cite{zhou2021panopticpolarnet,hong2021dsnet}. These define the state
-of the art in accuracy, which incurs two primary costs. The first is supervision: the
+of the art in accuracy, at two primary costs. The first is supervision: the
 results rest on dense, point-wise labels, and the annotation behind a benchmark like
 SemanticKITTI, a class on every one of billions of points, is prohibitively expensive for
 most groups and most new datasets. The second is opacity: an end-to-end network spreads
@@ -70,9 +70,9 @@ Carrying them onto real LiDAR raises two coupled difficulties. The first is trai
 without paired supervision: no dataset holds a real occluded car beside its complete
 shape, so the network is trained on synthetic CAD partials and must transfer to real
 scans it never saw during training. The second is evaluation: on real LiDAR there is no
-clean ground truth complete shape to score against, and the obvious substitute of
+clean ground-truth complete shape to score against, and the obvious substitute of
 accumulating the same static car across many frames is itself occluded on the same side,
-so reference free fidelity metrics reward doing nothing at all. This thesis therefore asks
+so reference-free fidelity metrics reward doing nothing at all. This thesis therefore asks
 not whether completion lowers a distance to a nonexistent reference, but whether it
 produces shapes that read as genuine cars on real data, judged by evidence independent of
 any self-made reference.
@@ -86,7 +86,7 @@ back end, and the evaluation that ties them together.
 \begin{enumerate}
   \item To investigate the viability of a modular, geometry-first approach for LiDAR vehicle detection as a transparent alternative to opaque, data-hungry end-to-end networks.
   \item To establish a robust methodology for evaluating point cloud completion on real-world LiDAR data, where complete ground-truth shapes are inherently unavailable.
-  \item To determine the extent to which synthetic-only training and auto-mined supervision can generalize to real LiDAR occlusions without requiring manually annotated real-world counterparts.
+  \item To determine the extent to which synthetic-only training and auto-mined supervision can generalise to real LiDAR occlusions without requiring manually annotated real-world counterparts.
 \end{enumerate}
 
 \section{Research Contributions}
@@ -98,10 +98,10 @@ that supports them.
 \begin{itemize}
   \item This research introduces an end-to-end modular detection and completion framework for occluded vehicles. By integrating classical geometric processing with lightweight learned discriminative models, the pipeline achieves strong detection performance on real LiDAR while remaining fully inspectable and reproducible at every stage.
 
-  \item The proposed framework requires zero additional manual annotation by utilizing auto-mined supervision and synthetic training. The classifier's training data is automatically mined from existing semantic datasets, while the completion network is trained exclusively on synthetic CAD shapes, allowing the entire pipeline to generalize to new real-world sequences without the need for fresh bounding box annotations.
+  \item The proposed framework requires zero additional manual annotation by utilising auto-mined supervision and synthetic training. The classifier's training data is automatically mined from existing semantic datasets, while the completion network is trained exclusively on synthetic CAD shapes, allowing the entire pipeline to generalise to new real-world sequences without the need for fresh bounding box annotations.
 \end{itemize}
 
-\section{Thesis Organization}
+\section{Thesis Organisation}
 \label{sec:intro-outline}
 
 The remainder of the thesis is organised into four chapters.
@@ -123,7 +123,7 @@ cross-validated detection results, the ablations, the distance breakdown, and th
 runtime. It then traces the recall shortfall back to clustering fragmentation and
 reports the chain of negative repair strategies, which also bridges to completion.
 Finally, it evaluates the completion stage through synthetic Chamfer and F-score, the
-independent classifier plausibility of the completed real clouds, and reference free
+independent-classifier plausibility of the completed real clouds, and reference-free
 fidelity reported with its caveat.
 
 Chapter~\ref{ch:conclusion}: Conclusion and Future Work draws together the
